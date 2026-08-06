@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "seed": "tsx mockdb/seed.ts",
+    "verify:db": "tsx mockdb/verify.ts"
   },
   "dependencies": {
     "next": "16.3.0",
@@ -13,9 +15,12 @@
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "better-sqlite3": "^13.0.3",
+    "tsx": "^4.23.9",
     "typescript": "^5"
   }
 }
