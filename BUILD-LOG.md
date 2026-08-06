@@ -2,6 +2,29 @@
 
 Dated evidence of pace. Every entry: what shipped, how it was verified.
 
+## 07-Aug-2026 — Today page live: page 1 of 23, plus the foundation all pages reuse
+- Design first: mock published as an artifact with the real seeded numbers
+  (https://claude.ai/code/artifact/a0a093e4-a1e2-4321-880b-c4a2a0953460), founder saw it
+  before code. Design grounded in the research corpus: Morgan Stanley NBA three-stream
+  queue, Prudent Edge+ segment cards, Envestnet signal families, Gainsight auto-close.
+- `app/today` — market/news strip (the page's only labelled placeholders), 6 click-through
+  stat cards (book · net flows · churn risk · idle-no-SIP · SIPs at risk · onboarding
+  stuck), three-stream queue (act-now / opportunities ranked by ₹ / relationship+FYI with
+  the auto-closed chip), broker's own task capture into the same queue, self-scoreboard
+  (the number management sees), learning strip ghosted until evidence.
+- Foundation reused by the next 22 pages: `lib/db.ts` + `lib/queries.ts` (every figure
+  carries provenance: SQL + source columns + computed/rule/learned tag), `components/`
+  (Provenance popover, StatCard, QueueCard), clean-flat tokens in `globals.css`, nav shell.
+- Seed enriched for the demo broker (sb 4): birthdays pinned into the coming week,
+  2 mandate expiries, idle-no-SIP + concentration mints, one auto-resolved bounce —
+  every mint reads real rows; 5 new invariant checks added (28 total, ALL PASS).
+- Verified: `mockdb/verify-today.ts` recomputes all 6 card figures + stream membership
+  with independent SQL — 12/12 PASS. Browser QA: card expand, provenance popover,
+  outcome capture (writes action + events ledger), task add, auto-closed chip — all
+  exercised live; DB reseeded to pristine after. `next build` clean, zero type errors.
+- Honest catch: first mock showed net flows +₹2.31L; the bounded MTD query exposed two
+  future-dated seed transactions — real figure is +₹6,000 and the mock was corrected.
+
 ## 07-Aug-2026 — Seed engine live: the mock backend exists
 - `mockdb/schema.sql` — 70 objects: ~45 carried production tables (exact prod names/columns,
   verified against the schema capture) + 22 new objects (events ledger, actions, rules

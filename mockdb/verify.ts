@@ -99,6 +99,31 @@ const wf = one<{ n: number; learning: number }>(
   "SELECT COUNT(*) n, SUM(CASE WHEN brain_status='learning' THEN 1 ELSE 0 END) learning FROM mv_workflow_health");
 check('workflow board: 5 workflows, learning states honest', wf.n === 5 && wf.learning >= 2, `${wf.n} rows, ${wf.learning} learning`);
 
+const demoQueue = one<{ open: number; types: number }>(
+  "SELECT COUNT(*) open, COUNT(DISTINCT action_type) types FROM actions WHERE assignee_sb_id=4 AND state IN ('proposed','assigned','in_progress')");
+check('demo queue: broker 4 has a rich queue (≥12 open, ≥6 types)',
+  demoQueue.open >= 12 && demoQueue.types >= 6, `${demoQueue.open} open across ${demoQueue.types} types`);
+
+const bdays = one<{ n: number }>(
+  `SELECT COUNT(*) n FROM client_master c JOIN client_sub_broker_mapping m ON m.cm_user_id=c.cm_user_id AND m.sb_id=4
+   WHERE strftime('%m-%d', c.cm_date_of_birth) BETWEEN strftime('%m-%d', date('${TODAY}','+1 day')) AND strftime('%m-%d', date('${TODAY}','+6 days'))`);
+check('demo queue: 3 broker-4 birthdays inside the coming week', bdays.n === 3, `${bdays.n} birthdays`);
+
+const idleHonest = one<{ n: number }>(
+  `SELECT COUNT(*) n FROM actions a WHERE a.action_type='idle_no_sip'
+   AND (EXISTS (SELECT 1 FROM sip_master s WHERE s.fk_acc_id=CAST(a.subject_id AS INTEGER) AND s.is_live_sip=1)
+     OR NOT EXISTS (SELECT 1 FROM fifo_summary_holding_active f WHERE f.client_id=CAST(a.subject_id AS INTEGER)))`);
+check('honesty: every idle_no_sip subject truly holds value with no live SIP', idleHonest.n === 0, `${idleHonest.n} violations`);
+
+const mandateHonest = one<{ n: number }>(
+  `SELECT COUNT(*) n FROM actions a JOIN sip_master s ON s.sip_id=CAST(a.subject_id AS INTEGER)
+   JOIN bse_sxp_list x ON x.reg_no=s.sxp_bos_code JOIN bse_mandate_list ml ON ml.exch_mandate_id=x.exch_mandate_id
+   WHERE a.action_type='mandate_expiring' AND ml.end_date > date('${TODAY}','+45 days')`);
+check('honesty: every mandate_expiring mandate really ends within 45 days', mandateHonest.n === 0, `${mandateHonest.n} violations`);
+
+check('demo queue: one auto-resolved closure exists for broker 4 (the Gainsight chip)',
+  one<{ n: number }>("SELECT COUNT(*) n FROM actions WHERE assignee_sb_id=4 AND state='done' AND outcome_type='auto_resolved'").n === 1);
+
 const book = one<{ v: number }>('SELECT SUM(present_market_value) v FROM fifo_summary_holding_active');
 console.log(`\nBook value: ${inr(book.v)} across ${counts.c} clients · ${failures === 0 ? 'ALL CHECKS PASSED' : failures + ' FAILURES'}`);
 process.exit(failures === 0 ? 0 : 1);

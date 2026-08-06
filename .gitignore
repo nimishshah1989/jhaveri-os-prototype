@@ -42,3 +42,6 @@ next-env.d.ts
 
 # generated mock database
 mockdb/jhaveri.db*
+.gstack/
+.aislop/
+.design-approved.json

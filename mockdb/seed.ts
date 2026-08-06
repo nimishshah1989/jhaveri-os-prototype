@@ -527,6 +527,72 @@ for (const m of marketable) {
   }
 }
 
+// Demo-broker (sb 4) queue enrichment. The UPDATEs below are seed authorship
+// like Meera's pinned 12-Aug mandate — pages still compute from the columns.
+const DEMO_SB = 4;
+const storyIds = Object.values(STORY);
+
+const bdayRows = db.prepare(`
+  SELECT c.cm_user_id id, c.cm_full_name name, c.cm_date_of_birth dob
+  FROM client_master c JOIN client_sub_broker_mapping m ON m.cm_user_id=c.cm_user_id AND m.sb_id=?
+  WHERE c.cm_user_id NOT IN (${storyIds.join(',')})
+  ORDER BY c.cm_user_id LIMIT 3`).all(DEMO_SB) as { id: number; name: string; dob: string }[];
+bdayRows.forEach((c, i) => {
+  const inDays = [1, 3, 5][i];
+  const md = addDays(TODAY, inDays).slice(5);
+  db.prepare("UPDATE client_master SET cm_date_of_birth = substr(cm_date_of_birth,1,4) || '-' || ? WHERE cm_user_id=?").run(md, c.id);
+  mint({ subjectType: 'client', subjectId: c.id, type: 'birthday_week', evidence: { birthday: c.dob.slice(0, 4) + '-' + md, in_days: inDays }, impact: 0, lens: 'broker', sbId: DEMO_SB, step: 'Send wishes · WhatsApp draft ready', slaDays: inDays, ruleKey: 'birthday_week' });
+});
+
+const expiring = db.prepare(`
+  SELECT s.sip_id, s.fk_acc_id cid, s.tr_amount amt, m.id mid, s.tr_folio_no folio
+  FROM sip_master s
+  JOIN bse_sxp_list x ON x.reg_no=s.sxp_bos_code
+  JOIN bse_mandate_list m ON m.exch_mandate_id=x.exch_mandate_id
+  JOIN client_sub_broker_mapping map ON map.cm_user_id=s.fk_acc_id AND map.sb_id=?
+  WHERE s.is_live_sip=1 AND s.fk_acc_id != ${STORY.meera}
+  ORDER BY s.tr_amount DESC LIMIT 2`).all(DEMO_SB) as { sip_id: number; cid: number; amt: number; mid: number; folio: string }[];
+expiring.forEach((row, i) => {
+  const end = addDays(TODAY, [21, 38][i]);
+  db.prepare('UPDATE bse_mandate_list SET end_date=? WHERE id=?').run(end, row.mid);
+  mint({ subjectType: 'sip', subjectId: row.sip_id, type: 'mandate_expiring', evidence: { folio: row.folio, monthly: row.amt, mandate_ends: end }, impact: row.amt * 12, lens: 'broker', sbId: DEMO_SB, step: 'Send re-authorisation link', slaDays: [14, 30][i], ruleKey: 'mandate_expiring_45d' });
+});
+
+const idle = db.prepare(`
+  SELECT f.client_id cid, ROUND(SUM(f.present_market_value),2) v, COUNT(*) holdings
+  FROM fifo_summary_holding_active f
+  JOIN client_sub_broker_mapping m ON m.cm_user_id=f.client_id AND m.sb_id=?
+  WHERE f.client_id NOT IN (SELECT fk_acc_id FROM sip_master WHERE is_live_sip=1)
+  GROUP BY f.client_id ORDER BY v DESC LIMIT 4`).all(DEMO_SB) as { cid: number; v: number; holdings: number }[];
+for (const c of idle) {
+  mint({ subjectType: 'client', subjectId: c.cid, type: 'idle_no_sip', evidence: { value: c.v, holdings: c.holdings, suggested_monthly: Math.round(c.v * 0.01) }, impact: round2(c.v * 0.12), lens: 'broker', sbId: DEMO_SB, step: 'Propose SIP · 1% of book monthly', slaDays: 14, ruleKey: 'idle_no_sip' });
+}
+
+const conc4 = db.prepare(`
+  SELECT f.client_id cid, f.folio_no folio, f.portfolio_weight w, f.present_market_value v
+  FROM fifo_summary_holding_active f
+  JOIN client_sub_broker_mapping m ON m.cm_user_id=f.client_id AND m.sb_id=?
+  WHERE f.portfolio_weight > 45 AND f.present_market_value > 500000
+    AND (SELECT COUNT(DISTINCT scheme_id) FROM fifo_summary_holding_active x WHERE x.client_id=f.client_id) >= 3
+    AND NOT EXISTS (SELECT 1 FROM actions a WHERE a.action_type='concentration_review' AND a.subject_id=CAST(f.client_id AS TEXT))
+  ORDER BY w DESC LIMIT 3`).all(DEMO_SB) as { cid: number; folio: string; w: number; v: number }[];
+for (const c of conc4) {
+  mint({ subjectType: 'client', subjectId: c.cid, type: 'concentration_review', evidence: { folio: c.folio, weight_pct: c.w, value: c.v }, impact: round2(c.v * 0.1), lens: 'broker', sbId: DEMO_SB, step: 'Propose rebalance', slaDays: 21, ruleKey: 'concentration_pct' });
+}
+
+// One bounce that recovered on its own — the auto-closed chip (Gainsight rule).
+const recovered = db.prepare(`
+  SELECT s.sip_id, s.tr_amount amt, s.tr_folio_no folio, x.id xid
+  FROM sip_master s
+  JOIN bse_sxp_list x ON x.reg_no=s.sxp_bos_code
+  JOIN client_sub_broker_mapping m ON m.cm_user_id=s.fk_acc_id AND m.sb_id=?
+  WHERE s.is_live_sip=1 AND s.fk_acc_id != ${STORY.meera} AND x.npayments_missed=0
+  ORDER BY s.sip_id LIMIT 1`).get(DEMO_SB) as { sip_id: number; amt: number; folio: string; xid: number } | undefined;
+if (recovered) {
+  db.prepare('UPDATE bse_sxp_list SET npayments_missed=1 WHERE id=?').run(recovered.xid);
+  mint({ subjectType: 'sip', subjectId: recovered.sip_id, type: 'sip_bounce_save', evidence: { folio: recovered.folio, missed: 1, monthly: recovered.amt, resolved_by: `instalment of ${recovered.amt} succeeded ${addDays(TODAY, -2)}` }, impact: recovered.amt * 12, lens: 'broker', sbId: DEMO_SB, step: '—', slaDays: 2, ruleKey: 'sip_bounce_x2', state: 'done', outcomeType: 'auto_resolved' });
+}
+
 // serving matview-tables
 db.exec(`
 INSERT INTO mv_portfolio_attention (client_id, flag_type, severity, evidence, rule_version, as_of)
