@@ -48,7 +48,7 @@ export default function TodayPage() {
       <div className="cols">
         <div>
           <div className="cards">
-            <StatCard id="my_book" icon="money" label="My book" value={inrCompact(book.value.v)} sub={`${bookList(me.code).total} clients · as of ${dmy(book.value.as_of)}`} figure={book} list={bookList(me.code)} />
+            <StatCard hero id="my_book" icon="money" label="My book" value={inrCompact(book.value.v)} sub={`${bookList(me.code).total} clients · as of ${dmy(book.value.as_of)}`} figure={book} list={bookList(me.code)} />
             <StatCard id="net_flows_mtd" icon="up" label="Net flows · Aug" value={signedInrCompact(flows.value.v)} sub={`${flows.value.n} transactions this month`} tone={flows.value.v >= 0 ? 'pos' : 'warn'} figure={flows} list={flowsList()} />
             <StatCard id="churn_risk" icon="alert" label="Churn risk" value={`${churn.value.n} clients`} sub={`${inrCompact(churn.value.v)} at risk · gone quiet / concentrated`} tone="warn" figure={churn} list={churnList(me.code)} />
             <StatCard id="idle_no_sip" icon="target" label="Invested, no SIP" value={`${idle.value.n} clients`} sub={`${inrCompact(idle.value.v)} held · zero monthly commitment`} tone="opp" figure={idle} list={idleList(me.code)} />

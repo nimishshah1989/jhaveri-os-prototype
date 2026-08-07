@@ -60,7 +60,7 @@ export default function BusinessPage() {
       <div className="cols">
         <div>
           <div className="cards six">
-            <StatCard id="book_today" icon="money"
+            <StatCard hero id="book_today" icon="money"
               label="Book today" value={inrCompact(book.value.aum)}
               sub={`${book.value.clients} clients · as of ${dmy2(book.value.as_of)}`}
               figure={book}

@@ -49,6 +49,16 @@
   --tint-neg: #fdf1ed;
   --tint-warn: #fdf7e8;
   --tint-info: #f1f5fc;
+
+  /* Second accent, taken from the client-report format: navy states the case,
+     gold marks it. Used for rules, glyphs and emphasis — never a whole surface. */
+  --gold: #a17c2b;
+  --gold-soft: #faf3e3;
+  --navy-deep: #16294d;
+
+  /* Display face for titles and headline figures. A system serif stack, so it
+     costs nothing to load and still reads as considered beside the data sans. */
+  --display: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', serif;
 }
 
 * { box-sizing: border-box; }
@@ -71,20 +81,22 @@ a:hover { text-decoration: underline; }
 
 /* shell — top bar, full width below */
 .topbar {
-  display: flex; align-items: center; gap: 22px; padding: 0 24px; height: 48px;
-  border-bottom: 1px solid var(--line);
-  position: sticky; top: 0; background: var(--ground); z-index: 40;
+  display: flex; align-items: center; gap: 22px; padding: 0 24px; height: 52px;
+  position: sticky; top: 0; background: var(--navy-deep); z-index: 40; color: #fff;
 }
-.topbar .brand { font-weight: 700; white-space: nowrap; }
+.topbar .brand {
+  font-family: var(--display); font-weight: 600; font-size: 1.05rem;
+  letter-spacing: .01em; white-space: nowrap; color: #fff;
+}
 .topbar nav { display: flex; gap: 2px; height: 100%; }
 .topbar nav a {
-  display: flex; align-items: center; padding: 0 13px; color: var(--ink);
-  font-size: 13px; border-bottom: 2px solid transparent; margin-bottom: -1px;
+  display: flex; align-items: center; padding: 0 13px; color: rgba(255,255,255,.72);
+  font-size: 13px; border-bottom: 2px solid transparent;
 }
-.topbar nav a:hover { background: var(--panel); text-decoration: none; }
-.topbar nav a.active { color: var(--accent); font-weight: 600; border-bottom-color: var(--accent); }
-.topbar .who { margin-left: auto; color: var(--muted); font-size: 11.5px; text-align: right; white-space: nowrap; line-height: 1.35; }
-.topbar .who b { color: var(--ink); font-size: 12.5px; }
+.topbar nav a:hover { color: #fff; text-decoration: none; background: rgba(255,255,255,.06); }
+.topbar nav a.active { color: #fff; font-weight: 600; border-bottom-color: var(--gold); }
+.topbar .who { margin-left: auto; color: rgba(255,255,255,.6); font-size: 11.5px; text-align: right; white-space: nowrap; line-height: 1.35; }
+.topbar .who b { color: #fff; font-size: 12.5px; }
 
 .main { padding: 0 24px 60px; max-width: 1440px; margin: 0 auto; }
 
@@ -684,9 +696,16 @@ a.col.on .n { color: var(--accent); }
 .card { transition: box-shadow .12s ease, border-color .12s ease; }
 .card:hover { border-color: #cdd5db; box-shadow: var(--lift); }
 .card .k { font-size: var(--t-xs); font-weight: 650; }
-.card .k .ic { color: var(--muted); }
-.card .v { font-size: var(--t-xl); letter-spacing: -.015em; line-height: 1.15; }
-.cards.six .card .v { font-size: var(--t-lg); }
+.card .k .ic {
+  color: var(--accent); background: var(--accent-soft); border-radius: 50%;
+  width: 1.55em; height: 1.55em; padding: .35em; box-sizing: content-box;
+}
+.card.tone-warn .k .ic { color: var(--neg); background: var(--tint-neg); }
+.card.tone-pos .k .ic { color: var(--pos); background: var(--tint-pos); }
+.card.tone-opp .k .ic { color: var(--amber); background: var(--tint-warn); }
+.card .v { font-family: var(--display); font-size: 1.4rem; font-weight: 600;
+  letter-spacing: -.005em; line-height: 1.18; }
+.cards.six .card .v { font-size: 1.18rem; }
 .card .s { font-size: var(--t-sm); }
 .card summary { padding: var(--sp-3); }
 .card.tone-pos { border-left: 3px solid var(--pos); }
@@ -702,13 +721,18 @@ h2.sec {
   font-size: var(--t-sm); letter-spacing: .08em; margin: var(--sp-6) 0 var(--sp-3);
 }
 h2.sec::after { content: ''; flex: 1; height: 1px; background: var(--line); }
-h2.sec .ic { color: var(--accent); opacity: .75; }
+h2.sec .ic { color: var(--gold); opacity: .9; }
 
 /* Page header: the question does the framing work. */
-.pagehead h1 { font-size: var(--t-xl); letter-spacing: -.015em; }
+.pagehead h1 {
+  font-family: var(--display); font-size: 1.55rem; font-weight: 600;
+  letter-spacing: -.005em; display: flex; align-items: center; gap: 9px;
+}
+.pagehead h1 .ic { color: var(--gold); width: .8em; height: .8em; }
 .askq {
-  font-size: var(--t-md); color: var(--muted); margin: 0 0 var(--sp-3);
-  padding-left: var(--sp-3); border-left: 3px solid var(--accent-soft);
+  font-family: var(--display); font-size: 1.02rem; font-style: italic;
+  color: var(--muted); margin: 2px 0 var(--sp-4);
+  padding-left: var(--sp-3); border-left: 2px solid var(--gold);
 }
 
 /* Explain popover — wider, structured, readable. */
@@ -895,3 +919,40 @@ h2.sec .ic { color: var(--accent); opacity: .75; }
 .semrules { margin-top:var(--sp-2); font-size:var(--t-xs); color:var(--muted); line-height:1.5; }
 .semrules div { display:flex; gap:6px; align-items:flex-start; margin-bottom:5px; }
 .semrules .ic { color:var(--accent); opacity:.7; margin-top:2px; flex:none; }
+
+/* Client initials, from the reference's engagement list — a name you can pick out
+   of a list before you have finished reading it. Colour is derived from the name,
+   so the same client is always the same colour. */
+.av {
+  display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%;
+  font-size: 10px; font-weight: 700; letter-spacing: .02em; color: #fff; flex: none;
+  margin-right: 7px; vertical-align: -6px;
+}
+.av.a0 { background: #23408e; } .av.a1 { background: #2c6b41; } .av.a2 { background: #a17c2b; }
+.av.a3 { background: #7a3b6b; } .av.a4 { background: #1f6f7a; } .av.a5 { background: #ab4425; }
+
+/* Hero card — one figure per page carries the weight, the rest stay quiet. */
+.card.hero { background: var(--navy-deep); border-color: var(--navy-deep); color: #fff; }
+.card.hero .k { color: rgba(255,255,255,.65); }
+.card.hero .k .ic { color: #fff; background: rgba(255,255,255,.14); }
+.card.hero .v { color: #fff; }
+.card.hero .s { color: rgba(255,255,255,.6); }
+.card.hero summary:hover { background: rgba(255,255,255,.05); }
+.card.hero .prov > summary { color: rgba(255,255,255,.55); }
+.card.hero .list { border-top-color: rgba(255,255,255,.14); }
+.card.hero .list td { color: rgba(255,255,255,.85); border-bottom-color: rgba(255,255,255,.08); }
+.card.hero .list a { color: #cfe0ff; }
+
+/* Gauge, from the target-vs-achievement dials. Conic gradient, no chart library. */
+.gauge { width: 108px; height: 60px; overflow: hidden; position: relative; margin: 0 auto; }
+.gauge i {
+  display: block; width: 108px; height: 108px; border-radius: 50%;
+  background: conic-gradient(from 270deg, var(--gc, var(--accent)) calc(var(--pct) * 1.8deg), var(--panel) 0 180deg, transparent 0);
+}
+.gauge b {
+  position: absolute; inset: auto 0 0 0; text-align: center; font-size: 1.05rem;
+  font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.gauges { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.gauges figure { margin: 0; text-align: center; }
+.gauges figcaption { font-size: var(--t-xs); color: var(--muted); margin-top: 4px; }

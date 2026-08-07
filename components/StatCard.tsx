@@ -23,26 +23,29 @@ interface Props {
   figure: Pick<Figure<unknown>, 'tag' | 'sql' | 'sources'>;
   list: StatList;
   listAmountKind?: 'inr' | 'days' | 'count';
+  /** The one figure on the page that should carry the weight. */
+  hero?: boolean;
 }
 
 const VALUE_TONE: Record<string, string> = { plain: '', pos: 'good', warn: 'warn', opp: 'opp' };
 
 export function StatCard(props: Props) {
-  const { label, value, sub, tone = 'plain', id, icon, delta, figure, list, listAmountKind = 'inr' } = props;
+  const { label, value, sub, tone = 'plain', id, icon, delta, figure, list, listAmountKind = 'inr', hero } = props;
   const amount = (n: number) =>
     listAmountKind === 'inr' ? inrCompact(n) : listAmountKind === 'days' ? `${n} days` : `${n}`;
 
   const rows = list.rows.map((r, i) => (
     <tr key={i}>
       <td>
-        <ClientLink id={r.client_id} name={r.label} /> <span className="d">{r.detail}</span>
+        {/* Only a person gets a face — these rows are also months, channels and funds. */}
+        <ClientLink id={r.client_id} name={r.label} avatar={!!r.client_id} /> <span className="d">{r.detail}</span>
       </td>
       <td className="num">{amount(r.amount)}</td>
     </tr>
   ));
 
   return (
-    <details className={`card tone-${tone}`}>
+    <details className={`card tone-${tone}${hero ? ' hero' : ''}`}>
       <summary>
         <div className="k">
           {icon && <Icon name={icon} />}
