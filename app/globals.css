@@ -410,6 +410,46 @@ a.col.on .n { color: var(--accent); }
 .disputeform button { background: var(--accent); color: #fff; border: 0; border-radius: var(--radius); padding: 7px 16px; font-size: 13px; cursor: pointer; }
 .tblwrap tr.openrow { background: var(--accent-soft); }
 
+/* my business — AUM bars over net-flow bars */
+.axis { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+.aumchart { display: grid; grid-template-columns: repeat(14, 1fr); gap: 4px; height: 120px; align-items: end; }
+.aumchart .acol { height: 100%; display: flex; align-items: flex-end; }
+.aumchart .abar { width: 100%; background: #7ba7de; border-radius: 3px 3px 0 0; }
+.flowrow { display: grid; grid-template-columns: repeat(14, 1fr); gap: 4px; height: 74px; align-items: start;
+  border-top: 1px solid var(--line); margin-top: 2px; padding-top: 5px; }
+.flowrow .fcol { display: flex; flex-direction: column; align-items: center; height: 100%; }
+.flowrow .fbar2 { width: 62%; border-radius: 0 0 3px 3px; min-height: 3px; max-height: 52px; }
+.flowrow .fbar2.pos { background: var(--pos); opacity: .65; }
+.flowrow .fbar2.neg { background: var(--neg); opacity: .7; }
+.flowrow .fl { font-size: 9.5px; color: var(--muted); margin-top: auto; }
+
+/* my business — growth waterfall */
+.waterfall { border: 1px solid var(--line); border-radius: var(--radius); background: var(--ground); margin-bottom: 8px; }
+.wf { display: flex; align-items: baseline; gap: 14px; padding: 11px 15px; border-bottom: 1px solid var(--line); }
+.wf:last-child { border-bottom: 0; }
+.wf .wl { font-size: 13px; font-weight: 600; }
+.wf .wn { display: block; font-weight: 400; font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+.wf .wa { margin-left: auto; font-size: 14px; font-weight: 650; white-space: nowrap; }
+.wf.total { background: var(--panel); border-top: 2px solid var(--line); }
+.wf.total .wa { font-size: 1.15rem; }
+
+/* my business — target bars with a pace marker */
+.tgt { display: grid; grid-template-columns: 190px 1fr auto 52px; gap: 12px; align-items: center;
+  padding: 8px 2px; font-size: 12.5px; border-bottom: 1px solid var(--panel); }
+.tgt .tl { color: var(--ink); }
+.tgt .tb { position: relative; height: 12px; border-radius: 4px; background: var(--panel); overflow: visible; }
+.tgt .tb i { display: block; height: 100%; border-radius: 4px; }
+.tgt .tb i.ok { background: var(--pos); opacity: .75; }
+.tgt .tb i.behind { background: var(--amber); opacity: .75; }
+.tgt .tb b { position: absolute; top: -3px; width: 2px; height: 18px; background: var(--muted); opacity: .55; }
+.tgt .tv { color: var(--muted); white-space: nowrap; font-size: 12px; }
+.tgt .tp { text-align: right; font-weight: 650; }
+
+.winlose { display: grid; grid-template-columns: 1fr 1.25fr; gap: 12px; align-items: start; }
+.wlh { margin: 0 0 7px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em;
+  display: flex; align-items: center; gap: 7px; }
+.winlose .tblwrap table { min-width: 0; }
+
 /* provenance */
 .prov { display: inline-block; position: relative; }
 .prov > summary {
@@ -546,8 +586,11 @@ a.col.on .n { color: var(--accent); }
 @media (max-width: 1000px) {
   .cols { grid-template-columns: 1fr; }
   .cards, .cards.six { grid-template-columns: repeat(2, 1fr); }
-  .vizrow, .vizrow.two, .startgrid, .ladderrow { grid-template-columns: 1fr; }
+  .vizrow, .vizrow.two, .startgrid, .ladderrow, .winlose { grid-template-columns: 1fr; }
   .hist.wide { grid-template-columns: repeat(7, 1fr); height: auto; }
+  .aumchart, .flowrow { grid-template-columns: repeat(7, 1fr); }
+  .tgt { grid-template-columns: 1fr auto; }
+  .tgt .tb { grid-column: 1 / -1; }
   .board { grid-template-columns: repeat(2, 1fr); }
   .topbar { flex-wrap: wrap; height: auto; padding: 8px 16px; }
 }

@@ -1006,6 +1006,36 @@ CREATE TABLE saved_queries (
 );
 
 -- Matview-equivalents: TABLES refreshed by the seed/refresh job (matches prod pattern).
+
+-- The AUM spine. Both exist in production; the mock rebuilds them from the same
+-- folio walk that generates commission, so the trend on My business and the money
+-- on My earnings are the same book by construction, not two series that drift.
+CREATE TABLE mv_aum_daily (
+  aum_date     TEXT NOT NULL,
+  sb_id        INTEGER NOT NULL,
+  client_count INTEGER,
+  folio_count  INTEGER,
+  aum          NUMERIC,
+  PRIMARY KEY (aum_date, sb_id)
+);
+
+-- Monthly rollup. `peak_day_aum` is the firm's reported definition (ruling 7:
+-- peak-day stays, and every monthly figure must state which definition it uses).
+-- `month_end_aum` is carried alongside because only month-end makes the growth
+-- identity hold exactly: opening + net_flows + market_movement = closing.
+CREATE TABLE mv_monthly_aum (
+  month           TEXT NOT NULL,
+  sb_id           INTEGER NOT NULL,
+  peak_day_aum    NUMERIC,
+  peak_date       TEXT,
+  month_end_aum   NUMERIC,
+  opening_aum     NUMERIC,
+  net_flows       NUMERIC,
+  market_movement NUMERIC,
+  client_count    INTEGER,
+  PRIMARY KEY (month, sb_id)
+);
+
 CREATE TABLE mv_portfolio_attention (
   client_id    INTEGER NOT NULL,
   flag_type    TEXT NOT NULL,                  -- laggard | stale | concentration | drift | bottom_percentile

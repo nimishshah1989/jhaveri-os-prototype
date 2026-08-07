@@ -161,12 +161,28 @@ for (let i = 0; i < 60; i++) {
     }
   }
 }
+// Meera's story facts are pinned, not left to wherever the RNG lands: two real
+// flexi-cap funds that genuinely overlap, plus a genuine laggard. The laggard is
+// picked from the data — the equity scheme whose NAV has trailed its own
+// benchmark hardest over two years — so it stays true if the series change.
+const MEERA_FUNDS: SchemeSeed[] = [];
 const benchSeries = new Map<number, NavSeries>();
 const benchStmt = db.prepare('INSERT INTO benchmark_price_history (fk_benchmark_id, price_date, price) VALUES (?,?,?)');
 for (let b = 1; b <= 8; b++) {
   const bs = makeNavSeries(r, 100, 44, [0.13, 0.12, 0.15, 0.16, 0.07, 0.065, 0.10, 0.09][b - 1], [0.14, 0.12, 0.18, 0.22, 0.02, 0.004, 0.09, 0.12][b - 1], TODAY);
   benchSeries.set(b, bs);
   bs.dates.forEach((d, j) => benchStmt.run(b, d, bs.navs[j]));
+}
+{
+  const from = addDays(TODAY, -730);
+  const growth = (s: NavSeries) => navAt(s, TODAY) / navAt(s, from) - 1;
+  const ranked = schemes.filter(s => s.equity)
+    .map(s => ({ s, gap: growth(s.series) - growth(benchSeries.get(s.bench)!) }))
+    .sort((a, b) => a.gap - b.gap);
+  // Two different real flexi-cap funds (so the stock overlap is genuine), then
+  // the worst benchmark-laggard that is not already one of them.
+  MEERA_FUNDS.push(schemes[0], schemes[10],
+    ranked.find(x => x.s.id !== schemes[0].id && x.s.id !== schemes[10].id)!.s);
 }
 // Every AMC we distribute needs an agreed rate, including the real ones carried in
 // from Atlas — a missing card means commission with nothing to check it against.
@@ -187,7 +203,6 @@ BROKER_NAMES.forEach((name, i) => {
   ins('sub_broker_master', { sb_id: id, sb_holder_name: name, sb_sub_broker_code: b.code, sb_bos_code: `SB-${b.code}`, sb_arn_no: 'ARN-3524', sb_euin: b.euin, sb_holder_pan: pan(9000 + id), sb_gst_no: b.gst ? `24${pan(9000 + id)}1Z${id % 10}` : null, sb_tds_deduction: 5.0, fk_cat_id: tier, fk_territory_id: 2 + (i % 3), sb_doj: addDays(TODAY, -intBetween(r, 400, 3000)), sb_termination: active ? null : '2025-11-30', is_employee: id % 9 === 0 ? 1 : 0, is_active: active ? 1 : 0 });
   ins('sb_hierarchy', { sb_hierarchy_id: id, fk_sb_id: id, fk_reporting_to: id <= 3 ? null : ((id % 3) + 1), fk_territory_id: 2 + (i % 3), fk_role_id: 7 });
   ins('broker_links', { link_id: id, sb_id: id, slug: `join-${name.toLowerCase().split(' ')[0]}-${b.code}`, created_at: addDays(TODAY, -300), visits: intBetween(r, 30, 400), applications: intBetween(r, 2, 25) });
-  ins('sb_monthly_target', { id, fk_sb_id: id, target_month: monthStart(TODAY), target_lumpsum_amount: intBetween(r, 10, 60) * 100000, target_sip_count: intBetween(r, 4, 20), target_sip_amount: intBetween(r, 1, 8) * 100000, target_client_count: intBetween(r, 2, 10) });
 });
 
 const STORY = { meera: 101, arjun: 102, desaiHead: 103, desaiSpouse: 104, kapoorHuf: 106 };
@@ -242,6 +257,9 @@ interface TxnIn {
   sbId?: number; sipReg?: string; noEuin?: boolean;
 }
 function addTxn(f: FolioSeed, t: TxnIn) {
+  // The ledger records what has happened. A future-dated row makes FIFO and any
+  // date-bounded view of the same book disagree, silently.
+  if (t.date > TODAY) throw new Error(`transaction dated ${t.date} is in the future (today is ${TODAY})`);
   trId++;
   const units = t.buySell === 0 ? 0 : round4(t.amount / t.price);
   const bos = `TR-${String(trId).padStart(7, '0')}`;
@@ -267,11 +285,13 @@ for (const c of clients) {
   // spouse. Letting the spouse draw a random folio count ran off the end of that
   // array and wrote two folios with NULL amounts — invisible until commission
   // started reading folios.
-  const n = c.id === STORY.desaiHead ? 3 : c.id === STORY.desaiSpouse ? 1 : c.id === STORY.kapoorHuf ? 2 : intBetween(r, 1, 3);
+  const n = c.id === STORY.desaiHead ? 3 : c.id === STORY.desaiSpouse ? 1
+    : c.id === STORY.kapoorHuf ? 2 : c.id === STORY.meera ? MEERA_FUNDS.length
+      : intBetween(r, 1, 3);
   const chosen = new Set<number>();
   for (let k = 0; k < n; k++) {
     let s = pick(r, schemes);
-    if (c.id === STORY.meera && k === 0) s = schemes[0];
+    if (c.id === STORY.meera) s = MEERA_FUNDS[k];
     if (c.id === STORY.kapoorHuf && k === 0) s = schemes[0];
     if (isDesai) s = schemes[(c.id * 3 + k * 7) % 60];
     if (chosen.has(s.id)) continue;
@@ -279,9 +299,13 @@ for (const c of clients) {
     folioId++;
     const f: FolioSeed = { id: folioId, folioNo: String(5000000 + folioId), scheme: s, client: c, txns: [], sbId: c.broker.id };
     folios.push(f);
+    // Meera's folios are aged past a year on purpose: the house rule refuses to
+    // annualise anything younger, so a sub-year holding has no XIRR to compare
+    // against its benchmark — and her whole story is a fund lagging its benchmark.
     const start = isDesai ? addDays(TODAY, -820)
       : c.id === STORY.kapoorHuf && k === 0 ? addDays(TODAY, -700)
-      : addDays(TODAY, -intBetween(r, 200, 1000));
+        : c.id === STORY.meera ? addDays(TODAY, -[900, 730, 560][k])
+          : addDays(TODAY, -intBetween(r, 200, 1000));
     ins('folio_master', { folio_id: folioId, fm_folio_no: f.folioNo, fk_scheme_id: s.id, fk_acc_id: c.id, fm_pan_no: pan(c.id), fm_sub_broker_code: c.broker.code, fm_arn_no: 'ARN-3524', fm_euin: c.broker.euin, fm_holding: 'Single', fm_nominee1_name: chance(r, 0.7) ? pick(r, FIRST) + ' ' + c.name.split(' ').slice(-1)[0] : null, folio_start_date: start, is_active: 1 });
     const lump = isDesai ? [1500000, 1200000, 900000, 600000][k + (c.id === STORY.desaiSpouse ? 3 : 0)]
       : c.id === STORY.kapoorHuf && k === 0 ? 400000
@@ -289,7 +313,11 @@ for (const c of clients) {
     addTxn(f, { date: start, typeId: 1, buySell: 1, amount: lump, price: navAt(s.series, start) });
     if (!isDesai && chance(r, 0.5)) {
       const d = addDays(start, intBetween(r, 60, 300));
-      addTxn(f, { date: d, typeId: 20, buySell: 1, amount: intBetween(r, 1, 6) * 25000, price: navAt(s.series, d) });
+      const amount = intBetween(r, 1, 6) * 25000;
+      // A top-up can only have happened if the date has been. Letting this run
+      // past today put transactions in the ledger that had not occurred — FIFO
+      // counted them into current holdings while a day-by-day walk did not.
+      if (d <= TODAY) addTxn(f, { date: d, typeId: 20, buySell: 1, amount, price: navAt(s.series, d) });
     }
     const hasSip = c.id === STORY.meera ? k === 0 : !isDesai && s.equity && chance(r, 0.42);
     if (hasSip) {
@@ -312,8 +340,17 @@ for (const c of clients) {
     }
     if (!isDesai && c.id !== STORY.kapoorHuf && chance(r, 0.25)) {
       const redDate = addDays(TODAY, -intBetween(r, 10, 400));
-      const heldValue = f.txns.filter(t => t.buySell === 1).reduce((s2, t) => s2 + t.amount, 0);
-      addTxn(f, { date: redDate, typeId: 2, buySell: -1, amount: round2(heldValue * between(r, 0.1, 0.45)), price: navAt(s.series, redDate) });
+      const fraction = between(r, 0.1, 0.45);
+      // Sell a fraction of what was actually held THAT DAY. Sizing it off every
+      // purchase ever made — including SIP instalments still in the future —
+      // redeems units the folio did not yet own. FIFO quietly floors that at the
+      // available lots, so it never surfaced until AUM was walked day by day.
+      const heldUnits = f.txns.filter(t => t.date <= redDate)
+        .reduce((s2, t) => s2 + t.units * t.buySell, 0);
+      if (heldUnits > 1e-6) {
+        const price = navAt(s.series, redDate);
+        addTxn(f, { date: redDate, typeId: 2, buySell: -1, amount: round2(heldUnits * fraction * price), price });
+      }
     }
   }
 }
@@ -327,6 +364,63 @@ folios.filter(f => f.sbId === 5).slice(0, 24).forEach(f => {
   const d = addDays(TODAY, -intBetween(r, 5, 25));
   addTxn(f, { date: d, typeId: 20, buySell: 1, amount: 50000, price: navAt(f.scheme.series, d), noEuin: true });
 });
+
+// ── Clients who left ─────────────────────────────────────────────────────────
+// A book that only ever grows is a lie, and "wins and losses" needs named rows,
+// not a count. Founder's definition (07-Aug-2026): a client is lost when they
+// transfer out to another distributor, OR when they redeem everything and hold
+// nothing. Both are seeded here, BEFORE the FIFO run, so holdings, AUM and
+// commission all stop on the same day without any of them being special-cased.
+const rx = rng(20260807 + 77);
+const exitPool = [...new Set(folios.map(f => f.client.id))]
+  .filter(id => !Object.values(STORY).includes(id));
+const exits: { clientId: number; date: string; kind: 'transferred' | 'redeemed' }[] = [];
+// Weighted so the demo broker owns a few of each — a page about wins and losses
+// with nothing in either column teaches the founder nothing.
+for (const sbTarget of [4, 4, 4, null, null, null, null, null, null, null, null, null, null, null, null, null]) {
+  const candidates = exitPool.filter(id => {
+    const owned = folios.filter(f => f.client.id === id);
+    return owned.length > 0 && (sbTarget == null || owned[0].sbId === sbTarget);
+  });
+  if (!candidates.length) continue;
+  const clientId = pick(rx, candidates);
+  exitPool.splice(exitPool.indexOf(clientId), 1);
+  exits.push({
+    clientId,
+    date: addDays(TODAY, -intBetween(rx, 20, 400)),
+    kind: chance(rx, 0.55) ? 'transferred' : 'redeemed',
+  });
+}
+const delTxn = db.prepare('DELETE FROM transaction_master WHERE tr_id = ?');
+const markCob = db.prepare('UPDATE transaction_master SET is_cob = 1 WHERE tr_id = ?');
+for (const e of exits) {
+  for (const f of folios.filter(x => x.client.id === e.clientId)) {
+    // Anything dated after the exit would resurrect a client who has gone. Those
+    // rows are already in transaction_master, so remove them there too — an
+    // in-memory-only filter would leave the ledger and the FIFO disagreeing.
+    for (const t of f.txns.filter(t2 => t2.date > e.date)) delTxn.run(t.trId);
+    f.txns = f.txns.filter(t => t.date <= e.date);
+
+    const units = f.txns.reduce((s, t) => s + t.units * t.buySell, 0);
+    if (units <= 1e-6) continue;
+    const price = navAt(f.scheme.series, e.date);
+    // Unrounded on purpose: addTxn re-derives units as round4(amount / price), so
+    // rounding the amount first leaves a fraction of a unit behind and the client
+    // reads as still holding something. Leaving is leaving.
+    const trId = addTxn(f, { date: e.date, typeId: 2, buySell: -1, amount: units * price, price });
+    // A transfer-out is a change of broker on the books; a full redemption is not.
+    if (e.kind === 'transferred') markCob.run(trId);
+  }
+  if (e.kind === 'transferred') {
+    db.prepare(`UPDATE folio_master SET is_transferred_out = 1, transfer_out_date = ?, is_active = 0
+      WHERE fk_acc_id = ?`).run(e.date, e.clientId);
+  }
+  // Their SIPs stopped when they left; leaving them live would inflate the book.
+  db.prepare('UPDATE sip_master SET is_live_sip = 0, cease_date = ? WHERE fk_acc_id = ?').run(e.date, e.clientId);
+  db.prepare(`UPDATE bse_sxp_list SET status = 'CEASED' WHERE reg_no IN
+    (SELECT sxp_bos_code FROM sip_master WHERE fk_acc_id = ?)`).run(e.clientId);
+  emit({ at: e.date, subjectType: 'client', subjectId: e.clientId, type: 'client_exited', payload: { reason: e.kind }, source: 'import' });
+}
 
 let fplId = 0, fpslId = 0, shId = 0, dhlId = 0, fshaId = 0;
 const clientValue = new Map<number, number>();
@@ -383,6 +477,137 @@ for (const a of folioAgg) {
   }
 }
 
+// Calendar months, walked properly. (An earlier version stepped back 31 days at a
+// time from a month start, which silently skipped June 2026.)
+const months: string[] = [];
+for (let back = 13; back >= 0; back--) {
+  const d = new Date(Date.UTC(Number(TODAY.slice(0, 4)), Number(TODAY.slice(5, 7)) - 1 - back, 1));
+  months.push(d.toISOString().slice(0, 10));
+}
+const monthEndOf = (m: string) => addDays(monthStart(addDays(m, 40)), -1);
+
+// ── The AUM spine: mv_aum_daily and mv_monthly_aum ───────────────────────────
+// Walked from the same folios and NAVs that produce commission, so the trend on
+// My business and the money on My earnings can never be two different books.
+// Every folio's units change only on transaction dates, so we carry a running
+// balance forward day by day and value it against a pre-built NAV lookup.
+const AUM_DAYS = 425;                                   // ~14 months of daily points
+const aumDates: string[] = [];
+for (let d = AUM_DAYS; d >= 0; d--) aumDates.push(addDays(TODAY, -d));
+const dayIndex = new Map(aumDates.map((d, i) => [d, i]));
+
+const navByScheme = new Map<number, number[]>();
+for (const s of schemes) navByScheme.set(s.id, aumDates.map(d => navAt(s.series, d)));
+
+// [dayIndex][sbId] → value, and the distinct clients holding on that day
+const aumByDay: Map<number, number>[] = aumDates.map(() => new Map());
+const clientsByDay: Map<number, Set<number>>[] = aumDates.map(() => new Map());
+for (const f of folios) {
+  if (!f.txns.length) continue;
+  const navs = navByScheme.get(f.scheme.id)!;
+  const sorted = [...f.txns].sort((x, y) => x.date.localeCompare(y.date));
+  let ti = 0, units = 0;
+  for (let i = 0; i < aumDates.length; i++) {
+    while (ti < sorted.length && sorted[ti].date <= aumDates[i]) {
+      units = round4(units + sorted[ti].units * sorted[ti].buySell);
+      ti++;
+    }
+    // Nobody can hold meaningfully negative units. If this trips, some transaction
+    // sold more than the folio owned on that date — FIFO would floor it and the two
+    // views of the same book would silently disagree. The 0.01 floor is rounding
+    // dust: units are stored to 4dp, so selling "everything" can overshoot by ~1e-4.
+    if (units < -0.01) throw new Error(`folio ${f.folioNo} holds ${units} units on ${aumDates[i]}`);
+    if (units <= 1e-6) continue;
+    const v = units * navs[i];
+    aumByDay[i].set(f.sbId, (aumByDay[i].get(f.sbId) ?? 0) + v);
+    if (!clientsByDay[i].has(f.sbId)) clientsByDay[i].set(f.sbId, new Set());
+    clientsByDay[i].get(f.sbId)!.add(f.client.id);
+  }
+}
+aumDates.forEach((d, i) => {
+  for (const [sbId, v] of aumByDay[i]) {
+    ins('mv_aum_daily', {
+      aum_date: d, sb_id: sbId, aum: round2(v),
+      client_count: clientsByDay[i].get(sbId)!.size,
+      folio_count: folios.filter(f => f.sbId === sbId).length,
+    });
+  }
+});
+
+// Monthly rollup. peak_day_aum is the firm's reported definition (ruling 7);
+// month_end_aum sits beside it because only month-end makes the growth identity
+// hold exactly — opening + net flows + market movement = closing, to the rupee.
+const flowByMonth = db.prepare(`SELECT t.fk_sb_id sb, substr(t.tr_date,1,7) || '-01' m,
+    SUM(t.tr_amount * tt.tr_type_buy_sell_flag) v
+  FROM transaction_master t JOIN transaction_type_master tt ON tt.tr_type_id = t.fk_tran_type_id
+  WHERE tt.tr_type_buy_sell_flag != 0 GROUP BY 1, 2`).all() as { sb: number; m: string; v: number }[];
+const flowLookup = new Map(flowByMonth.map(f => [`${f.sb}|${f.m}`, f.v]));
+const aumOn = (sbId: number, date: string) => {
+  const i = dayIndex.get(date);
+  return i == null ? null : aumByDay[i].get(sbId) ?? 0;
+};
+for (const m of months) {
+  const monthEnd = monthEndOf(m);
+  const daysIn = aumDates.filter(d => d >= m && d <= monthEnd);
+  // The opening balance is the previous day's close, read directly rather than
+  // carried in a variable — so a missing month can never shift the attribution.
+  const opening = aumOn(0, addDays(m, -1)) === null ? null : addDays(m, -1);
+  if (!daysIn.length || opening === null) continue;
+  for (const b of brokers) {
+    let peak = -1, peakDate = '';
+    for (const d of daysIn) {
+      const v = aumByDay[dayIndex.get(d)!].get(b.id) ?? 0;
+      if (v > peak) { peak = v; peakDate = d; }
+    }
+    const lastDay = daysIn[daysIn.length - 1];
+    const close = aumByDay[dayIndex.get(lastDay)!].get(b.id) ?? 0;
+    const open = aumOn(b.id, opening)!;
+    if (peak <= 0 && close <= 0 && open <= 0) continue;
+    const flows = flowLookup.get(`${b.id}|${m}`) ?? 0;
+    ins('mv_monthly_aum', {
+      month: m, sb_id: b.id, peak_day_aum: round2(peak), peak_date: peakDate,
+      month_end_aum: round2(close), opening_aum: round2(open), net_flows: round2(flows),
+      // Whatever the book did that the broker did not do: the residual, by definition.
+      market_movement: round2(close - open - flows),
+      client_count: clientsByDay[dayIndex.get(lastDay)!].get(b.id)?.size ?? 0,
+    });
+  }
+}
+
+// ── Monthly targets ──────────────────────────────────────────────────────────
+// Targets are set ahead of the month, not back-fitted, so they must sometimes be
+// missed. Each broker's target is sized off their own median activity and then
+// nudged by a per-month factor — which makes attainment real rather than uniform.
+const rt = rng(20260807 + 91);
+const medianOf = (xs: number[]) => {
+  if (!xs.length) return 0;
+  const s = [...xs].sort((a, b) => a - b);
+  return s[Math.floor(s.length / 2)];
+};
+let targetId = 0;
+for (const b of brokers) {
+  const inflow = months.map(m => (db.prepare(`SELECT COALESCE(SUM(t.tr_amount),0) v
+    FROM transaction_master t JOIN transaction_type_master tt ON tt.tr_type_id=t.fk_tran_type_id
+    WHERE t.fk_sb_id=? AND tt.tr_type_buy_sell_flag=1 AND substr(t.tr_date,1,7)=?`)
+    .get(b.id, m.slice(0, 7)) as { v: number }).v);
+  const newClients = months.map(m => (db.prepare(`SELECT COUNT(DISTINCT fk_acc_id) n FROM folio_master
+    WHERE fm_sub_broker_code=? AND substr(folio_start_date,1,7)=?`).get(b.code, m.slice(0, 7)) as { n: number }).n);
+  const sipCount = (db.prepare('SELECT COUNT(*) n FROM sip_master WHERE fk_sb_id=?').get(b.id) as { n: number }).n;
+  const baseLump = medianOf(inflow.filter(v => v > 0)) || 200000;
+  const baseClients = Math.max(1, Math.round(medianOf(newClients)));
+  months.forEach(m => {
+    targetId++;
+    const stretch = between(rt, 0.8, 1.35);          // some months set high, some low
+    ins('sb_monthly_target', {
+      id: targetId, fk_sb_id: b.id, target_month: m,
+      target_lumpsum_amount: round2(baseLump * stretch),
+      target_sip_count: Math.max(1, Math.round((sipCount / months.length) * stretch * 1.4)),
+      target_sip_amount: round2((baseLump * 0.18) * stretch),
+      target_client_count: Math.max(1, Math.round(baseClients * stretch)),
+    });
+  });
+}
+
 // ── Brokerage: one trail line per folio per month, off the real book ──────────
 // Trail is what the AMC pays on money that actually sat in a folio, so every row
 // here is generated from that folio's own units × NAV at month end × the agreed
@@ -393,15 +618,6 @@ for (const a of folioAgg) {
 // being invented.
 ['Trail', 'Upfront', 'Incentive', 'Clawback'].forEach((t, i) => ins('brokerage_type_master', { brk_type_id: i + 1, brk_type_name: t }));
 let bkrId = 0, invId = 0, invDataId = 0;
-
-// Calendar months, walked properly. (The old version stepped back 31 days at a
-// time from a month start, which silently skipped June 2026.)
-const months: string[] = [];
-for (let back = 13; back >= 0; back--) {
-  const d = new Date(Date.UTC(Number(TODAY.slice(0, 4)), Number(TODAY.slice(5, 7)) - 1 - back, 1));
-  months.push(d.toISOString().slice(0, 10));
-}
-const monthEndOf = (m: string) => addDays(monthStart(addDays(m, 40)), -1);
 
 const cardBps = new Map<string, number>();
 for (const c of db.prepare('SELECT amc_id, scheme_category, agreed_trail_bps FROM amc_rate_card').all() as

@@ -2,6 +2,49 @@
 
 Dated evidence of pace. Every entry: what shipped, how it was verified.
 
+## 07-Aug-2026 (late) — My business (broker page 6): growth split into flows vs market
+- **The AUM matviews did not exist.** `mv_aum_daily` and `mv_monthly_aum` were absent
+  and `aum_master` held 300 rows for a single date, so the page's headline block had no
+  data at all. Both are now real objects, walked from the same folios and NAVs that
+  produce commission — so the trend on this page and the money on My earnings are the
+  same book by construction. 7,242 daily rows across 426 consecutive days.
+- **The growth identity is the page.** Every broker-month carries opening, net flows and
+  market movement, and `opening + flows + market == closing` to the rupee on every row.
+  Ravi's book grew ₹79L over 14 months: 54% money he brought in, 46% the market. A
+  rising line with flat flows now reads as "the market did the work", which is what a
+  productivity platform should be honest about.
+- Peak-day is the reported monthly figure (ruling 7) and is labelled as such; month-end
+  sits beside it because only month-end makes the identity hold exactly. Verified that
+  peak-day is genuinely the maximum of that month's daily rows and its date falls inside
+  its own month.
+- **Three more data-integrity bugs found and fixed**, each caught by walking AUM day by
+  day — something no previous page did:
+  1. The partial-redemption seeder sized a sale off *every* purchase ever made,
+     including SIP instalments dated after the redemption, so it sold units the folio did
+     not yet own. FIFO silently floored it at the available lots while a date-walk did
+     not — two views of one book, quietly disagreeing by ₹3.2L.
+  2. A top-up transaction was dated **2026-10-15, two months in the future**. FIFO
+     counted it into current holdings. `addTxn` now throws on any future-dated row, which
+     also clears the future-dated-transaction gap flagged in STATE since the first build.
+  3. Exit sales rounded the amount before units were re-derived, leaving 0.0001 units
+     behind so a departed client still read as holding something.
+- Clients who left now exist at all: 16 exits (10 redeemed everything, 6 transferred to
+  another distributor), seeded before the FIFO run so holdings, AUM and commission all
+  stop on the same day. Founder's definition applied — dormant is **not** lost, because a
+  dormant client is still saveable and already sits on Today as an action.
+- 14 months of `sb_monthly_target` sized off each broker's own median activity, so
+  attainment genuinely varies (47%–266%) instead of being uniform. The current month
+  carries a pace marker: a target is not missed on the 7th.
+- Meera's story is now **pinned rather than lucky** — two real overlapping flexi-cap
+  funds and a laggard chosen from the data (worst NAV-vs-benchmark over two years),
+  with folio ages past a year so the house rule will annualise them. Her laggard runs
+  −11.4% against a +12.5% benchmark.
+- Verified: `verify-business.ts`, 27 independent-SQL checks ALL PASS, including the
+  growth identity on every broker-month, no gaps in the daily spine, cross-page identity
+  with both My clients and My earnings, and the bounce rate using bounced ÷ due rather
+  than ÷ collected. All seven prior verifiers PASS on a pristine reseed. `next build`
+  clean, zero type errors, zero console errors across six pages.
+
 ## 07-Aug-2026 (late night) — My earnings (broker page 5): commission off the real book
 - **The commission data had to be rebuilt from nothing usable.** `brokerage_master`
   held 484 aggregate rows — two per broker per month — with `fk_folio_id`,
