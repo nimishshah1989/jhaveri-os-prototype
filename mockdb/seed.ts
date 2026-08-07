@@ -15,7 +15,9 @@ import {
 
 const DIR = dirname(fileURLToPath(import.meta.url));
 const DB_PATH = join(DIR, 'jhaveri.db');
-rmSync(DB_PATH, { force: true });
+// The app opens this db in WAL mode; a fresh file must not inherit the old
+// -wal/-shm sidecars or SQLite fails with a disk I/O error.
+for (const suffix of ['', '-wal', '-shm']) rmSync(DB_PATH + suffix, { force: true });
 const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
 db.exec(readFileSync(join(DIR, 'schema.sql'), 'utf8'));
@@ -529,6 +531,14 @@ for (const m of marketable) {
 
 // Demo-broker (sb 4) queue enrichment. The UPDATEs below are seed authorship
 // like Meera's pinned 12-Aug mandate — pages still compute from the columns.
+// Story clients get families matching their surnames (name overrides happen
+// after family generation, which otherwise leaves e.g. Meera Shah in "Solanki Family").
+for (const sid of Object.values(STORY)) {
+  const c2 = clients[sid - 1];
+  const fam = `${c2.name.split(' ').slice(-1)[0]} Family`;
+  db.prepare('UPDATE family_master SET family_name=? WHERE family_id=?').run(fam, c2.family);
+  db.prepare('UPDATE fifo_summary_holding_active SET family_name=? WHERE family_id=?').run(fam, c2.family);
+}
 const DEMO_SB = 4;
 const storyIds = Object.values(STORY);
 

@@ -26,7 +26,7 @@ export function broker(): { sb_id: number; name: string; code: string } {
   return row;
 }
 
-function figure<T>(sql: string, sources: string[], tag: ProvenanceTag, params: unknown[]): Figure<T> {
+export function figure<T>(sql: string, sources: string[], tag: ProvenanceTag, params: unknown[]): Figure<T> {
   return { value: db().prepare(sql).get(...params) as T, tag, sql, sources };
 }
 

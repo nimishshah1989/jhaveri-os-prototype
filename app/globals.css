@@ -190,6 +190,21 @@ a.chip:hover { text-decoration: none; background: var(--panel); }
 }
 .fchip.stale { background: var(--grey-soft); color: var(--muted); }
 .fchip.conc { background: var(--amber-soft); color: var(--amber); }
+.fchip.lt { background: var(--pos-soft); color: var(--pos); }
+.lotrow td { background: #fbfcfc; font-size: 11.5px; color: var(--muted); }
+.expand { border: 0; background: none; color: var(--accent); cursor: pointer; font-size: 11.5px; padding: 0; }
+.hchip { font-size: 11px; border: 1px solid var(--line); border-radius: 12px; padding: 1px 9px; color: var(--muted); }
+.hchip.ok { background: var(--pos-soft); color: var(--pos); border-color: transparent; }
+.crumb { color: var(--muted); font-size: 12px; margin: 14px 0 6px; }
+.chead { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 2px; }
+.chead h1 { font-size: 1.25rem; margin: 0; }
+.taxg { display: grid; grid-template-columns: auto 1fr auto; gap: 6px 10px; align-items: center; font-size: 12px; }
+.taxg .tb { height: 12px; border-radius: 3px; background: var(--panel); position: relative; overflow: hidden; }
+.taxg .tb i { position: absolute; inset: 0 auto 0 0; background: var(--s3); opacity: .8; }
+.taxg .tb.st i { background: var(--s2); }
+.taxg .lab { color: var(--muted); white-space: nowrap; }
+h2.sec { font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: var(--accent); margin: 20px 0 8px; }
+.outchip { display: inline-block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; border-radius: 3px; padding: 1px 6px; background: var(--grey-soft); color: var(--grey); }
 .below { color: var(--muted); font-size: 12px; margin-top: 10px; display: flex; gap: 18px; flex-wrap: wrap; }
 
 /* provenance */

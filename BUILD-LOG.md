@@ -2,6 +2,28 @@
 
 Dated evidence of pace. Every entry: what shipped, how it was verified.
 
+## 07-Aug-2026 (evening) — Client 360 live: page 3 of 23, the lot-level differentiator
+- `app/clients/[clientId]` — full 360 on founder pre-approval ("build both, see
+  together"): header chips (family · risk · KYC · PAN · since), 5 KPI cards with XIRR
+  vs benchmark side by side ("trailing it" called out), asset-mix bar, tax panel
+  showing lot-level truth (unrealised LT/ST vs the ₹1.25L exemption, booked losses,
+  headroom line), holdings table where every row expands into dated purchase lots with
+  LTCG/STCG bucket chips and "LT in Nd" countdowns (Kuvera-pattern foundation for the
+  proposal builder), 12-month transaction ledger (range stated, bounded), SIP cards
+  with bounce/mandate status, household roll-up, this client's open+closed actions,
+  and note capture → interaction timeline + optional follow-up minted into Today.
+  Goals slot ghosted honestly. Design record artifact:
+  https://claude.ai/code/artifact/f6d9685a-18c4-41e0-b816-a3d8094492ce
+- Seed: story-client families renamed to match surnames (Meera Shah was in "Solanki
+  Family" — name-gen collision); seed now removes WAL sidecars (reseeding under a
+  running server hit disk I/O error — root-caused: fresh db + orphan -wal/-shm).
+- Caught by build discipline: interactions column is `sb_id` not `broker_id` (schema
+  sketch vs actual DDL); verify-360 rounding tolerance on Meera's value.
+- Verified: `verify-360.ts` — reconciliation to the rupee for ALL 51 book clients
+  (KPI == Σ holdings == Σ lots; unrealised tax == Σ lot tax), household == member sum,
+  bounded transactions, laggard flag, family-name fix — ALL PASS. All four verifiers
+  green on pristine reseed; browser QA incl. live note-capture write.
+
 ## 07-Aug-2026 (later) — My clients live: page 2 of 23, new shell across the app
 - Founder-directed layout system shipped: navigation moved to a top bar (path-aware),
   full-width content, consistent right insight rail; mocks and app locked light-only.
