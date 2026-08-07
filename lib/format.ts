@@ -22,3 +22,9 @@ export function dmy(iso: string): string {
   const [y, m, d] = iso.slice(0, 10).split('-');
   return `${d}-${MONTHS[Number(m) - 1]}-${y}`;
 }
+
+// Table variant: 2-digit year saves column width (founder rule).
+export function dmy2(iso: string): string {
+  const [y, m, d] = iso.slice(0, 10).split('-');
+  return `${d}-${MONTHS[Number(m) - 1]}-${y.slice(2)}`;
+}

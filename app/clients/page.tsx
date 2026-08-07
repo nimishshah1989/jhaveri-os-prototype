@@ -55,8 +55,6 @@ export default async function ClientsPage({ searchParams }: PageProps<'/clients'
   const totals = {
     v: rows.reduce((s, r) => s + r.v, 0),
     invested: rows.reduce((s, r) => s + r.invested, 0),
-    sips: rows.reduce((s, r) => s + r.sips, 0),
-    actions: rows.reduce((s, r) => s + r.open_actions, 0),
   };
   const acting = worthActingOn();
   const learn = learning();

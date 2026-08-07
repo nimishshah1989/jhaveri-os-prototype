@@ -301,7 +301,8 @@ export interface ClientRow {
   pnl: number;
   wx: number | null;
   last_activity: string | null;
-  sips: number;
+  sip_monthly: number;
+  top_action: string | null;
   open_actions: number;
   flags: string;
 }
@@ -336,8 +337,14 @@ export function clientRows(code: string, f: ClientFilters): { rows: ClientRow[];
   ROUND(SUM(CASE WHEN f.xirr IS NOT NULL THEN f.present_market_value*f.xirr END)
       / SUM(CASE WHEN f.xirr IS NOT NULL THEN f.present_market_value END),1) wx,
   (SELECT MAX(t.tr_date) FROM transaction_master t WHERE t.fk_acc_id=f.client_id AND t.tr_date <= '${TODAY}') last_activity,
-  (SELECT COUNT(*) FROM sip_master s WHERE s.fk_acc_id=f.client_id AND s.is_live_sip=1) sips,
-  (SELECT COUNT(*) FROM actions a WHERE a.subject_id=CAST(f.client_id AS TEXT) AND a.subject_type='client' AND a.state IN ('proposed','assigned','in_progress')) open_actions,
+  (SELECT COALESCE(SUM(s.tr_amount),0) FROM sip_master s WHERE s.fk_acc_id=f.client_id AND s.is_live_sip=1) sip_monthly,
+  (SELECT a.action_type FROM actions a WHERE a.state IN ('proposed','assigned','in_progress')
+     AND ((a.subject_type='client' AND a.subject_id=CAST(f.client_id AS TEXT))
+       OR (a.subject_type='sip' AND a.subject_id IN (SELECT CAST(sip_id AS TEXT) FROM sip_master WHERE fk_acc_id=f.client_id)))
+     ORDER BY a.impact_score DESC LIMIT 1) top_action,
+  (SELECT COUNT(*) FROM actions a WHERE a.state IN ('proposed','assigned','in_progress')
+     AND ((a.subject_type='client' AND a.subject_id=CAST(f.client_id AS TEXT))
+       OR (a.subject_type='sip' AND a.subject_id IN (SELECT CAST(sip_id AS TEXT) FROM sip_master WHERE fk_acc_id=f.client_id)))) open_actions,
   COALESCE((SELECT GROUP_CONCAT(DISTINCT p.flag_type) FROM mv_portfolio_attention p WHERE p.client_id=f.client_id),'') flags
 FROM fifo_summary_holding_active f
 WHERE f.advisor_code=? ${where.length ? 'AND ' + where.join(' AND ') : ''}
