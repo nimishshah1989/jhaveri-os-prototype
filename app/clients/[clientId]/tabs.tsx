@@ -9,7 +9,7 @@ import {
   type ClientHeader, type Verdict,
 } from '../../../lib/client360';
 import { captureNote } from './actions';
-import { clientHealth, schemeGrades, SCORING_RULES } from '../../../lib/scoring';
+import { schemeGrades } from '../../../lib/scoring';
 import { mintForClients } from '../../clients/actions';
 
 const MIX_COLORS = ['var(--s1)', 'var(--s2)', 'var(--s3)', 'var(--s4)'];
@@ -128,94 +128,6 @@ export function OverviewTab({ id, head }: { id: number; head: ClientHeader }) {
           </li>
         </ol>
         <div className="d" style={{ marginTop: 8 }}>Every sentence computes from rules over this client&apos;s rows — never generated prose over money numbers.</div>
-      </div>
-    </>
-  );
-}
-
-const BAND_COLOR: Record<string, string> = { healthy: 'var(--pos)', 'needs work': 'var(--amber)', 'at risk': 'var(--neg)' };
-
-export function HealthTab({ id, head }: { id: number; head: ClientHeader }) {
-  const h = clientHealth(id);
-  const sips = clientSips(id).rows.filter(s => s.is_live_sip);
-  const monthly = sips.reduce((s, r) => s + r.tr_amount, 0);
-  // Deterministic future value of a 10% SIP step-up over 5 years at an assumed 12%/yr.
-  const stepUp = monthly > 0 ? Math.round((monthly * 0.1) * ((Math.pow(1.01, 60) - 1) / 0.01)) : 0;
-  const txns = clientTxns(id);
-  const lastSell = txns.rows.find(t => t.flag === -1);
-  const boughtAfterSell = lastSell && txns.rows.some(t => t.flag === 1 && t.tr_date > lastSell.tr_date);
-
-  return (
-    <>
-      <div className="viz" style={{ marginBottom: 18 }}>
-        <h4>Portfolio health <Provenance figure={{ tag: 'rule', sql: `five components × 20 points, ${SCORING_RULES.version}\nweights live in lib/scoring.ts SCORING_RULES — the Admin rules page surfaces them; real build moves them to rules_registry`, sources: ['fifo_summary_holding_active', 'fifo_summary_holding', 'sip_master', 'bse_mandate_list', 'scheme_master.risk_level'] }} /></h4>
-        <div className="scorehead">
-          <div className="ring" style={{ ['--pct' as string]: h.total, ['--ringc' as string]: BAND_COLOR[h.band.label] }}>
-            <i>{h.total}<small>of 100<br />{h.band.label}</small></i>
-          </div>
-          {h.gain > 0 && <span className="pill pot num">Reachable: {h.reachable} (+{h.gain})</span>}
-          <span className="d" style={{ maxWidth: '46ch' }}>
-            {h.gain > 0
-              ? `The reachable score counts only levers available today — each one below is a concrete move with its points attached.`
-              : 'No open levers — this portfolio is working as configured.'}
-          </span>
-        </div>
-        {h.components.map(c => (
-          <details key={c.key} className="comp-block" open={c.levers.length > 0}>
-            <summary>
-              <b>{c.label}</b>
-              <span className="cbar"><i style={{ width: `${(c.score / 20) * 100}%`, background: c.score >= 14 ? 'var(--pos)' : c.score >= 8 ? 'var(--amber)' : 'var(--neg)' }} /></span>
-              <span className="num" style={{ textAlign: 'right', fontWeight: 650 }}>{c.score}/20</span>
-              <span className="why">{c.why}</span>
-            </summary>
-            <div className="levers">
-              {c.levers.length === 0 && <div className="d">Nothing to fix here{c.score === 20 ? ' — full marks' : ''}.</div>}
-              {c.levers.map(l => (
-                <div key={l.key} className={`lever ${l.ghosted ? 'ghost' : ''}`}>
-                  <b>{l.label}</b>
-                  {l.detail && <span className="d">{l.detail}</span>}
-                  {l.ghosted
-                    ? <span className="d" style={{ fontStyle: 'italic' }}>{l.ghosted}</span>
-                    : <>
-                      <span className="delta num">+{l.delta} pts</span>
-                      <form action={mintForClients}>
-                        <input type="hidden" name="client_ids" value={id} />
-                        <input type="hidden" name="note" value={`${l.label} — health lever (+${l.delta} pts) for ${head.name}`} />
-                        <button type="submit">Mint action</button>
-                      </form>
-                    </>}
-                </div>
-              ))}
-            </div>
-          </details>
-        ))}
-      </div>
-
-      <div className="viz">
-        <h4>More opportunities — not score-linked, still worth the call</h4>
-        {monthly > 0 && (
-          <div className="lever">
-            <b>Step up the SIP by 10%</b>
-            <span className="d">₹{Math.round(monthly * 0.1).toLocaleString('en-IN')}/month more ≈ ₹{stepUp.toLocaleString('en-IN')} extra in 5 years at an assumed 12%/yr — assumption shown, never hidden</span>
-            <form action={mintForClients}>
-              <input type="hidden" name="client_ids" value={id} />
-              <input type="hidden" name="note" value={`Propose 10% SIP step-up for ${head.name}`} />
-              <button type="submit">Mint action</button>
-            </form>
-          </div>
-        )}
-        {lastSell && !boughtAfterSell && (
-          <div className="lever">
-            <b>{inr(lastSell.tr_amount)} left the portfolio on {dmy(lastSell.tr_date)} — where did it land?</b>
-            <span className="d">nothing has come back in since; if it sits in savings, that is idle money</span>
-            <form action={mintForClients}>
-              <input type="hidden" name="client_ids" value={id} />
-              <input type="hidden" name="note" value={`Ask about the ${inr(lastSell.tr_amount)} redeemed ${dmy(lastSell.tr_date)} — redeploy?`} />
-              <button type="submit">Mint action</button>
-            </form>
-          </div>
-        )}
-        {monthly === 0 && !lastSell && <div className="d">Nothing further right now.</div>}
       </div>
     </>
   );

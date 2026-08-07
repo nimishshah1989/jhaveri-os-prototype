@@ -77,6 +77,23 @@ const qwOk = quickWins.every(r => clientHealth(r.client_id).components
   .some(c => c.levers.some(l => !l.ghosted && l.kind !== 'hygiene' && l.delta >= SCORING_RULES.quick_win_single_lever)));
 check('every quick-win client shows a matching lever on their Health tab', qwOk);
 
+// Deep-dive contract: a card that lost points must explain itself and, where a
+// move exists, recommend it. No silent deductions.
+let unexplained = 0, noChallenge = 0;
+for (const r of all) {
+  for (const c of clientHealth(r.client_id).components) {
+    if (c.breakdown.length === 0) unexplained++;
+    if (c.score < 14 && c.challenges.length === 0 && c.levers.length === 0) noChallenge++;
+  }
+}
+check('every component shows how it was calculated', unexplained === 0, `${unexplained} silent`);
+check('every weak component names a challenge or a lever', noChallenge === 0, `${noChallenge} unexplained weaknesses`);
+
+const mBreak = meera.components.find(c => c.key === 'discipline')!.breakdown;
+check('Meera: discipline breakdown ends at her actual score',
+  mBreak[mBreak.length - 1].effect === `${meera.components.find(c => c.key === 'discipline')!.score}/20`,
+  mBreak.map(s => `${s.label} ${s.effect}`).join(' | '));
+
 console.log(`\nMeera: ${meera.total} → ${meera.reachable} (+${meera.gain}) · band "${meera.band.label}"`);
 meera.components.forEach(c => console.log(`  ${c.label}: ${c.score}/20 — ${c.why}${c.levers.length ? ' · levers: ' + c.levers.map(l => `${l.label} (+${l.delta}${l.ghosted ? ', ghosted' : ''})`).join('; ') : ''}`));
 console.log(failures === 0 ? '\nSCORING ENGINE: ALL CHECKS PASSED' : `\nSCORING ENGINE: ${failures} FAILURES`);

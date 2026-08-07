@@ -4,8 +4,9 @@ import { dmy, dmy2, inrCompact } from '../../../lib/format';
 import { TODAY } from '../../../mockdb/engines';
 import { clientHeader, clientActions, clientSips, familyMembers } from '../../../lib/client360';
 import {
-  OverviewTab, HealthTab, AnalysisTab, HoldingsTab, TransactionsTab, SipsTab, ProfileTab, ActionsTab, ACTION_LABEL,
+  OverviewTab, AnalysisTab, HoldingsTab, TransactionsTab, SipsTab, ProfileTab, ActionsTab, ACTION_LABEL,
 } from './tabs';
+import { HealthTab } from './health-tab';
 
 export const dynamic = 'force-dynamic';
 
@@ -57,7 +58,7 @@ export default async function Client360({ params, searchParams }: PageProps<'/cl
       <div className="cols">
         <div>
           {tab === 'overview' && <OverviewTab id={id} head={head} />}
-          {tab === 'health' && <HealthTab id={id} head={head} />}
+          {tab === 'health' && <HealthTab id={id} head={head} focus={typeof sp.c === 'string' ? sp.c : undefined} />}
           {tab === 'analysis' && <AnalysisTab id={id} head={head} />}
           {tab === 'holdings' && <HoldingsTab id={id} />}
           {tab === 'transactions' && <TransactionsTab id={id} />}

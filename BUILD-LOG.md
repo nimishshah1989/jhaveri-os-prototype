@@ -2,6 +2,31 @@
 
 Dated evidence of pace. Every entry: what shipped, how it was verified.
 
+## 07-Aug-2026 (late) — Health view rebuilt as cards + deep dives, and the loop now closes
+- Founder direction: every health parameter and opportunity becomes a card; clicking it
+  opens how the score was calculated, where the challenge is, and what to do — with the
+  choice itself logged.
+- Card grid (5 component cards + opportunity cards), each showing score, status, the
+  one-line why, and points available. Click → deep dive with three sections:
+  **How this was calculated** (the actual deduction ladder, e.g. "starts at 20 · SIP
+  bounced −8 · mandate expiring −4 · Score 8/20"), **Where the challenge is** (plain
+  words, no jargon), **What we recommend** (levers with point deltas).
+- Three choices per recommendation, all written to the events ledger:
+  `I'll do this` → owned action for the broker · `Hand to relationship manager` → action
+  assigned to his actual manager from `sb_hierarchy` (Swadesh Rao for broker 4) ·
+  `Not now` → mandatory reason, logged as `lever_declined`, no action minted. A "no" is
+  data, not silence — it feeds what the system learns about which suggestions land.
+- **Loop verified end to end:** actions minted from a lever carry
+  `created_from='lever:<component>:<key>'`, so closing them on Today with an outcome
+  flows straight back into the client's Decision trail ("closed · saved"). Tested live:
+  accept → work on Today → outcome appears on the 360.
+- Engine extended: every component now emits its calculation steps and its challenges
+  from the same pure functions that produce the score — explanation cannot drift from
+  the number.
+- Verified: verify-scoring 15 checks (added: every component explains its calculation ·
+  every weak component names a challenge or lever · breakdown ends at the actual score).
+  All five verifiers green on pristine reseed; browser QA of all three decision paths.
+
 ## 07-Aug-2026 (late night) — Scoring framework live: the platform's first cross-page lens
 - Founder approved the framework and delegated v0 weights ("suggest from the data").
   `lib/scoring.ts` is the single home for every knob (SCORING_RULES) — the Admin page

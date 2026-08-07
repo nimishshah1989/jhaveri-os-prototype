@@ -281,6 +281,54 @@ h2.sec { font-size: 12px; text-transform: uppercase; letter-spacing: .07em; colo
 .gradechip.gD, .gradechip.gE { background: var(--red-soft); color: var(--neg); }
 .gainchip { font-size: 10px; font-weight: 700; letter-spacing: .04em; border-radius: 3px; padding: 1px 6px;
   background: var(--pos-soft); color: var(--pos); white-space: nowrap; }
+
+/* health cards */
+.hcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(238px, 1fr)); gap: 14px; margin-bottom: 22px; }
+a.hcard { display: block; border: 1px solid var(--line); border-radius: 10px; padding: 15px 17px; color: var(--ink); }
+a.hcard:hover { text-decoration: none; border-color: var(--accent); box-shadow: 0 2px 10px rgba(22,33,43,.07); }
+.hcard .name { font-weight: 650; font-size: 13.5px; display: flex; align-items: center; gap: 8px; }
+.hcard .val { font-size: 1.6rem; font-weight: 700; margin: 8px 0 2px; }
+.hcard .val small { font-size: .82rem; font-weight: 500; color: var(--muted); }
+.hcard .cbar2 { height: 6px; border-radius: 3px; background: var(--panel); overflow: hidden; margin: 8px 0 10px; }
+.hcard .cbar2 i { display: block; height: 100%; }
+.hcard .why2 { color: var(--muted); font-size: 12px; min-height: 32px; }
+.hcard .foot { margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--line);
+  font-size: 12px; display: flex; align-items: center; gap: 8px; }
+.hcard .foot .go { margin-left: auto; color: var(--accent); }
+.hcard.opp-card { border-left: 3px solid var(--amber); }
+
+/* deep dive */
+.dive { border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; margin-bottom: 16px; }
+.dive h3 { margin: 0 0 3px; font-size: 1.05rem; }
+.dive .lead { color: var(--muted); font-size: 12.5px; margin: 0 0 16px; }
+.dive h5 { margin: 0 0 9px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.calc { display: grid; grid-template-columns: 1fr auto; gap: 6px 18px; font-size: 12.5px; }
+.calc .lbl { color: var(--ink); }
+.calc .eff { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.calc .tot { font-weight: 700; border-top: 1px solid var(--line); padding-top: 7px; margin-top: 3px; }
+.chal { border-left: 3px solid var(--amber); background: var(--amber-soft); border-radius: 0 6px 6px 0;
+  padding: 9px 13px; margin-bottom: 8px; font-size: 12.5px; }
+.rec { border: 1px solid var(--line); border-left: 4px solid var(--pos); border-radius: 8px; padding: 13px 15px; margin-bottom: 11px; }
+.rec.ghost { border-left-color: var(--line); border-style: dashed; }
+.rec .rtop { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.rec .rtop b { font-size: 13.5px; }
+.rec .rtop .delta { margin-left: auto; font-weight: 700; color: var(--pos); white-space: nowrap; }
+.rec .choices { display: flex; gap: 8px; margin-top: 11px; flex-wrap: wrap; align-items: center; }
+.rec button { border-radius: 5px; padding: 5px 13px; font-size: 12.5px; cursor: pointer; border: 1px solid var(--line); background: var(--ground); color: var(--accent); }
+.rec button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.rec details { position: relative; }
+.rec details > summary { list-style: none; cursor: pointer; border: 1px solid var(--line); border-radius: 5px;
+  padding: 5px 13px; font-size: 12.5px; color: var(--muted); }
+.rec details > summary::-webkit-details-marker { display: none; }
+.rec details .pop { position: absolute; z-index: 20; top: 32px; left: 0; width: 240px; background: var(--ground);
+  border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 4px 16px rgba(22,33,43,.12); padding: 11px; }
+.rec details .pop select { width: 100%; margin-bottom: 8px; padding: 4px 6px; font-size: 12.5px;
+  border: 1px solid var(--line); border-radius: 4px; }
+.trail { font-size: 12.5px; }
+.trail .row2 { display: flex; gap: 10px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--panel); }
+.trail .row2:last-child { border-bottom: 0; }
+.trail .when { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.trail .verdict2 { margin-left: auto; white-space: nowrap; }
 .narrative { font-size: 13.5px; margin: 0; padding-left: 20px; }
 .narrative li { margin-bottom: 8px; }
 .outchip { display: inline-block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; border-radius: 3px; padding: 1px 6px; background: var(--grey-soft); color: var(--grey); }

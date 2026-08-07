@@ -33,11 +33,20 @@ export interface Lever {
   kind?: 'hygiene'; // data-correctness fix, excluded from quick-win ranking
 }
 
+export interface Step {
+  label: string;
+  effect: string;
+}
+
 export interface Component {
   key: (typeof R.components)[number];
   label: string;
   score: number;
   why: string;
+  /** How the score was calculated, in the order it was applied. */
+  breakdown: Step[];
+  /** Where the weakness actually is, in plain words. */
+  challenges: string[];
   levers: Lever[];
 }
 
@@ -123,11 +132,29 @@ function perfScore(i: Inputs): number {
   const gap = Math.max(0, i.bmx - i.wx);
   return Math.round(20 * clamp(1 - gap / R.performance.zero_at_gap_pts, 0, 1));
 }
+function perfSteps(i: Inputs): Step[] {
+  if (i.wx == null || i.bmx == null) return [{ label: 'Benchmark comparison unavailable', effect: 'half marks, 10' }];
+  const gap = Math.round(Math.max(0, i.bmx - i.wx) * 10) / 10;
+  return [
+    { label: `Blended return ${i.wx}% against benchmark ${i.bmx}%`, effect: gap > 0 ? `trailing by ${gap} pts` : 'ahead' },
+    { label: `Score = 20 × (1 − gap ÷ ${R.performance.zero_at_gap_pts})`, effect: `${perfScore(i)}/20` },
+  ];
+}
 function divScore(i: Inputs): number {
   const c = R.diversification;
   const pen = (Math.max(i.topCatShare - c.category_cap, 0) / (1 - c.category_cap)) * c.w_category
     + (Math.max(i.topFundWeight - c.fund_cap, 0) / (1 - c.fund_cap)) * c.w_fund;
   return Math.round(20 * clamp(1 - pen, 0, 1));
+}
+function divSteps(i: Inputs): Step[] {
+  const c = R.diversification;
+  const catPen = (Math.max(i.topCatShare - c.category_cap, 0) / (1 - c.category_cap)) * c.w_category;
+  const fundPen = (Math.max(i.topFundWeight - c.fund_cap, 0) / (1 - c.fund_cap)) * c.w_fund;
+  return [
+    { label: `Largest category holds ${Math.round(i.topCatShare * 100)}% (comfortable up to ${c.category_cap * 100}%)`, effect: catPen > 0 ? `−${Math.round(catPen * 100)}% of the marks` : 'within range' },
+    { label: `Largest single fund holds ${Math.round(i.topFundWeight * 100)}% (comfortable up to ${c.fund_cap * 100}%)`, effect: fundPen > 0 ? `−${Math.round(fundPen * 100)}% of the marks` : 'within range' },
+    { label: 'Score after both penalties', effect: `${divScore(i)}/20` },
+  ];
 }
 function discScore(i: Inputs): number {
   const c = R.discipline;
@@ -138,6 +165,16 @@ function discScore(i: Inputs): number {
   if (i.noSipIdle) s -= c.no_sip_idle;
   return Math.max(0, s);
 }
+function discSteps(i: Inputs): Step[] {
+  const c = R.discipline;
+  const steps: Step[] = [{ label: 'Everything in order', effect: 'starts at 20' }];
+  if (i.bounced) steps.push({ label: 'SIP instalments bounced', effect: `−${c.bounce}` });
+  if (i.mandateExpiring) steps.push({ label: `Bank mandate expiring within ${c.mandate_window_days} days`, effect: `−${c.mandate_expiring}` });
+  if (i.dormant) steps.push({ label: `No transaction in ${c.dormant_months} months`, effect: `−${c.dormant}` });
+  if (i.noSipIdle) steps.push({ label: 'Holds value with no monthly plan', effect: `−${c.no_sip_idle}` });
+  steps.push({ label: 'Score', effect: `${discScore(i)}/20` });
+  return steps;
+}
 function taxScore(i: Inputs): number {
   const c = R.tax;
   let s = 20;
@@ -147,9 +184,32 @@ function taxScore(i: Inputs): number {
   if (mix > 0 && i.unrealSt / mix > c.st_mix_cap && i.unrealSt > 25000) s -= c.st_heavy;
   return Math.max(0, s);
 }
+function taxSteps(i: Inputs): Step[] {
+  const c = R.tax;
+  const rupee = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
+  const headroom = Math.max(0, c.fy_exemption - Math.max(0, i.realLt));
+  const steps: Step[] = [{ label: 'Nothing left on the table', effect: 'starts at 20' }];
+  if (i.unrealLt > c.harvest_min_lt && headroom > 0) {
+    steps.push({ label: `${rupee(i.unrealLt)} of long-term gains could be banked tax-free (${rupee(headroom)} of allowance unused)`, effect: `−${c.harvest_open}` });
+  }
+  const mix = i.unrealSt + i.unrealLt;
+  if (mix > 0 && i.unrealSt / mix > c.st_mix_cap && i.unrealSt > 25000) {
+    steps.push({ label: `${Math.round((i.unrealSt / mix) * 100)}% of gains are short-term — taxed at 20% if sold now`, effect: `−${c.st_heavy}` });
+  }
+  steps.push({ label: 'Score', effect: `${taxScore(i)}/20` });
+  return steps;
+}
 function fitScore(i: Inputs): number {
   if (i.portfolioGrade == null) return 10;
   return Math.max(0, Math.round(20 - R.risk_fit.per_grade * Math.abs(i.portfolioGrade - i.profileGrade)));
+}
+function fitSteps(i: Inputs): Step[] {
+  if (i.portfolioGrade == null) return [{ label: 'Not enough holdings to grade the portfolio', effect: 'half marks, 10' }];
+  const gap = Math.round(Math.abs(i.portfolioGrade - i.profileGrade) * 10) / 10;
+  return [
+    { label: `Stated appetite ${i.profileGrade}/5 · portfolio actually holds ${i.portfolioGrade}/5`, effect: gap === 0 ? 'matched' : `${gap} apart` },
+    { label: `Score = 20 − ${R.risk_fit.per_grade} × gap`, effect: `${fitScore(i)}/20` },
+  ];
 }
 
 export function clientHealth(id: number): Health {
@@ -164,12 +224,25 @@ export function clientHealth(id: number): Health {
     const delta = perfScore({ ...i, wx: Math.round(fixedWx * 10) / 10 }) - perf;
     if (delta > 0) perfLevers.push({ key: 'switch_laggard', label: `Switch ${i.laggard.name} to a same-category house pick`, delta, detail: 'pre-trade tax cost computed from the actual lots' });
   }
-  components.push({ key: 'performance', label: 'Performance', score: perf, why: i.wx != null && i.bmx != null && i.bmx > i.wx ? `trailing benchmark by ${Math.round((i.bmx - i.wx) * 10) / 10} pts` : 'tracking benchmark', levers: perfLevers });
+  components.push({
+    key: 'performance', label: 'Performance', score: perf,
+    why: i.wx != null && i.bmx != null && i.bmx > i.wx ? `trailing benchmark by ${Math.round((i.bmx - i.wx) * 10) / 10} pts` : 'tracking benchmark',
+    breakdown: perfSteps(i),
+    challenges: i.laggard
+      ? [`${i.laggard.name} is the drag: ${i.laggard.xirr}% against a benchmark of ${i.laggard.bmxirr}%, on ₹${Math.round(i.laggard.v).toLocaleString('en-IN')} of holdings`]
+      : perf < 20 ? ['Returns sit below the blended benchmark, spread across holdings rather than one obvious laggard'] : [],
+    levers: perfLevers,
+  });
 
   const dv = divScore(i);
+  const divChallenges: string[] = [];
+  if (i.topCatShare > R.diversification.category_cap) divChallenges.push(`${Math.round(i.topCatShare * 100)}% of the portfolio sits in a single fund category — one market mood moves almost everything`);
+  if (i.topFundWeight > R.diversification.fund_cap) divChallenges.push(`${Math.round(i.topFundWeight * 100)}% sits in one fund — single-manager risk on the bulk of the money`);
   components.push({
     key: 'diversification', label: 'Diversification', score: dv,
     why: `${Math.round(i.topCatShare * 100)}% in one category, ${Math.round(i.topFundWeight * 100)}% in one fund`,
+    breakdown: divSteps(i),
+    challenges: divChallenges,
     levers: dv < 20 ? [{ key: 'rebalance_bands', label: 'Spread per the risk-band model', delta: 20 - dv, detail: '', ghosted: 'allocation bands per risk profile await compliance sign-off — schema exists, rows pending' }] : [],
   });
 
@@ -178,7 +251,16 @@ export function clientHealth(id: number): Health {
   if (i.bounced || i.mandateExpiring) dcLevers.push({ key: 'fix_sip', label: 'Re-authorise the mandate and clear the bounces', delta: discScore({ ...i, bounced: false, mandateExpiring: false }) - dc, detail: 'one re-authorisation link' });
   if (i.dormant) dcLevers.push({ key: 'reengage', label: 'Re-engage — book the review', delta: discScore({ ...i, dormant: false }) - dc, detail: 'no transaction in 14+ months' });
   if (i.noSipIdle) dcLevers.push({ key: 'start_sip', label: 'Start a SIP on the idle money', delta: discScore({ ...i, noSipIdle: false }) - dc, detail: 'holds value with zero monthly commitment' });
-  components.push({ key: 'discipline', label: 'Discipline', score: dc, why: [i.bounced && 'SIP bounced', i.mandateExpiring && 'mandate expiring', i.dormant && 'dormant', i.noSipIdle && 'idle, no SIP'].filter(Boolean).join(' · ') || 'clean', levers: dcLevers });
+  const dcChallenges: string[] = [];
+  if (i.bounced) dcChallenges.push('Monthly investment has failed more than once — the plan stops silently unless someone calls');
+  if (i.mandateExpiring) dcChallenges.push('The bank mandate expires shortly; once it lapses the SIP cannot collect at all');
+  if (i.dormant) dcChallenges.push(`No transaction in over ${R.discipline.dormant_months} months — the relationship is going quiet`);
+  if (i.noSipIdle) dcChallenges.push('Money is invested but nothing is being added monthly — no compounding habit');
+  components.push({
+    key: 'discipline', label: 'Discipline', score: dc,
+    why: [i.bounced && 'SIP bounced', i.mandateExpiring && 'mandate expiring', i.dormant && 'dormant', i.noSipIdle && 'idle, no SIP'].filter(Boolean).join(' · ') || 'clean',
+    breakdown: discSteps(i), challenges: dcChallenges, levers: dcLevers,
+  });
 
   const tx = taxScore(i);
   const headroom = Math.max(0, R.tax.fy_exemption - Math.max(0, i.realLt));
@@ -186,12 +268,26 @@ export function clientHealth(id: number): Health {
   if (i.unrealLt > R.tax.harvest_min_lt && headroom > 0) {
     txLevers.push({ key: 'harvest', label: `Harvest ₹${Math.round(Math.min(i.unrealLt, headroom)).toLocaleString('en-IN')} inside the FY exemption`, delta: taxScore({ ...i, unrealLt: 0 }) - tx, detail: 'tax-free; window closes 31-Mar' });
   }
-  components.push({ key: 'tax', label: 'Tax efficiency', score: tx, why: txLevers.length ? 'harvest window open, unused' : 'no open windows', levers: txLevers });
+  const txChallenges: string[] = [];
+  if (txLevers.length) txChallenges.push(`₹${Math.round(Math.min(i.unrealLt, headroom)).toLocaleString('en-IN')} of gains could be banked without paying tax this year — the allowance resets 31-Mar and does not carry forward`);
+  const mixTot = i.unrealSt + i.unrealLt;
+  if (mixTot > 0 && i.unrealSt / mixTot > R.tax.st_mix_cap && i.unrealSt > 25000) txChallenges.push('Most gains are still short-term; selling now attracts the higher rate — holding past one year changes the bill');
+  components.push({
+    key: 'tax', label: 'Tax efficiency', score: tx,
+    why: txLevers.length ? 'harvest window open, unused' : 'no open windows',
+    breakdown: taxSteps(i), challenges: txChallenges, levers: txLevers,
+  });
 
   const ft = fitScore(i);
   components.push({
     key: 'risk_fit', label: 'Risk fit', score: ft,
     why: i.portfolioGrade != null ? `portfolio ${i.portfolioGrade} vs profile ${i.profileGrade}` : 'insufficient data',
+    breakdown: fitSteps(i),
+    challenges: ft < 20 && i.portfolioGrade != null
+      ? [i.portfolioGrade > i.profileGrade
+        ? 'The portfolio carries more risk than the client said they wanted — a suitability question at the next review'
+        : 'The portfolio is more cautious than the client’s stated appetite — they may be leaving returns behind']
+      : [],
     levers: ft < 12 ? [{ key: 'review_profile', label: 'Review the risk profile with the client', delta: 20 - ft, detail: 'portfolio and stated appetite disagree', kind: 'hygiene' as const }] : [],
   });
 
