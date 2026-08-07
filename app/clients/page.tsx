@@ -1,6 +1,10 @@
 import Link from 'next/link';
+import { PageHead } from '../../components/PageHead';
+import { ClientLink } from '../../components/ClientLink';
+import { Collapse } from '../../components/Collapse';
+import { Icon } from '../../components/Icon';
 import { ClientsTable } from '../../components/ClientsTable';
-import { Provenance } from '../../components/Provenance';
+import { Explain } from '../../components/Explain';
 import { QueueTable } from '../../components/QueueTable';
 import { inrCompact, dmy } from '../../lib/format';
 import {
@@ -72,39 +76,41 @@ export default async function ClientsPage({ searchParams }: PageProps<'/clients'
 
   return (
     <>
-      <div className="pagehead"><h1>My clients</h1></div>
+      <PageHead title="Clients" icon="users"
+        question="Who in my book needs me, and who is quietly worth more than I think?"
+      />
       <p className="denom">&quot;Holds money today&quot; definition — {allCount} clients · as of {dmy(book.value.as_of)}</p>
 
       <div className="cols">
         <div>
           <div className="cards six">
             <div className="card"><div className="body">
-              <div className="k">Book <Provenance figure={book} /></div>
+              <div className="k">Book <Explain figure={book} /></div>
               <div className="v num">{inrCompact(book.value.v)}</div>
               <div className="s">{allCount} clients</div>
             </div></div>
             <div className="card"><div className="body">
-              <div className="k">Blended return <Provenance figure={blended} /></div>
+              <div className="k">Blended return <Explain figure={blended} /></div>
               <div className="v num good">+{blended.value.x}%</div>
               <div className="s">value-weighted · as of {dmy(blended.value.as_of)}</div>
             </div></div>
             <div className="card"><div className="body">
-              <div className="k">SIP participation <Provenance figure={sipPart} /></div>
+              <div className="k">SIP participation <Explain figure={sipPart} /></div>
               <div className="v num opp">{sipPart.value.n} of {sipPart.value.of}</div>
               <div className="s">{Math.round((sipPart.value.n / sipPart.value.of) * 100)}% of the book</div>
             </div></div>
             <div className="card"><div className="body">
-              <div className="k">Needs attention <Provenance figure={churn} /></div>
+              <div className="k">Needs attention <Explain figure={churn} /></div>
               <div className="v num warn">{churn.value.n}</div>
               <div className="s">flagged by rules</div>
             </div></div>
             <div className="card"><div className="body">
-              <div className="k">Dormant &gt;14m <Provenance figure={dormant} /></div>
+              <div className="k">Dormant &gt;14m <Explain figure={dormant} /></div>
               <div className="v num warn">{dormant.value.n}</div>
               <div className="s">no transaction in 14 months</div>
             </div></div>
             <div className="card"><div className="body">
-              <div className="k">Idle money <Provenance figure={idle} /></div>
+              <div className="k">Idle money <Explain figure={idle} /></div>
               <div className="v num opp">{inrCompact(idle.value.v)}</div>
               <div className="s">{idle.value.n} clients, no SIP</div>
             </div></div>
@@ -112,7 +118,7 @@ export default async function ClientsPage({ searchParams }: PageProps<'/clients'
 
           <div className="vizrow">
             <div className="viz">
-              <h4>Where the book sits <Provenance figure={mix} /></h4>
+              <h4>Where the book sits <Explain figure={mix} /></h4>
               <div className="stack">
                 {mix.value.map((r, i) => (
                   <div key={r.label} style={{ flex: r.v, background: MIX_COLORS[i] ?? 'var(--grey)' }} title={`${r.label} ${inrCompact(r.v)}`} />
@@ -127,7 +133,7 @@ export default async function ClientsPage({ searchParams }: PageProps<'/clients'
               </div>
             </div>
             <div className="viz">
-              <h4>Client health <Provenance figure={health} /></h4>
+              <h4>Client health <Explain figure={health} /></h4>
               <div className="stack">
                 <a href={seg(f)} style={{ flex: health.value.healthy, background: 'var(--pos)', opacity: .85 }} title={`Active & clean ${health.value.healthy}`} />
                 <a href={seg(f, 'dormant')} style={{ flex: health.value.dormant, background: '#9aa5ad' }} title={`Dormant ${health.value.dormant}`} />
@@ -141,7 +147,7 @@ export default async function ClientsPage({ searchParams }: PageProps<'/clients'
               <div className="mark">Every segment clicks to its client list</div>
             </div>
             <div className="viz">
-              <h4>Returns spread (blended XIRR) <Provenance figure={bands} /></h4>
+              <h4>Returns spread (blended XIRR) <Explain figure={bands} /></h4>
               <div className="hist">
                 {bands.value.map(b => (
                   <div key={b.band} className={`col ${b.band === '< 0%' ? 'neg' : ''}`}>
@@ -209,7 +215,7 @@ export default async function ClientsPage({ searchParams }: PageProps<'/clients'
             <div className="d">House medians land here once all-broker rollups ship (management lens)</div>
           </div>
           <div className="panel learn">
-            <h3>What the system is learning <Provenance figure={learn} /></h3>
+            <h3>What the system is learning <Explain figure={learn} /></h3>
             {learn.value.map(p => (
               <div key={`${p.workflow}-${p.policy_key}`} className="row">
                 <span>{p.workflow.replace(/_/g, ' ')} · {p.policy_key.replace(/_/g, ' ')}</span>

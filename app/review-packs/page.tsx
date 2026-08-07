@@ -1,5 +1,9 @@
 import Link from 'next/link';
-import { Provenance } from '../../components/Provenance';
+import { PageHead } from '../../components/PageHead';
+import { ClientLink } from '../../components/ClientLink';
+import { Collapse } from '../../components/Collapse';
+import { Icon } from '../../components/Icon';
+import { Explain } from '../../components/Explain';
 import { StatCard } from '../../components/StatCard';
 import { inr, inrCompact, dmy, dmy2 } from '../../lib/format';
 import { TODAY } from '../../mockdb/engines';
@@ -26,49 +30,49 @@ export default async function ReviewPacksPage({ searchParams }: PageProps<'/revi
 
   return (
     <>
-      <div className="pagehead">
-        <h1>Review pack</h1>
-        <span className="fresh">{me.name} · {dmy(TODAY)}</span>
-      </div>
+      <PageHead title="Reviews" icon="file"
+        question="Which clients are overdue a conversation, and what do I take to it?"
+        meta={`${me.name} · ${dmy(TODAY)}`}
+      />
       <div className="denom">
         You have reviewed <b>{cov.value.reviewed} of {cov.value.book}</b> clients. The pack is built
         from the same numbers on Client 360 — nothing is retyped, so what the client reads and what
-        you see cannot disagree. <Provenance figure={cov} />
+        you see cannot disagree. <Explain figure={cov} />
       </div>
 
       <div className="cols">
         <div>
           <div className="cards six">
-            <StatCard
+            <StatCard id="review_due" icon="file"
               label="Need a review" value={`${dueList.value.length}`} tone="warn"
               sub={`of ${cov.value.book} clients in your book`}
               figure={dueList}
               list={{ rows: dueList.value.slice(0, 10).map(d => ({ label: d.name, detail: d.why, amount: d.value })), total: dueList.value.length }}
             />
-            <StatCard
+            <StatCard id="review_due" icon="alert"
               label="Never reviewed" value={`${cov.value.never}`} tone={cov.value.never > 10 ? 'warn' : 'plain'}
               sub="no pack has ever been sent"
               figure={dueList}
               list={{ rows: dueList.value.filter(d => d.last_pack === null).slice(0, 10).map(d => ({ label: d.name, detail: 'never reviewed', amount: d.value })), total: cov.value.never }}
             />
-            <StatCard
+            <StatCard id="review_due" icon="clock"
               label="Overdue" value={`${cov.value.overdue}`}
               sub={`past the ${REVIEW_RULES.review_months}-month mark or flagged`}
               figure={dueList}
               list={{ rows: dueList.value.filter(d => d.last_pack !== null).map(d => ({ label: d.name, detail: d.why, amount: d.value })), total: cov.value.overdue }}
             />
-            <StatCard
+            <StatCard id="review_due" icon="check"
               label="Packs sent" value={`${past.value.length}`} sub="all time"
               figure={past}
               list={{ rows: past.value.slice(0, 10).map(p => ({ label: p.name, detail: `${p.sent_via} · ${dmy2(p.generated_at)}`, amount: 0 })), total: past.value.length }}
             />
-            <StatCard
+            <StatCard id="review_due" icon="mail"
               label="Came back" value={`${cov.value.responded}`} tone="pos"
               sub={past.value.length ? `${Math.round((cov.value.responded / past.value.length) * 100)}% of packs got a reply` : 'none sent yet'}
               figure={past}
               list={{ rows: past.value.filter(p => p.client_response).map(p => ({ label: p.name, detail: p.client_response!.replace('_', ' '), amount: 0 })), total: cov.value.responded }}
             />
-            <StatCard
+            <StatCard id="review_due" icon="money"
               label="Money unreviewed" value={inrCompact(dueList.value.reduce((s, d) => s + d.value, 0))}
               tone="warn" sub="held by clients who need a review"
               figure={dueList}
@@ -84,7 +88,7 @@ export default async function ReviewPacksPage({ searchParams }: PageProps<'/revi
             </div>
           )}
 
-          <h2 className="sec">Who needs one, and why <Provenance figure={dueList} /></h2>
+          <h2 className="sec">Who needs one, and why <Explain figure={dueList} /></h2>
           <div className="tblwrap">
             <table>
               <thead>
@@ -97,7 +101,7 @@ export default async function ReviewPacksPage({ searchParams }: PageProps<'/revi
               <tbody>
                 {dueList.value.slice(0, 25).map(d => (
                   <tr key={d.client_id} className={d.client_id === picked ? 'openrow' : undefined}>
-                    <td><Link href={`/clients/${d.client_id}`}>{d.name}</Link></td>
+                    <td><ClientLink id={d.client_id} name={d.name} /></td>
                     <td className="r num valbar" style={{ '--w': (d.value / (dueList.value[0]?.value || 1)) * 100 } as React.CSSProperties}>
                       {inrCompact(d.value)}
                     </td>
@@ -189,7 +193,7 @@ export default async function ReviewPacksPage({ searchParams }: PageProps<'/revi
             </>
           )}
 
-          <h2 className="sec">Packs you have sent <Provenance figure={past} /></h2>
+          <h2 className="sec">Packs you have sent <Explain figure={past} /></h2>
           <div className="tblwrap">
             <table>
               <thead>
@@ -199,9 +203,9 @@ export default async function ReviewPacksPage({ searchParams }: PageProps<'/revi
                 </tr>
               </thead>
               <tbody>
-                {past.value.map(p => (
+                <Collapse shown={5} noun="packs" as="rows" span={6} items={past.value.map(p => (
                   <tr key={p.pack_id}>
-                    <td><Link href={`/clients/${p.client_id}`}>{p.name}</Link></td>
+                    <td><ClientLink id={p.client_id} name={p.name} /></td>
                     <td style={{ textAlign: 'center' }}>{dmy2(p.generated_at)}</td>
                     <td style={{ textAlign: 'center' }}>{p.sent_via.replace('_', ' ')}</td>
                     <td><code>{p.content_ref}</code></td>
@@ -224,7 +228,7 @@ export default async function ReviewPacksPage({ searchParams }: PageProps<'/revi
                         )}
                     </td>
                   </tr>
-                ))}
+                ))} />
                 {past.value.length === 0 && <tr><td colSpan={6} className="empty">No packs sent yet.</td></tr>}
               </tbody>
             </table>

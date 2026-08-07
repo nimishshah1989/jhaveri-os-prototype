@@ -1,6 +1,10 @@
 import Link from 'next/link';
+import { PageHead } from '../../components/PageHead';
+import { ClientLink } from '../../components/ClientLink';
+import { Collapse } from '../../components/Collapse';
+import { Icon } from '../../components/Icon';
 import { PipelineBoard } from '../../components/PipelineBoard';
-import { Provenance } from '../../components/Provenance';
+import { Explain } from '../../components/Explain';
 import { StatCard } from '../../components/StatCard';
 import { dmy, dmy2 } from '../../lib/format';
 import { TODAY } from '../../mockdb/engines';
@@ -37,57 +41,57 @@ export default function OnboardingPage() {
 
   return (
     <>
-      <div className="pagehead">
-        <h1>Onboarding</h1>
-        <span className="fresh">{dmy(TODAY)} · every application in the firm</span>
-      </div>
+      <PageHead title="Pipeline" icon="clock"
+        question="Who is stuck getting in, and what is actually holding them up?"
+        meta={`${dmy(TODAY)} · every application in the firm`}
+      />
       <div className="denom">
         The clock starts when a name is captured and stops when the exchange allots a client code.
         Median today is <b>{speed.value.median ?? '—'} days</b> across {speed.value.n} finished applications;
         the fastest took {speed.value.best ?? '—'}. {ONBOARDING_RULES.benchmark.who} advertises a{' '}
         {ONBOARDING_RULES.benchmark.claim} — that is the bar, and this is the distance to it.
-        <Provenance figure={speed} />
+        <Explain figure={speed} />
       </div>
 
       <div className="cols">
         <div>
           <div className="cards six">
-            <StatCard
+            <StatCard id="stall_days" icon="users"
               label="In pipeline" value={`${inPipeline}`} sub={`${openLeads} leads not yet filed`}
               figure={{ tag: 'computed', sql: boardSql, sources: ['onboarding_applications.ucc_status', '.elog_status', '.kyc_status'] }}
               list={list(columns.filter(c => c.key !== 'lead' && c.key !== 'live').flatMap(c => c.cards).sort((a, b) => b.days - a.days),
                 c => ({ label: c.name, detail: `at ${c.stage}`, amount: c.days }))}
               listAmountKind="days"
             />
-            <StatCard
+            <StatCard id="stall_days" icon="alert"
               label="Stalled" value={`${stall.value.length}`} tone="warn"
               sub={oldest ? `oldest waiting ${oldest.days} days` : 'nothing overdue'}
               figure={stall}
               list={list(stall.value, c => ({ label: c.name, detail: c.blocked ?? '', amount: c.days }))}
               listAmountKind="days"
             />
-            <StatCard
+            <StatCard id="stall_days" icon="cross"
               label="KYC rejected" value={`${rej.value.length}`} tone="warn"
               sub="waiting on a corrected document"
               figure={rej}
               list={list(rej.value, c => ({ label: c.name, detail: c.error_code ?? '', amount: c.days }))}
               listAmountKind="days"
             />
-            <StatCard
+            <StatCard id="days_to_live" icon="file"
               label="Opened · Aug" value={`${month.value.opened}`} sub="new applications this month"
               figure={month}
               list={list(columns.flatMap(c => c.cards).filter(c => c.since >= TODAY.slice(0, 8) + '01'),
                 c => ({ label: c.name, detail: dmy2(c.since), amount: c.days }))}
               listAmountKind="days"
             />
-            <StatCard
+            <StatCard id="days_to_live" icon="check"
               label="Went live · Aug" value={`${month.value.live}`} tone="pos" sub="client codes allotted"
               figure={month}
               list={list(columns[4].cards.filter(c => c.since >= TODAY.slice(0, 8) + '01'),
                 c => ({ label: c.name, detail: `live ${dmy2(c.since)}`, amount: c.days }))}
               listAmountKind="days"
             />
-            <StatCard
+            <StatCard id="days_to_live" icon="link"
               label="My link" value={myLink ? `${myLink.applications}` : '—'}
               sub={myLink ? `from ${myLink.visits} visits · ${Math.round((myLink.applications / myLink.visits) * 100)}%` : 'no link yet'}
               figure={links}
@@ -98,7 +102,7 @@ export default function OnboardingPage() {
 
           <div className="vizrow two">
             <div className="viz">
-              <h4>Where applications die <Provenance figure={fun} /></h4>
+              <h4>Where applications die <Explain figure={fun} /></h4>
               <div className="funnel">
                 {fun.value.map((s, i) => (
                   <div key={s.label} className="frow">
@@ -144,7 +148,7 @@ export default function OnboardingPage() {
             days in <i>that</i> stage, measured from the event that put it there.
           </p>
 
-          <h2 className="sec">Stalled — worst first <Provenance figure={stall} /></h2>
+          <h2 className="sec">Stalled — worst first <Explain figure={stall} /></h2>
           <div className="tblwrap">
             <table>
               <thead>
@@ -158,9 +162,9 @@ export default function OnboardingPage() {
                 </tr>
               </thead>
               <tbody>
-                {stall.value.map(c => (
+                <Collapse shown={6} noun="stalled" as="rows" span={8} items={stall.value.map(c => (
                   <tr key={c.application_id}>
-                    <td>{c.client_id ? <Link href={`/clients/${c.client_id}`}>{c.name}</Link> : c.name}</td>
+                    <td>{c.client_id ? <ClientLink id={c.client_id} name={c.name} /> : c.name}</td>
                     <td style={{ textAlign: 'center' }}>{c.stage}</td>
                     <td style={{ textAlign: 'center' }}>
                       <span className={`fchip ${c.channel === 'digital' ? 'lt' : 'stale'}`}>{c.channel}</span>
@@ -198,7 +202,7 @@ export default function OnboardingPage() {
                       </details>
                     </td>
                   </tr>
-                ))}
+                ))} />
                 {stall.value.length === 0 && (
                   <tr><td colSpan={8} className="empty">Nothing stalled. Every application is inside its promised time.</td></tr>
                 )}
@@ -206,7 +210,7 @@ export default function OnboardingPage() {
             </table>
           </div>
 
-          <h2 className="sec">Rejections, in words a client understands <Provenance figure={rej} /></h2>
+          <h2 className="sec">Rejections, in words a client understands <Explain figure={rej} /></h2>
           {rej.value.length === 0 && <div className="empty">No open rejections.</div>}
           {rej.value.map(c => (
             <div key={c.application_id} className="rec">
@@ -267,7 +271,7 @@ export default function OnboardingPage() {
             </form>
 
             <div className="viz">
-              <h4>My referral link <Provenance figure={links} /></h4>
+              <h4>My referral link <Explain figure={links} /></h4>
               {myLink ? (
                 <>
                   <div className="slug">jhaveri.in/join/{myLink.slug}</div>
@@ -291,7 +295,7 @@ export default function OnboardingPage() {
 
         <aside className="side">
           <div className="panel">
-            <h3>Every broker&apos;s links <Provenance figure={links} /></h3>
+            <h3>Every broker&apos;s links <Explain figure={links} /></h3>
             {links.value.slice(0, 8).map(l => (
               <div key={l.sb_id} className="lrow">
                 <span>{l.broker}</span>

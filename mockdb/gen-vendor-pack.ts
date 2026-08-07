@@ -67,7 +67,7 @@ const ARGS: unknown[][] = [[], [4], ['1228'], [4, '2026-08-01'], [101], [4, 'wha
 
 async function capture() {
   for (const mod of MODULES) {
-    const m = (await import(`../lib/${mod}.ts`)) as Record<string, unknown>;
+    const m = (await import(`../lib/${mod}`)) as Record<string, unknown>;
     for (const [fn, val] of Object.entries(m)) {
       if (typeof val !== 'function') continue;
       let got = false;
@@ -97,7 +97,7 @@ async function captureRules() {
     ['marketing', 'MARKETING_RULES'], ['reviewpack', 'REVIEW_RULES'],
     ['portfolio', 'LOOKTHROUGH_RULES']];
   for (const [mod, name] of want) {
-    const m = (await import(`../lib/${mod}.ts`)) as Record<string, unknown>;
+    const m = (await import(`../lib/${mod}`)) as Record<string, unknown>;
     const obj = m[name] as Record<string, unknown> | undefined;
     if (!obj) continue;
     ruleSets.push({
@@ -141,7 +141,7 @@ for (const dir of readdirSync(join(ROOT, 'app'), { withFileTypes: true })) {
 async function main() {
   await capture();
   await captureRules();
-  const { GLOSSARY, TAG_MEANING } = await import('../lib/glossary.ts');
+  const { GLOSSARY, TAG_MEANING } = await import('../lib/glossary');
   const terms = Object.entries(GLOSSARY);
   const byPage = new Map<string, typeof terms>();
   for (const [id, t] of terms) {
@@ -152,7 +152,18 @@ async function main() {
   }
 
   const stat = (n: number | string, l: string) => `<div class="stat"><b>${n}</b><span>${l}</span></div>`;
-  const H: string[] = [];
+  const SECTIONS: { id: string; label: string; html: string[] }[] = [
+    { id: 'overview', label: 'Overview', html: [] },
+    { id: 'data', label: 'Data layer', html: [] },
+    { id: 'pages', label: 'Page spec', html: [] },
+    { id: 'queries', label: 'All queries', html: [] },
+    { id: 'rules', label: 'Thresholds', html: [] },
+    { id: 'writes', label: 'Write paths', html: [] },
+    { id: 'accept', label: 'Acceptance', html: [] },
+    { id: 'gaps', label: 'Gaps', html: [] },
+  ];
+  const sec = (id: string) => SECTIONS.find(x => x.id === id)!.html;
+  const H = sec('overview');
   H.push(`<h1>Jhaveri OS — vendor build pack</h1>
 <p class="sub">Generated from the running prototype on ${new Date().toISOString().slice(0, 10)}. Every
 query, threshold and acceptance criterion below was read out of the code that produces the screens —
@@ -193,14 +204,14 @@ ${stat(terms.length, 'figures documented in plain words')}
 </tbody></table></div>`);
 
   // Data layer
-  H.push(`<h2>2 · The data layer</h2>
+  sec('data').push(`<h2>2 · The data layer</h2>
 <h3>2.1 New objects — build these (${created.length})</h3>
 <p class="note">Full DDL as it runs in the prototype. Column comments carry the production mapping
 where one exists.</p>`);
   for (const t of created) {
-    H.push(`<details class="ddl"><summary><code>${t.name}</code><span class="pill">${t.columns} columns</span>${t.name.startsWith('mv_') ? '<span class="pill mv">materialised view</span>' : ''}</summary><pre>${esc(t.ddl)}</pre></details>`);
+    sec('data').push(`<details class="ddl"><summary><code>${t.name}</code><span class="pill">${t.columns} columns</span>${t.name.startsWith('mv_') ? '<span class="pill mv">materialised view</span>' : ''}</summary><pre>${esc(t.ddl)}</pre></details>`);
   }
-  H.push(`<h3>2.2 Materialised views — refresh contract (${matviews.length})</h3>
+  sec('data').push(`<h3>2.2 Materialised views — refresh contract (${matviews.length})</h3>
 <div class="scroll"><table class="t"><thead><tr><th>View</th><th>Rebuilt from</th><th>Cadence</th></tr></thead><tbody>
 <tr><td><code>mv_aum_daily</code></td><td>Each folio's units carried forward through its own transactions, valued at that day's NAV, aggregated per broker per day.</td><td>Nightly, after the RTA import promotes</td></tr>
 <tr><td><code>mv_monthly_aum</code></td><td>Rollup of <code>mv_aum_daily</code>. Carries peak-day AUM (the reported definition) <em>and</em> month-end, because only month-end makes opening + net flows + market movement equal closing exactly.</td><td>Nightly</td></tr>
@@ -213,14 +224,14 @@ should assume the real table is wider.</p>
 <div class="tags">${carried.map(t => `<code>${t.name}</code>`).join('')}</div>`);
 
   // Page specs
-  H.push(`<h2>3 · Page specification</h2>
+  sec('pages').push(`<h2>3 · Page specification</h2>
 <p class="note">Each figure: what it means to the person reading it, then the SQL and the columns it
 resolves to. The plain-words half is what the product shows a broker; the SQL half is for you.</p>`);
   for (const [pg, list] of [...byPage.entries()].sort()) {
-    H.push(`<h3>${pg}</h3>`);
+    sec('pages').push(`<h3>${pg}</h3>`);
     for (const [id, t] of list) {
       const cap = captured.find(c => c.sources.some(s => t.sources.includes(s)));
-      H.push(`<div class="fig">
+      sec('pages').push(`<div class="fig">
   <div class="fh"><b>${esc(t.label)}</b><code>${id}</code><span class="tag ${t.tag}">${t.tag}</span></div>
   <p><b>Means:</b> ${esc(t.means)}</p>
   <p><b>How a user reads it:</b> ${esc(t.read)}</p>
@@ -232,45 +243,45 @@ resolves to. The plain-words half is what the product shows a broker; the SQL ha
     }
   }
 
-  H.push(`<h3>Every captured query (${captured.length})</h3>
+  sec('queries').push(`<h2>Every captured query (${captured.length})</h3>
 <p class="note">The full query layer, harvested by calling it. Grouped by module.</p>`);
   for (const mod of MODULES) {
     const list = captured.filter(c => c.module === mod);
     if (!list.length) continue;
-    H.push(`<h4><code>lib/${mod}.ts</code> — ${list.length} queries</h4>`);
+    sec('queries').push(`<h4><code>lib/${mod}.ts</code> — ${list.length} queries</h4>`);
     for (const c of list) {
-      H.push(`<details class="ddl"><summary><code>${c.fn}()</code>${c.tag ? `<span class="tag ${c.tag}">${c.tag}</span>` : ''}</summary><pre>${esc(c.sql)}</pre><div class="tags">${c.sources.map(s => `<code>${esc(s)}</code>`).join('')}</div></details>`);
+      sec('queries').push(`<details class="ddl"><summary><code>${c.fn}()</code>${c.tag ? `<span class="tag ${c.tag}">${c.tag}</span>` : ''}</summary><pre>${esc(c.sql)}</pre><div class="tags">${c.sources.map(s => `<code>${esc(s)}</code>`).join('')}</div></details>`);
     }
   }
 
   // Rules
-  H.push(`<h2>4 · Every threshold in the product</h2>
+  sec('rules').push(`<h2>4 · Every threshold in the product</h2>
 <p class="note">These migrate to <code>rules_registry</code> rows in the real build. Changing one is a
 versioned edit with an approver — never a code change.</p>`);
   for (const r of ruleSets) {
-    H.push(`<h4><code>${r.name}</code> <span class="note">${r.module}</span></h4>
+    sec('rules').push(`<h4><code>${r.name}</code> <span class="note">${r.module}</span></h4>
 <div class="scroll"><table class="t"><thead><tr><th>Key</th><th>Value</th></tr></thead><tbody>
 ${r.entries.map(([k, v]) => `<tr><td><code>${esc(k)}</code></td><td><code>${esc(v.length > 200 ? v.slice(0, 200) + '…' : v)}</code></td></tr>`).join('')}
 </tbody></table></div>`);
   }
 
   // Writes
-  H.push(`<h2>5 · Write paths (${writes.length})</h2>
+  sec('writes').push(`<h2>5 · Write paths (${writes.length})</h2>
 <p class="note">Every user action that changes state. All of them also append to <code>events</code>.</p>
 <div class="scroll"><table class="t"><thead><tr><th>Surface</th><th>Action</th><th>Tables written</th></tr></thead><tbody>
 ${writes.map(w => `<tr><td><code>${w.page}</code></td><td><code>${w.fn}()</code></td><td>${w.touches.map(t => `<code>${t}</code>`).join(' ') || '<span class="note">events only</span>'}</td></tr>`).join('')}
 </tbody></table></div>`);
 
   // Acceptance
-  H.push(`<h2>6 · Acceptance criteria — the contract</h2>
+  sec('accept').push(`<h2>6 · Acceptance criteria — the contract</h2>
 <p class="note"><b>This is the definition of done.</b> ${totalChecks} assertions run against a freshly
 seeded database and re-derive every figure with SQL written independently of the query layer. A build
 is complete when all of them pass. They are given verbatim.</p>`);
   for (const s of suites) {
-    H.push(`<details class="ddl" open><summary><code>${s.file}</code><span class="pill">${s.checks.length} assertions</span></summary><ol class="checks">${s.checks.map(c => `<li>${esc(c)}</li>`).join('')}</ol></details>`);
+    sec('accept').push(`<details class="ddl" open><summary><code>${s.file}</code><span class="pill">${s.checks.length} assertions</span></summary><ol class="checks">${s.checks.map(c => `<li>${esc(c)}</li>`).join('')}</ol></details>`);
   }
 
-  H.push(`<h2>7 · Stated gaps</h2>
+  sec('gaps').push(`<h2>7 · Stated gaps</h2>
 <ul class="howto">
   <li>${terms.length} figures carry a written plain-words explanation. The query layer computes more
       than that; the rest expose their SQL and source columns but no user-facing sentence yet. The gap
@@ -367,10 +378,43 @@ a{color:var(--accent)}
 a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .foot{margin-top:32px;padding-top:14px;border-top:1px solid var(--line);font-size:.78rem;
   color:var(--muted);max-width:80ch}
-@media(max-width:820px){.stats{grid-template-columns:repeat(2,1fr)}.wrap{padding:24px 16px 60px}}
+.phead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.phead .brand{font-weight:700;font-size:.95rem;letter-spacing:-.01em}
+.phead .brand span{font-weight:400;color:var(--muted)}
+.phead .gen{margin-left:auto;font-size:.74rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.tabs{display:flex;gap:2px;flex-wrap:wrap;position:sticky;top:0;z-index:5;background:var(--ground);
+  border-bottom:1px solid var(--line);margin-bottom:22px;padding-top:2px}
+.tabs button{appearance:none;background:none;border:0;border-bottom:2px solid transparent;
+  margin-bottom:-1px;padding:9px 13px;font:inherit;font-size:.83rem;color:var(--muted);cursor:pointer;
+  border-radius:6px 6px 0 0}
+.tabs button:hover{background:var(--panel);color:var(--ink)}
+.tabs button[aria-selected]{color:var(--accent);font-weight:650;border-bottom-color:var(--accent)}
+.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.panel[hidden]{display:none}
+.panel>h2:first-child{margin-top:0}
+@media(max-width:820px){.stats{grid-template-columns:repeat(2,1fr)}.wrap{padding:24px 16px 60px}
+  .tabs{overflow-x:auto;flex-wrap:nowrap}.tabs button{white-space:nowrap}}
 @media print{details.ddl{break-inside:avoid}details[open] pre{max-height:none}}
 </style>
-<div class="wrap">${H.join('\n')}</div>`;
+<div class="wrap">
+  <header class="phead">
+    <div class="brand">Jhaveri OS <span>vendor build pack</span></div>
+    <div class="gen">generated ${new Date().toISOString().slice(0, 10)}</div>
+  </header>
+  <nav class="tabs" role="tablist">
+    ${SECTIONS.map((x, i) => `<button role="tab" data-t="${x.id}"${i === 0 ? ' aria-selected="true"' : ''}>${x.label}</button>`).join('')}
+  </nav>
+  ${SECTIONS.map((x, i) => `<section id="p-${x.id}" class="panel"${i === 0 ? '' : ' hidden'}>${x.html.join('\n')}</section>`).join('\n')}
+</div>
+<script>
+  const tabs = [...document.querySelectorAll('.tabs button')];
+  tabs.forEach(b => b.addEventListener('click', () => {
+    tabs.forEach(o => o.removeAttribute('aria-selected'));
+    b.setAttribute('aria-selected', 'true');
+    document.querySelectorAll('.panel').forEach(p => { p.hidden = p.id !== 'p-' + b.dataset.t; });
+    window.scrollTo({ top: 0 });
+  }));
+</script>`;
 
   writeFileSync(OUT, html);
   console.log(`Vendor pack → ${OUT}`);

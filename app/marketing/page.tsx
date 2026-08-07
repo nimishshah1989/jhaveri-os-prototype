@@ -1,5 +1,9 @@
 import Link from 'next/link';
-import { Provenance } from '../../components/Provenance';
+import { PageHead } from '../../components/PageHead';
+import { ClientLink } from '../../components/ClientLink';
+import { Collapse } from '../../components/Collapse';
+import { Icon } from '../../components/Icon';
+import { Explain } from '../../components/Explain';
 import { StatCard } from '../../components/StatCard';
 import { inr, inrCompact, dmy, dmy2 } from '../../lib/format';
 import { TODAY } from '../../mockdb/engines';
@@ -40,52 +44,52 @@ export default async function MarketingPage({ searchParams }: PageProps<'/market
 
   return (
     <>
-      <div className="pagehead">
-        <h1>Marketing</h1>
-        <span className="fresh">{me.name} · {dmy(TODAY)}</span>
-      </div>
+      <PageHead title="Campaigns" icon="mail"
+        question="Who may I contact, and what did reaching out actually earn?"
+        meta={`${me.name} · ${dmy(TODAY)}`}
+      />
       <div className="denom">
         Marketing has put <b>{inr(attributed)}</b> into your book that can be proved — money a
         client invested after replying, where you closed the action and named the transaction.
         Anything that arrived without that link stays out of this number on purpose.
-        <Provenance figure={money} />
+        <Explain figure={money} />
       </div>
 
       <div className="cols">
         <div>
           <div className="cards six">
-            <StatCard
+            <StatCard id="send_set" icon="mail"
               label="Ready to run" value={`${runnable.length}`}
               sub={pending.length ? `${pending.length} awaiting compliance` : 'all approved'}
               figure={rack}
               list={{ rows: runnable.map(c => ({ label: c.name, detail: c.segment, amount: c.sends })), total: runnable.length }}
               listAmountKind="days"
             />
-            <StatCard
+            <StatCard id="send_set" icon="arrow"
               label="Sent · Aug" value={`${sentAug}`} sub={`${totalSent} across all campaigns`}
               figure={del}
               list={{ rows: del.value.map(d => ({ label: d.channel, detail: `${d.failed} failed · ${d.pending} pending`, amount: d.delivered })), total: del.value.length }}
               listAmountKind="days"
             />
-            <StatCard
+            <StatCard id="attributed_rupees" icon="users"
               label="Responses" value={`${resp.value.length}`}
               sub={`${resp.value.filter(r => r.response_type === 'replied_interested').length} said they are interested`}
               figure={resp}
               list={{ rows: resp.value.slice(0, 10).map(r => ({ label: r.name, detail: r.response_type.replace('_', ' '), amount: r.linked_amount ?? 0 })), total: resp.value.length }}
             />
-            <StatCard
+            <StatCard id="attributed_rupees" icon="clock"
               label="Still to call" value={`${openResponders.length}`} tone={openResponders.length ? 'warn' : 'plain'}
               sub="responders with an open action"
               figure={resp}
               list={{ rows: openResponders.map(r => ({ label: r.name, detail: r.campaign, amount: 0 })), total: openResponders.length }}
             />
-            <StatCard
+            <StatCard id="attributed_rupees" icon="money"
               label="Attributed" value={inr(attributed)} tone="pos"
               sub={`${money.value.reduce((s, m) => s + m.invested, 0)} clients invested after replying`}
               figure={money}
               list={{ rows: money.value.map(m => ({ label: m.campaign, detail: `${m.invested} invested`, amount: m.attributed })), total: money.value.length }}
             />
-            <StatCard
+            <StatCard id="send_set" icon="shield"
               label={`Reachable · ${channel}`} value={`${set.value.reachable} of ${set.value.inSegment}`}
               tone={set.value.reachable < set.value.inSegment / 2 ? 'warn' : 'plain'}
               sub={`${set.value.noConsent} never asked · ${set.value.withdrawn} withdrew`}
@@ -95,7 +99,7 @@ export default async function MarketingPage({ searchParams }: PageProps<'/market
             />
           </div>
 
-          <h2 className="sec">The shelf <Provenance figure={rack} /></h2>
+          <h2 className="sec">The shelf <Explain figure={rack} /></h2>
           <div className="d" style={{ marginBottom: 10 }}>
             Head office writes these and compliance approves them. You choose who to send to —
             authoring your own creative is phase 2, deliberately.
@@ -141,7 +145,7 @@ export default async function MarketingPage({ searchParams }: PageProps<'/market
             </div>
           )}
 
-          <h2 className="sec">Who actually gets it <Provenance figure={set} /></h2>
+          <h2 className="sec">Who actually gets it <Explain figure={set} /></h2>
           <div className="chips">
             {set.value.byChannel.map(c => (
               <Link key={c.channel} href={`/marketing?ch=${c.channel}`}
@@ -164,7 +168,7 @@ export default async function MarketingPage({ searchParams }: PageProps<'/market
 
           <h2 className="sec">
             Your clients you may not contact on {channel} · {cant.value.length}
-            <Provenance figure={cant} />
+            <Explain figure={cant} />
           </h2>
           <div className="tblwrap">
             <table>
@@ -175,9 +179,9 @@ export default async function MarketingPage({ searchParams }: PageProps<'/market
                 </tr>
               </thead>
               <tbody>
-                {cant.value.map(u => (
+                <Collapse shown={5} noun="clients" as="rows" span={5} items={cant.value.map(u => (
                   <tr key={u.client_id} className="greyed">
-                    <td><Link href={`/clients/${u.client_id}`}>{u.name}</Link></td>
+                    <td><ClientLink id={u.client_id} name={u.name} /></td>
                     <td className="r num">{inrCompact(u.value)}</td>
                     <td>{u.reason}</td>
                     <td style={{ textAlign: 'center' }}>{u.since ? dmy2(u.since) : '—'}</td>
@@ -191,7 +195,7 @@ export default async function MarketingPage({ searchParams }: PageProps<'/market
                       ) : <span className="d">withdrawn — do not re-ask</span>}
                     </td>
                   </tr>
-                ))}
+                ))} />
                 {cant.value.length === 0 && <tr><td colSpan={5} className="empty">Everyone in the segment has consented on this channel.</td></tr>}
               </tbody>
             </table>
@@ -202,7 +206,7 @@ export default async function MarketingPage({ searchParams }: PageProps<'/market
             whole point of recording a withdrawal.
           </div>
 
-          <h2 className="sec">What came back <Provenance figure={resp} /></h2>
+          <h2 className="sec">What came back <Explain figure={resp} /></h2>
           <div className="tblwrap">
             <table>
               <thead>
@@ -212,9 +216,9 @@ export default async function MarketingPage({ searchParams }: PageProps<'/market
                 </tr>
               </thead>
               <tbody>
-                {resp.value.map(r => (
+                <Collapse shown={6} noun="responses" as="rows" span={7} items={resp.value.map(r => (
                   <tr key={r.response_id}>
-                    <td><Link href={`/clients/${r.client_id}`}>{r.name}</Link></td>
+                    <td><ClientLink id={r.client_id} name={r.name} /></td>
                     <td>{r.campaign}</td>
                     <td style={{ textAlign: 'center' }}>{r.channel}</td>
                     <td style={{ textAlign: 'center' }}>
@@ -230,13 +234,13 @@ export default async function MarketingPage({ searchParams }: PageProps<'/market
                     </td>
                     <td className="r num">{r.linked_amount ? inr(r.linked_amount) : '—'}</td>
                   </tr>
-                ))}
+                ))} />
                 {resp.value.length === 0 && <tr><td colSpan={7} className="empty">No responses yet.</td></tr>}
               </tbody>
             </table>
           </div>
 
-          <h2 className="sec">What each campaign was worth <Provenance figure={money} /></h2>
+          <h2 className="sec">What each campaign was worth <Explain figure={money} /></h2>
           <div className="tblwrap">
             <table>
               <thead>
@@ -285,7 +289,7 @@ export default async function MarketingPage({ searchParams }: PageProps<'/market
 
         <aside className="side">
           <div className="panel">
-            <h3>Consent register <Provenance figure={consents} /></h3>
+            <h3>Consent register <Explain figure={consents} /></h3>
             <div className="d">
               <b>{consents.value.length}</b> consent records across your book —{' '}
               <b>{consents.value.length - withdrawnCount}</b> in force, <b>{withdrawnCount}</b>{' '}

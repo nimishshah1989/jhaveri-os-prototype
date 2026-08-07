@@ -1,5 +1,9 @@
 import Link from 'next/link';
-import { Provenance } from '../../components/Provenance';
+import { PageHead } from '../../components/PageHead';
+import { ClientLink } from '../../components/ClientLink';
+import { Collapse } from '../../components/Collapse';
+import { Icon } from '../../components/Icon';
+import { Explain } from '../../components/Explain';
 import { StatCard } from '../../components/StatCard';
 import { inr, inrExact, inrCompact, dmy, dmy2 } from '../../lib/format';
 import { TODAY } from '../../mockdb/engines';
@@ -57,50 +61,50 @@ export default async function EarningsPage({ searchParams }: PageProps<'/earning
 
   return (
     <>
-      <div className="pagehead">
-        <h1>My earnings</h1>
-        <span className="fresh">{me.name} · {dmy(TODAY)}</span>
-      </div>
+      <PageHead title="Earnings" icon="money"
+        question="What am I being paid, and can I prove every rupee of it?"
+        meta={`${me.name} · ${dmy(TODAY)}`}
+      />
       <div className="denom">
         Every rupee below is traced to the folio and month that produced it — {l.lines} separate
         commission lines this month, not one number split up afterwards. Click any client to see
-        the lines the RTA actually sent. <Provenance figure={lad} />
+        the lines the RTA actually sent. <Explain figure={lad} />
       </div>
 
       <div className="cols">
         <div>
           <div className="cards six">
-            <StatCard
+            <StatCard id="payout_net" icon="money"
               label={`Net · ${MONTH_LABEL(month)}`} value={inr(l.net)} tone="pos"
               sub={isOpenMonth ? 'month still open — not yet invoiced' : 'invoiced'}
               figure={lad}
               list={{ rows: clients.value.slice(0, 10).map(c => ({ label: c.name, detail: `${c.lines} lines`, amount: c.payout })), total: clients.value.length }}
             />
-            <StatCard
+            <StatCard id="payout_net" icon="calendar"
               label="FY 26-27 to date" value={inr(fy.value?.cumulative_payout ?? 0)}
               sub={fy.value?.threshold_crossed ? 'threshold crossed' : `threshold at ${inrCompact(EARNINGS_RULES.fy_threshold)}`}
               figure={fy}
               list={{ rows: hist.value.filter(p => p.month >= '2026-04-01').map(p => ({ label: MONTH_LABEL(p.month), detail: 'net paid out', amount: p.net })), total: hist.value.filter(p => p.month >= '2026-04-01').length }}
             />
-            <StatCard
+            <StatCard id="payout_net" icon="clock"
               label="Awaiting payment" value={`${unpaid.length}`} tone={unpaid.length > 1 ? 'warn' : 'plain'}
               sub={unpaid.length ? `${inrCompact(unpaid.reduce((s, i) => s + i.total_amount, 0))} invoiced, unpaid` : 'all invoices settled'}
               figure={invs}
               list={{ rows: unpaid.map(i => ({ label: i.invoice_no, detail: MONTH_LABEL(i.period_start_date), amount: i.total_amount })), total: unpaid.length }}
             />
-            <StatCard
+            <StatCard id="clawback" icon="down"
               label="Clawbacks" value={inr(Math.abs(claw.value.reduce((s, c) => s + c.amount, 0)))}
               tone={claw.value.length ? 'warn' : 'plain'} sub={`${claw.value.length} early exits, last 14 months`}
               figure={claw}
               list={{ rows: claw.value.map(c => ({ label: c.client, detail: `held ${c.held_days}d · ${MONTH_LABEL(c.month)}`, amount: c.amount })), total: claw.value.length }}
             />
-            <StatCard
+            <StatCard id="tier_rate" icon="target"
               label="Yield on your book" value={`${yieldBps.toFixed(0)} bps`}
               sub={`${inrCompact(l.aum)} earning at your ${l.tierPct}% rate`}
               figure={lad}
               list={{ rows: schemes.value.slice(0, 10).map(s => ({ label: s.scheme, detail: s.amc, amount: s.payout })), total: schemes.value.length }}
             />
-            <StatCard
+            <StatCard id="amc_variance" icon="alert"
               label="Short-paid by AMCs" value={inr(Math.abs(shortfall))} tone={shortfall < 0 ? 'warn' : 'plain'}
               sub={varr.value.length ? `${varr.value.length} rate mismatch vs agreement` : 'every rate matches the card'}
               figure={varr}
@@ -124,7 +128,7 @@ export default async function EarningsPage({ searchParams }: PageProps<'/earning
             </div>
 
             <div className="viz">
-              <h4>Your rate <Provenance figure={tier} /></h4>
+              <h4>Your rate <Explain figure={tier} /></h4>
               <div className="tiernow">
                 <b>{tier.value.current.name}</b> · you keep <b>{tier.value.current.pct}%</b> of the trail
                 your book earns.
@@ -143,7 +147,7 @@ export default async function EarningsPage({ searchParams }: PageProps<'/earning
             </div>
           </div>
 
-          <h2 className="sec">Fourteen months <Provenance figure={hist} /></h2>
+          <h2 className="sec">Fourteen months <Explain figure={hist} /></h2>
           <div className="viz">
             <div className="hist wide">
               {hist.value.map(p => (
@@ -158,7 +162,7 @@ export default async function EarningsPage({ searchParams }: PageProps<'/earning
           </div>
 
           <h2 className="sec">
-            Where {MONTH_LABEL(month)} came from <Provenance figure={clients} />
+            Where {MONTH_LABEL(month)} came from <Explain figure={clients} />
           </h2>
           <div className="tblwrap">
             <table>
@@ -170,11 +174,11 @@ export default async function EarningsPage({ searchParams }: PageProps<'/earning
                 </tr>
               </thead>
               <tbody>
-                {clients.value.map(c => {
+                <Collapse shown={6} noun="clients" as="rows" span={6} items={clients.value.map(c => {
                   const open = openClient === c.client_id;
                   return (
                     <tr key={c.client_id} className={open ? 'openrow' : undefined}>
-                      <td><Link href={`/clients/${c.client_id}`}>{c.name}</Link></td>
+                      <td><ClientLink id={c.client_id} name={c.name} /></td>
                       <td className="r num">{inrCompact(c.aum)}</td>
                       <td className="r num">{c.lines}</td>
                       <td className="r num valbar" style={{ '--w': (c.payout / (clients.value[0]?.payout || 1)) * 100 } as React.CSSProperties}>
@@ -188,7 +192,7 @@ export default async function EarningsPage({ searchParams }: PageProps<'/earning
                       </td>
                     </tr>
                   );
-                })}
+                })} />
                 {openClient != null && clientLines(DEMO_SB, month, openClient).map(fl => (
                   <tr key={fl.bkr_id} className="lotrow">
                     <td colSpan={2}>
@@ -220,7 +224,7 @@ export default async function EarningsPage({ searchParams }: PageProps<'/earning
             </table>
           </div>
 
-          <h2 className="sec">Clawbacks, and what caused each one <Provenance figure={claw} /></h2>
+          <h2 className="sec">Clawbacks, and what caused each one <Explain figure={claw} /></h2>
           {claw.value.length === 0 && <div className="empty">No clawbacks in the last 14 months.</div>}
           {claw.value.map(c => (
             <div key={c.bkr_id} className="rec">
@@ -230,7 +234,7 @@ export default async function EarningsPage({ searchParams }: PageProps<'/earning
                 <span className="delta" style={{ color: 'var(--neg)' }}>held {c.held_days} days</span>
               </div>
               <p className="plain">
-                <Link href={`/clients/${c.client_id}`}>{c.client}</Link> redeemed{' '}
+                <ClientLink id={c.client_id} name={c.client} /> redeemed{' '}
                 {inrCompact(c.redeemed_amount)} from {c.scheme} on {dmy2(c.redeemed_on)} —{' '}
                 {c.held_days} days after the folio opened, inside the{' '}
                 {EARNINGS_RULES.clawback_window_days}-day window. The trail already paid on that
@@ -243,7 +247,7 @@ export default async function EarningsPage({ searchParams }: PageProps<'/earning
             </div>
           ))}
 
-          <h2 className="sec">What the AMC paid vs what was agreed <Provenance figure={varr} /></h2>
+          <h2 className="sec">What the AMC paid vs what was agreed <Explain figure={varr} /></h2>
           {varr.value.length === 0 ? (
             <div className="empty">Every rate paid matches the agreed rate card.</div>
           ) : (
@@ -314,7 +318,7 @@ export default async function EarningsPage({ searchParams }: PageProps<'/earning
             </div>
           )}
 
-          <h2 className="sec">Invoices <Provenance figure={invs} /></h2>
+          <h2 className="sec">Invoices <Explain figure={invs} /></h2>
           <div className="tblwrap">
             <table>
               <thead>
@@ -325,7 +329,7 @@ export default async function EarningsPage({ searchParams }: PageProps<'/earning
                 </tr>
               </thead>
               <tbody>
-                {invs.value.map(i => (
+                <Collapse shown={6} noun="invoices" as="rows" span={9} items={invs.value.map(i => (
                   <tr key={i.invoice_id}>
                     <td><Link href={link(i.period_start_date)}>{i.invoice_no}</Link></td>
                     <td style={{ textAlign: 'center' }}>{MONTH_LABEL(i.period_start_date)}</td>
@@ -343,7 +347,7 @@ export default async function EarningsPage({ searchParams }: PageProps<'/earning
                           : <span className="fchip conc">awaiting payment</span>}
                     </td>
                   </tr>
-                ))}
+                ))} />
               </tbody>
             </table>
           </div>
@@ -351,7 +355,7 @@ export default async function EarningsPage({ searchParams }: PageProps<'/earning
 
         <aside className="side">
           <div className="panel">
-            <h3>Financial year <Provenance figure={fy} /></h3>
+            <h3>Financial year <Explain figure={fy} /></h3>
             <div className="big num">{inr(fy.value?.cumulative_payout ?? 0)}</div>
             <div className="d">
               FY {fy.value?.financial_year ?? '26-27'} commission, before GST and TDS.

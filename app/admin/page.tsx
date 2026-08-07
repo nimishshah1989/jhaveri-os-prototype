@@ -1,3 +1,7 @@
+import { PageHead } from '../../components/PageHead';
+import { ClientLink } from '../../components/ClientLink';
+import { Collapse } from '../../components/Collapse';
+import { Icon } from '../../components/Icon';
 import { SCORING_RULES, schemeGrades } from '../../lib/scoring';
 
 export const dynamic = 'force-dynamic';
@@ -17,7 +21,9 @@ export default function AdminRulesPage() {
 
   return (
     <>
-      <div className="pagehead"><h1>Admin — scoring rules</h1></div>
+      <PageHead title="Rules" icon="shield"
+        question="Every threshold the platform applies, and what changing one would do."
+      />
       <p className="denom">
         Version <b>{SCORING_RULES.version}</b> · every score on every page reads these numbers.
         In the real build they live in <code>rules_registry</code> — versioned, approved, changeable without a deploy.
