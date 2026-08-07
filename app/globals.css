@@ -854,3 +854,19 @@ h2.sec .ic { color: var(--accent); opacity: .75; }
   margin-top: var(--sp-3); padding-top: var(--sp-2); border-top: 1px solid var(--line);
   font-size: var(--t-xs); color: var(--muted); line-height: 1.45;
 }
+
+/* reports catalogue */
+.rgrain { display:block; font-size:var(--t-xs); color:var(--muted); margin-top:2px; font-weight:400; }
+.rgrain.note { color:var(--accent); }
+.rget { text-align:right; white-space:nowrap; }
+.rget form { display:inline-block; }
+.rget button {
+  display:inline-flex; align-items:center; gap:4px; border:1px solid var(--line);
+  background:var(--ground); color:var(--accent); border-radius:5px; padding:3px 9px;
+  font-size:var(--t-xs); font-weight:650; cursor:pointer; margin-left:4px;
+}
+.rget button:hover { background:var(--accent-soft); border-color:var(--accent); }
+.fmtrow { display:flex; gap:var(--sp-2); padding:6px 0; border-bottom:1px solid var(--panel); font-size:var(--t-xs); }
+.fmtrow:last-child { border-bottom:0; }
+.fmtrow b { flex:none; width:74px; text-transform:capitalize; color:var(--ink); }
+.fmtrow span { color:var(--muted); line-height:1.45; }

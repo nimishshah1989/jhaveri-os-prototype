@@ -728,12 +728,18 @@ CREATE TABLE sb_fy_brokerage_tracker (
 CREATE TABLE download_history_logs (
   id           INTEGER PRIMARY KEY,
   user_id      INTEGER,
-  pdf_type     TEXT,
-  status       TEXT DEFAULT 'PENDING',
+  pdf_type     TEXT,                          -- report id from lib/reports.ts
+  format       TEXT DEFAULT 'pdf',            -- pdf (for a client) | xlsx (to work on)
+  params       TEXT,                          -- pg: jsonb — the filters the run used
+  row_count    INTEGER,
+  status       TEXT DEFAULT 'PENDING',        -- PENDING | RUNNING | COMPLETED | FAILED
   file_url     TEXT,
   report_for   TEXT,
   is_broker    INTEGER DEFAULT 0,
-  requested_at TEXT, completed_at TEXT
+  requested_at TEXT, completed_at TEXT,
+  -- Production expires downloads after 7 days; the column makes that a fact
+  -- rather than a convention buried in a cron job.
+  expires_at   TEXT
 );
 
 ------------------------------------------------------------------------------

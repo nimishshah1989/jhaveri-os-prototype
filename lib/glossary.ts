@@ -260,6 +260,16 @@ export const GLOSSARY: Record<string, Term> = {
     pages: ['Reviews'],
   },
 
+  report_format: {
+    label: 'How reports are formatted',
+    means: 'One component formats every report, so a valuation and a tax pack look like they came from the same firm.',
+    read: 'Money in lakh and crore with the rupee sign, dates as DD-MMM-YYYY, numbers right-aligned so columns line up, and the date the data is true as at on every page.',
+    act: 'If a client questions a figure, the report names the feed and the as-at date it came from — quote those before re-running anything.',
+    tag: 'rule',
+    sources: ['lib/reports.ts REPORT_FORMAT'],
+    pages: ['Reports'],
+  },
+
   // ── Cross-cutting ──────────────────────────────────────────────────────────
   health_score: {
     label: 'Client health',

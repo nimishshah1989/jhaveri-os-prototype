@@ -13,6 +13,7 @@ const PAGES: [string, string][] = [
   ['/business', 'Growth'],
   ['/marketing', 'Campaigns'],
   ['/review-packs', 'Reviews'],
+  ['/reports', 'Reports'],
   ['/backend', 'Backend'],
   ['/admin', 'Rules'],
 ];

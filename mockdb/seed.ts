@@ -1314,6 +1314,25 @@ for (const c of packCandidates) {
   }
 }
 
+// Report history, so the download queue is not an empty promise. Some have aged
+// past the seven-day expiry — a file that still worked forever would be the bug.
+const REPORT_RUNS: [string, string, number, number][] = [
+  ['portfolio_valuation', 'pdf', 2, 96], ['capital_gain', 'xlsx', 5, 41],
+  ['taxation', 'pdf', 9, 53], ['active_sip', 'xlsx', 12, 24],
+  ['commission_statement', 'xlsx', 3, 1199], ['transaction', 'xlsx', 19, 2140],
+  ['rejection', 'pdf', 26, 3], ['redemption', 'xlsx', 33, 88],
+];
+for (const [rid, fmt, ago, rows] of REPORT_RUNS) {
+  dlId++;
+  const at = addDays(TODAY, -ago);
+  ins('download_history_logs', {
+    id: dlId, user_id: 4, pdf_type: rid, format: fmt,
+    params: JSON.stringify({ scope: 'my book', as_at: at }), row_count: rows,
+    status: 'COMPLETED', file_url: `reports/${rid}-${at}.${fmt}`, report_for: 'my book',
+    is_broker: 1, requested_at: at, completed_at: at, expires_at: addDays(at, 7),
+  });
+}
+
 // A pack should be able to reference the last conversation, so conversations exist.
 let interactionId = 0;
 const KINDS: [string, string][] = [
