@@ -168,7 +168,9 @@ for (let b = 1; b <= 8; b++) {
   benchSeries.set(b, bs);
   bs.dates.forEach((d, j) => benchStmt.run(b, d, bs.navs[j]));
 }
-for (let a = 1; a <= 12; a++) {
+// Every AMC we distribute needs an agreed rate, including the real ones carried in
+// from Atlas — a missing card means commission with nothing to check it against.
+for (let a = 1; a <= AMCS.length; a++) {
   ins('amc_rate_card', { card_id: a * 2 - 1, amc_id: a, scheme_category: 'Equity', agreed_trail_bps: intBetween(r, 85, 110), effective_from: '2025-04-01', source_doc_ref: `empanelment/AMC-${a}-FY26.pdf`, entered_by: 'ops', approved_by: 'management' });
   ins('amc_rate_card', { card_id: a * 2, amc_id: a, scheme_category: 'Non-Equity', agreed_trail_bps: intBetween(r, 35, 60), effective_from: '2025-04-01', source_doc_ref: `empanelment/AMC-${a}-FY26.pdf`, entered_by: 'ops', approved_by: 'management' });
 }
@@ -233,7 +235,7 @@ for (let i = 1; i <= 1200; i++) {
 }
 
 let trId = 0, folioId = 0, sipId = 0, sxpId = 0, mandateId = 0;
-interface FolioSeed { folioNo: string; scheme: SchemeSeed; client: ClientSeed; txns: Txn[]; sbId: number }
+interface FolioSeed { id: number; folioNo: string; scheme: SchemeSeed; client: ClientSeed; txns: Txn[]; sbId: number }
 const folios: FolioSeed[] = [];
 interface TxnIn {
   date: string; typeId: number; buySell: 1 | -1 | 0; amount: number; price: number;
@@ -261,7 +263,11 @@ function addTxn(f: FolioSeed, t: TxnIn) {
 
 for (const c of clients) {
   const isDesai = c.id === STORY.desaiHead || c.id === STORY.desaiSpouse;
-  const n = c.id === STORY.desaiHead ? 3 : c.id === STORY.kapoorHuf ? 2 : intBetween(r, 1, 3);
+  // The Desai household's four lump sums are fixed: three on the head, one on the
+  // spouse. Letting the spouse draw a random folio count ran off the end of that
+  // array and wrote two folios with NULL amounts — invisible until commission
+  // started reading folios.
+  const n = c.id === STORY.desaiHead ? 3 : c.id === STORY.desaiSpouse ? 1 : c.id === STORY.kapoorHuf ? 2 : intBetween(r, 1, 3);
   const chosen = new Set<number>();
   for (let k = 0; k < n; k++) {
     let s = pick(r, schemes);
@@ -271,7 +277,7 @@ for (const c of clients) {
     if (chosen.has(s.id)) continue;
     chosen.add(s.id);
     folioId++;
-    const f: FolioSeed = { folioNo: String(5000000 + folioId), scheme: s, client: c, txns: [], sbId: c.broker.id };
+    const f: FolioSeed = { id: folioId, folioNo: String(5000000 + folioId), scheme: s, client: c, txns: [], sbId: c.broker.id };
     folios.push(f);
     const start = isDesai ? addDays(TODAY, -820)
       : c.id === STORY.kapoorHuf && k === 0 ? addDays(TODAY, -700)
@@ -377,62 +383,153 @@ for (const a of folioAgg) {
   }
 }
 
-// brokerage: monthly trail per broker × asset-class, computed from tier % + rate card
+// ── Brokerage: one trail line per folio per month, off the real book ──────────
+// Trail is what the AMC pays on money that actually sat in a folio, so every row
+// here is generated from that folio's own units × NAV at month end × the agreed
+// rate for that AMC and asset class. That is what lets a broker click a rupee and
+// land on the client and scheme that produced it — the whole point of this page.
+// Post-2018 SEBI rules make regular-plan MF distribution trail-only: the Upfront
+// and Incentive buckets exist in the backend and stay empty here rather than
+// being invented.
 ['Trail', 'Upfront', 'Incentive', 'Clawback'].forEach((t, i) => ins('brokerage_type_master', { brk_type_id: i + 1, brk_type_name: t }));
 let bkrId = 0, invId = 0, invDataId = 0;
-const pendingInvoiceData: Record<string, unknown>[] = [];
-const bookByBroker = new Map<number, number>();
-for (const a of folioAgg) bookByBroker.set(a.f.sbId, round2((bookByBroker.get(a.f.sbId) ?? 0) + a.value));
+
+// Calendar months, walked properly. (The old version stepped back 31 days at a
+// time from a month start, which silently skipped June 2026.)
 const months: string[] = [];
-for (let m = 13; m >= 0; m--) months.push(monthStart(addDays(monthStart(TODAY), -m * 31)));
-const eqCard = db.prepare("SELECT AVG(agreed_trail_bps) t FROM amc_rate_card WHERE scheme_category='Equity'").get() as { t: number };
-const neCard = db.prepare("SELECT AVG(agreed_trail_bps) t FROM amc_rate_card WHERE scheme_category='Non-Equity'").get() as { t: number };
-const varianceRows: number[] = [];
-for (const b of brokers) {
-  const book = bookByBroker.get(b.id) ?? 0;
-  if (book === 0) continue;
-  let fyCum = 0;
-  for (let mi = 0; mi < months.length; mi++) {
-    const m = months[mi];
-    if (!b.active && m >= '2025-12-01') {
-      // terminated broker: payouts continue to nominee (story)
-    }
-    const aumMonth = round2(book * (1 - 0.011 * (months.length - 1 - mi)));
-    const monthEnd = addDays(monthStart(addDays(m, 40)), -1);
-    const rows: [string, number, number][] = [['Equity', round2(aumMonth * 0.7), eqCard.t], ['Non-Equity', round2(aumMonth * 0.3), neCard.t]];
-    let invTotal = 0, invGst = 0, invTds = 0;
-    invId++;
-    const fy = m >= '2026-04-01' ? '26-27' : '25-26';
-    const invoiceNo = `MF/${fy}/${String(invId).padStart(4, '0')}`;
-    for (const [cls, base, agreed] of rows) {
-      bkrId++;
-      const shortpaid = b.id === 9 && mi >= 11 && cls === 'Equity';
-      if (shortpaid) varianceRows.push(bkrId);
-      const paidBps = shortpaid ? agreed - 12 : agreed + between(r, -1.5, 1.5);
-      const received = round2((base * (paidBps / 10000)) / 12);
-      const payout = round2(received * (b.tierPct / 100));
-      const gst = b.gst ? round2(payout * 0.18) : 0;
-      const tds = round2(payout * 0.05);
-      const recoOff = b.id === 12 && mi === 12 && cls === 'Non-Equity';
-      ins('brokerage_master', { bkr_id: bkrId, fk_sb_id: b.id, fk_bkr_type_id: 1, bkr_from_date: m, bkr_to_date: monthEnd, tr_amount: base, bkr_percentage: round4(paidBps / 100), bkr_amount: received, bkr_payout_rate_precentage: b.tierPct, bkr_payout_amount: payout, payout_gst_amount: gst, payout_tds: tds, has_gst: b.gst ? 1 : 0, fk_invoice_id: invId, calc_units: null, calc_tr_amount: base, calc_rate: round4(agreed / 100), calc_brok_amount: round2((base * (agreed / 10000)) / 12), reco_status: recoOff ? 2 : 1, reco_difference: recoOff ? round2(received - (base * (agreed / 10000)) / 12) : 0, reco_remarks: recoOff ? 'rate mismatch vs computed' : null });
-      invTotal += payout; invGst += gst; invTds += tds;
-      invDataId++;
-      pendingInvoiceData.push({ invoice_data_id: invDataId, fk_invoice_id: invId, brk_type_id: 1, payout_amount: payout, gst_amount: gst, net_amount: round2(payout + gst - tds) });
-    }
-    ins('invoice_master', { invoice_id: invId, invoice_no: invoiceNo, fk_sb_id: b.id, invoice_date: monthEnd, period_start_date: m, period_end_date: monthEnd, sub_total: round2(invTotal), cgst: round2(invGst / 2), sgst: round2(invGst / 2), tds: round2(invTds), total_amount: round2(invTotal + invGst - invTds), payment_date: mi < months.length - 1 ? addDays(monthEnd, 5) : null });
-    pendingInvoiceData.forEach(rowData => ins('invoice_data', rowData));
-    pendingInvoiceData.length = 0;
-    if (fy === '26-27') fyCum += invTotal;
-  }
-  ins('sb_fy_brokerage_tracker', { id: b.id, fk_sb_id: b.id, financial_year: '26-27', cumulative_payout: round2(fyCum), threshold_crossed: fyCum > 2000000 ? 1 : 0, crossing_month: fyCum > 2000000 ? '2026-07-01' : null });
+for (let back = 13; back >= 0; back--) {
+  const d = new Date(Date.UTC(Number(TODAY.slice(0, 4)), Number(TODAY.slice(5, 7)) - 1 - back, 1));
+  months.push(d.toISOString().slice(0, 10));
 }
-// clawbacks: 8 rows tied to ceased SIPs
-const ceased = db.prepare("SELECT sip_id, fk_sb_id, tr_amount FROM sip_master LIMIT 8").all() as { sip_id: number; fk_sb_id: number; tr_amount: number }[];
-ceased.forEach((s, i) => {
+const monthEndOf = (m: string) => addDays(monthStart(addDays(m, 40)), -1);
+
+const cardBps = new Map<string, number>();
+for (const c of db.prepare('SELECT amc_id, scheme_category, agreed_trail_bps FROM amc_rate_card').all() as
+  { amc_id: number; scheme_category: string; agreed_trail_bps: number }[]) {
+  cardBps.set(`${c.amc_id}:${c.scheme_category}`, c.agreed_trail_bps);
+}
+// One AMC has been under-paying equity trail since May — the case the
+// commercial-terms validator (amc_rate_card) exists to catch. Pick the AMC with
+// the most equity money in the demo broker's book, so the story is visible to him
+// and not buried in someone else's clients.
+const eqAumByAmc = new Map<number, number>();
+for (const a of folioAgg) {
+  if (!a.f.scheme.equity || a.f.sbId !== 4) continue;
+  eqAumByAmc.set(a.f.scheme.amc, (eqAumByAmc.get(a.f.scheme.amc) ?? 0) + a.value);
+}
+const SHORT_PAY = {
+  amc: [...eqAumByAmc.entries()].sort((x, y) => y[1] - x[1])[0][0],
+  cls: 'Equity', from: '2026-05-01', bps: 12,
+};
+
+interface BkrRow { bkr_id: number; sb: number; month: string; payout: number; gst: number; tds: number }
+const bkrRows: BkrRow[] = [];
+const varianceRows: number[] = [];
+
+for (const a of folioAgg) {
+  const f = a.f;
+  const b = brokers.find(x => x.id === f.sbId)!;
+  const cls = f.scheme.equity ? 'Equity' : 'Non-Equity';
+  const agreed = cardBps.get(`${f.scheme.amc}:${cls}`);
+  // Money must never be computed from a missing rate. Fail the seed loudly rather
+  // than writing a NULL that SUM() would quietly skip.
+  if (agreed == null) throw new Error(`no rate card for AMC ${f.scheme.amc} (${cls}) — folio ${f.folioNo}`);
+  const txns = [...f.txns].sort((x, y) => x.date.localeCompare(y.date));
+  let ti = 0, units = 0;
+  for (const m of months) {
+    const monthEnd = monthEndOf(m);
+    while (ti < txns.length && txns[ti].date <= monthEnd) { units = round4(units + txns[ti].units * txns[ti].buySell); ti++; }
+    if (units <= 1e-6) continue;
+    const base = round2(units * navAt(f.scheme.series, monthEnd));
+    // A folio we cannot value is a bug in the book, not a row to skip quietly.
+    if (!Number.isFinite(base)) throw new Error(`folio ${f.folioNo} has no valuation at ${monthEnd} — units ${units}`);
+    if (base < 1) continue;
+
+    const short = f.scheme.amc === SHORT_PAY.amc && cls === SHORT_PAY.cls && m >= SHORT_PAY.from;
+    const paidBps = short ? agreed - SHORT_PAY.bps : agreed;
+    const received = round2((base * (paidBps / 10000)) / 12);
+    if (received <= 0) continue;
+    const expected = round2((base * (agreed / 10000)) / 12);
+    const payout = round2(received * (b.tierPct / 100));
+    const gst = b.gst ? round2(payout * 0.18) : 0;
+    const tds = round2(payout * 0.05);
+    bkrId++;
+    if (short) varianceRows.push(bkrId);
+    ins('brokerage_master', {
+      bkr_id: bkrId, bkr_folio_no: f.folioNo, fk_scheme_id: f.scheme.id, fk_folio_id: f.id, fk_sb_id: b.id,
+      fk_bkr_type_id: 1, bkr_from_date: m, bkr_to_date: monthEnd, bkr_units: units, tr_amount: base,
+      bkr_percentage: round4(paidBps / 100), bkr_amount: received,
+      bkr_payout_rate_precentage: b.tierPct, bkr_payout_amount: payout,
+      payout_gst_amount: gst, payout_tds: tds, has_gst: b.gst ? 1 : 0,
+      calc_units: units, calc_tr_amount: base, calc_rate: round4(agreed / 100), calc_brok_amount: expected,
+      reco_status: short ? 2 : 1, reco_difference: short ? round2(received - expected) : 0,
+      reco_remarks: short ? `paid ${round2(paidBps)}bps vs ${agreed}bps agreed in the rate card` : null,
+    });
+    bkrRows.push({ bkr_id: bkrId, sb: b.id, month: m, payout, gst, tds });
+  }
+}
+
+// Clawback: trail already paid comes back when a client exits inside a year.
+// Each row names the redemption that caused it, so no clawback is unexplained.
+const early = db.prepare(`SELECT t.tr_id, t.fk_sb_id, t.tr_amount, t.tr_folio_no, f.folio_id, t.fk_scheme_id, t.tr_date
+  FROM transaction_master t
+  JOIN transaction_type_master tt ON tt.tr_type_id = t.fk_tran_type_id
+  JOIN folio_master f ON f.fm_folio_no = t.tr_folio_no
+  WHERE tt.tr_type_buy_sell_flag = -1 AND t.tr_date >= date('${TODAY}', '-6 months')
+    AND julianday(t.tr_date) - julianday(f.folio_start_date) < 365
+  ORDER BY t.fk_sb_id = 4 DESC, t.tr_amount DESC LIMIT 14`)
+  .all() as { tr_id: number; fk_sb_id: number; tr_amount: number; tr_folio_no: string; folio_id: number; fk_scheme_id: number; tr_date: string }[];
+for (const e of early) {
+  const b = brokers.find(x => x.id === e.fk_sb_id)!;
+  const amt = -round2(e.tr_amount * 0.009);
+  const m = monthStart(e.tr_date);
+  const payout = round2(amt * (b.tierPct / 100));
   bkrId++;
-  const amt = -round2(s.tr_amount * 0.012);
-  ins('brokerage_master', { bkr_id: bkrId, fk_sb_id: s.fk_sb_id, fk_bkr_type_id: 4, bkr_from_date: monthStart(TODAY), bkr_to_date: TODAY, tr_amount: 0, bkr_amount: amt, bkr_payout_rate_precentage: 0, bkr_payout_amount: round2(amt * 0.7), payout_gst_amount: 0, payout_tds: 0, has_gst: 0, reco_status: 1, reco_difference: 0, clawback_source_txn: s.sip_id });
-});
+  ins('brokerage_master', {
+    bkr_id: bkrId, bkr_folio_no: e.tr_folio_no, fk_scheme_id: e.fk_scheme_id, fk_folio_id: e.folio_id,
+    fk_sb_id: b.id, fk_bkr_type_id: 4, bkr_from_date: m, bkr_to_date: monthEndOf(m), tr_amount: e.tr_amount,
+    bkr_amount: amt, bkr_payout_rate_precentage: b.tierPct, bkr_payout_amount: payout,
+    payout_gst_amount: 0, payout_tds: 0, has_gst: 0, reco_status: 1, reco_difference: 0,
+    clawback_source_txn: e.tr_id,
+  });
+  bkrRows.push({ bkr_id: bkrId, sb: b.id, month: m, payout, gst: 0, tds: 0 });
+}
+
+// One invoice per broker per month, summing exactly the rows it covers.
+const byInvoice = new Map<string, BkrRow[]>();
+for (const row of bkrRows) {
+  const key = `${row.sb}|${row.month}`;
+  if (!byInvoice.has(key)) byInvoice.set(key, []);
+  byInvoice.get(key)!.push(row);
+}
+const fyCumBySb = new Map<number, number>();
+for (const b of brokers) {
+  for (const m of months) {
+    const rows = byInvoice.get(`${b.id}|${m}`);
+    if (!rows?.length) continue;
+    const sub = round2(rows.reduce((s, x) => s + x.payout, 0));
+    const gst = round2(rows.reduce((s, x) => s + x.gst, 0));
+    const tds = round2(rows.reduce((s, x) => s + x.tds, 0));
+    const monthEnd = monthEndOf(m);
+    const fy = m >= '2026-04-01' ? '26-27' : '25-26';
+    invId++;
+    ins('invoice_master', {
+      invoice_id: invId, invoice_no: `MF/${fy}/${String(invId).padStart(4, '0')}`, fk_sb_id: b.id,
+      invoice_date: monthEnd, period_start_date: m, period_end_date: monthEnd,
+      sub_total: sub, cgst: round2(gst / 2), sgst: round2(gst / 2), tds,
+      total_amount: round2(sub + gst - tds),
+      // The current month is still open — it has not been invoiced or paid yet.
+      payment_date: m < monthStart(TODAY) ? addDays(monthEnd, 5) : null,
+    });
+    const upd = db.prepare('UPDATE brokerage_master SET fk_invoice_id=? WHERE bkr_id=?');
+    for (const row of rows) upd.run(invId, row.bkr_id);
+    invDataId++;
+    ins('invoice_data', { invoice_data_id: invDataId, fk_invoice_id: invId, brk_type_id: 1, payout_amount: sub, gst_amount: gst, net_amount: round2(sub + gst - tds) });
+    if (fy === '26-27') fyCumBySb.set(b.id, round2((fyCumBySb.get(b.id) ?? 0) + sub));
+  }
+  const fyCum = fyCumBySb.get(b.id) ?? 0;
+  ins('sb_fy_brokerage_tracker', { id: b.id, fk_sb_id: b.id, financial_year: '26-27', cumulative_payout: fyCum, threshold_crossed: fyCum > 2000000 ? 1 : 0, crossing_month: fyCum > 2000000 ? '2026-07-01' : null });
+}
 months.forEach((m, i) => ins('brokerage_payout_queue', { id: i + 1, from_date: m, to_date: addDays(monthStart(addDays(m, 40)), -1), requested_by: 1, status: 2, approved_by: 2, approved_at: addDays(m, 36) }));
 ins('brokerage_payout_queue', { id: 99, from_date: monthStart(TODAY), to_date: TODAY, requested_by: 1, status: 0 });
 

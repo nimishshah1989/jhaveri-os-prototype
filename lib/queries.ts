@@ -122,7 +122,9 @@ export function churnList(code: string): StatList {
     JOIN v_client_value v ON v.client_id=a.client_id
     WHERE a.client_id IN (${BOOK_SET})
     GROUP BY a.client_id ORDER BY amount DESC LIMIT 10`).all(code) as StatList['rows'];
-  return { rows, total: rows.length };
+  // The list is capped at 10; the total must stay the real count so the card can
+  // say "… N more" instead of quietly pretending 10 is all of them.
+  return { rows, total: churnRisk(code).value.n };
 }
 
 export function idleList(code: string): StatList {

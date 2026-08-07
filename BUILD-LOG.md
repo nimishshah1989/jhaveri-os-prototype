@@ -2,6 +2,49 @@
 
 Dated evidence of pace. Every entry: what shipped, how it was verified.
 
+## 07-Aug-2026 (late night) — My earnings (broker page 5): commission off the real book
+- **The commission data had to be rebuilt from nothing usable.** `brokerage_master`
+  held 484 aggregate rows — two per broker per month — with `fk_folio_id`,
+  `fk_scheme_id` and `bkr_folio_no` **NULL on every one**. "Which client earned me this
+  rupee", the trust mechanic this page exists for, was not buildable. Also: broker 4 had
+  Trail only (no clawbacks), June 2026 was missing for every broker, and one −₹113
+  mismatch firm-wide was the entire variance story.
+- Trail is now generated **per folio per month from the actual book**: each folio's own
+  units walked forward through its transactions, valued at month-end NAV, times the
+  agreed rate for that AMC and asset class. 31,871 commission lines. Every one names a
+  folio, a scheme, a client and a month, so the drill-down is real rather than an
+  allocation of a monthly lump sum.
+- **Three data-integrity bugs found and fixed on the way**, all of which would have
+  shipped silently:
+  1. `amc_rate_card` covered only AMCs 1–12, but the equity schemes carried in from
+     Atlas are AMCs 13–21. Those rows computed against `undefined`, wrote NULL money,
+     and `SUM()` skipped them — the totals looked plausible and were 7× too low. The
+     rate card now covers every AMC, and a missing card throws instead of writing NULL.
+  2. The Desai family's fixed lump-sum array was indexed out of bounds for the spouse's
+     second and third folios, producing **two folios with NULL transaction amounts**.
+     Pre-existing; invisible until commission started reading folios. The spouse now
+     gets the one folio the array was designed for.
+  3. `churnList()` capped at 10 rows but reported the total as 10, so the Today card
+     could never say "… N more". Silent truncation; exposed when churn crossed 11.
+- Clawbacks now name their cause: each links to the redemption transaction that
+  triggered it, with the holding period, so no clawback is unexplained.
+- Variance is the `amc_rate_card` validator earning its keep — one AMC has paid 74 bps
+  against 86 bps agreed since May; the page prices that at what it cost the broker
+  (₹1,661.72 over 48 lines), not what it cost the firm.
+- **Founder ruling applied**: show the broker their own chain and their tier position,
+  never the firm's rupee margin. So the ladder starts at their trail, and the tier strip
+  says "Gold 70% → Gold Plus 75% = +₹1,236.86 a month" without stating what Jhaveri
+  keeps. Upfront and Incentive stay empty with the reason on screen (SEBI ended upfront
+  on regular MF plans in 2018) rather than being invented.
+- Verified: `verify-earnings.ts`, 37 independent-SQL checks ALL PASS — money reconciles
+  line → client → month → invoice → financial year; GST and TDS checked per row not on
+  average; payout == receipt × tier rate on every row; no month gaps; every clawback
+  inside its window; the folio on a commission row proven to belong to the broker being
+  paid. All six prior verifiers PASS on a pristine reseed. `next build` clean, zero type
+  errors, zero console errors on five pages. Month switching, per-client line drill-down
+  and the dispute action exercised live (48 rows cited, ops action with a 5-day SLA),
+  then reseeded to pristine.
+
 ## 07-Aug-2026 (night) — Onboarding (broker page 4): the pipeline, measured not stored
 - **Seed had to be rebuilt before the page could be honest.** The old onboarding seed
   gave broker 4 two applications, put no stage timestamps anywhere, left the 8 KYC

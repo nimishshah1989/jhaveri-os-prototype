@@ -4,6 +4,13 @@ export function inr(n: number): string {
   return `₹${inrFmt.format(Math.round(n))}`;
 }
 
+// Commission is argued over in paise, so earnings figures show both decimals.
+const inrFmt2 = new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+export function inrExact(n: number): string {
+  return `${n < 0 ? '−₹' : '₹'}${inrFmt2.format(Math.abs(n))}`;
+}
+
 export function inrCompact(n: number): string {
   const abs = Math.abs(n);
   const sign = n < 0 ? '−' : '';
