@@ -1,8 +1,7 @@
 import { notFound } from 'next/navigation';
 
-const STUBS: Record<string, string> = {
-  'review-packs': 'Review pack',
-};
+// Every broker-lens page is built. The Ops and Management lenses land here next.
+const STUBS: Record<string, string> = {};
 
 export default async function StubPage({ params }: PageProps<'/[stub]'>) {
   const { stub } = await params;
@@ -11,7 +10,7 @@ export default async function StubPage({ params }: PageProps<'/[stub]'>) {
   return (
     <div className="stub">
       <h1>{title}</h1>
-      <p>Not built yet — page {Object.keys(STUBS).indexOf(stub) + 8} of the 8-page broker lens. Today, My clients, Client 360, Onboarding, My earnings, My business and Marketing ship first; this one follows on the same foundation.</p>
+      <p>Not built yet.</p>
     </div>
   );
 }

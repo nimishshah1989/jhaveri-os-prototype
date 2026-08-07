@@ -1269,7 +1269,71 @@ for (const b of brokers.filter(x => x.active)) {
 ins('saved_queries', { query_id: 1, name: 'Clients with money but no broker', question_text: 'How many clients hold value today with no broker mapped?', sql: "SELECT COUNT(*) FROM v_client_value v JOIN client_master c ON c.cm_user_id=v.client_id WHERE c.fk_primary_sub_broker_id IS NULL AND NOT EXISTS (SELECT 1 FROM client_sub_broker_mapping m WHERE m.cm_user_id=c.cm_user_id)", verified_by: 'claude', visibility: 'mgmt' });
 ins('saved_queries', { query_id: 2, name: 'Dormant clients over floor', question_text: 'Who has been idle 14+ months with over ₹5L?', sql: "SELECT client_id, value_now FROM v_client_value WHERE value_now > 500000", verified_by: 'claude', visibility: 'mgmt' });
 ins('saved_queries', { query_id: 3, name: 'EUIN gaps this month', question_text: 'Which transactions this month are missing EUIN?', sql: "SELECT COUNT(*) FROM transaction_master WHERE tr_file_euin IS NULL AND tr_date >= date('now','start of month')", verified_by: 'claude', visibility: 'ops' });
+// ── Review packs: a year of history, so "overdue" means something ────────────
+// A pack is generated, sent, and then either lands or does not. All three states
+// are seeded — a history where every client replied would make the follow-up
+// column decorative.
+const rp = rng(20260807 + 33);
 ins('review_packs', { pack_id: 1, client_id: STORY.desaiHead, sb_id: 1, generated_at: addDays(TODAY, -2), content_ref: 'packs/desai-2026-08.pdf', sent_via: 'whatsapp', client_response: null, action_ids: '[]' });
+let packId = 1, dlId = 1;
+const packCandidates = db.prepare(`SELECT h.client_id, h.client_name, h.advisor_code,
+    SUM(h.present_market_value) v
+  FROM fifo_summary_holding_active h WHERE h.balance_units > 0.0001
+  GROUP BY h.client_id HAVING v > 300000 ORDER BY v DESC LIMIT 140`)
+  .all() as { client_id: number; client_name: string; advisor_code: string; v: number }[];
+for (const c of packCandidates) {
+  // Not everyone has ever been reviewed — that gap is the point of the page.
+  if (!chance(rp, 0.55)) continue;
+  const sb = brokers.find(b => b.code === c.advisor_code);
+  if (!sb) continue;
+  const ago = intBetween(rp, 20, 460);
+  const generatedAt = addDays(TODAY, -ago);
+  const via = pick(rp, ['whatsapp', 'email', 'in_person']);
+  // Recent packs may genuinely not have been answered yet.
+  const response = ago < 10 ? null
+    : pick(rp, ['opened', 'opened', 'opened', 'replied', 'meeting_booked', null, null]);
+  packId++;
+  ins('review_packs', {
+    pack_id: packId, client_id: c.client_id, sb_id: sb.id, generated_at: generatedAt,
+    content_ref: `packs/${c.client_name.toLowerCase().replace(/[^a-z]/g, '-')}-${generatedAt.slice(0, 7)}.pdf`,
+    sent_via: via, client_response: response, action_ids: '[]',
+  });
+  dlId++;
+  // The async PDF queue that production already runs. A couple are still working.
+  const stillRunning = ago <= 1 && chance(rp, 0.5);
+  ins('download_history_logs', {
+    id: dlId, user_id: sb.id, pdf_type: 'REVIEW_PACK',
+    status: stillRunning ? 'RUNNING' : 'COMPLETED',
+    file_url: stillRunning ? null : `reports/pack-${packId}.pdf`,
+    report_for: `client:${c.client_id}`, is_broker: 1,
+    requested_at: generatedAt, completed_at: stillRunning ? null : generatedAt,
+  });
+  emit({ at: generatedAt, actorType: 'user', actorId: sb.id, subjectType: 'client', subjectId: c.client_id, type: 'review_pack_sent', payload: { pack_id: packId, via }, source: 'ui' });
+  if (response) {
+    emit({ at: addDays(generatedAt, intBetween(rp, 1, 8)), actorType: 'client', actorId: c.client_id, subjectType: 'client', subjectId: c.client_id, type: 'review_pack_response', payload: { pack_id: packId, response }, source: 'ui' });
+  }
+}
+
+// A pack should be able to reference the last conversation, so conversations exist.
+let interactionId = 0;
+const KINDS: [string, string][] = [
+  ['call', 'Discussed the ELSS allocation and the lock-in. Client asked to revisit after the appraisal.'],
+  ['meeting', 'Annual review. Walked through fund performance against the benchmark; agreed to hold.'],
+  ['note', 'Client mentioned a property purchase in the next 18 months — keep liquidity in mind.'],
+  ['call', 'Explained the SIP bounce and re-registered the mandate over the phone.'],
+];
+for (const c of packCandidates.slice(0, 90)) {
+  if (!chance(rp, 0.6)) continue;
+  const sb = brokers.find(b => b.code === c.advisor_code);
+  if (!sb) continue;
+  const [kind, transcript] = pick(rp, KINDS);
+  interactionId++;
+  ins('interactions', {
+    interaction_id: interactionId, client_id: c.client_id, sb_id: sb.id, kind,
+    transcript, structured: JSON.stringify({ source: 'seed' }), minted_action_id: null,
+    occurred_at: addDays(TODAY, -intBetween(rp, 3, 300)),
+  });
+}
 ins('payout_disputes', { dispute_id: 1, sb_id: 8, brokerage_row_refs: JSON.stringify([varianceRows[0] ?? 1]), reason: 'July trail lower than expected on equity book', state: 'open', raised_at: addDays(TODAY, -3), action_id: null });
 ins('download_history_logs', { id: 1, user_id: 1, pdf_type: 'PORTFOLIO_VALUATION', status: 'COMPLETED', file_url: 'reports/pv-desai.pdf', report_for: 'client:103', is_broker: 1, requested_at: addDays(TODAY, -2), completed_at: addDays(TODAY, -2) });
 

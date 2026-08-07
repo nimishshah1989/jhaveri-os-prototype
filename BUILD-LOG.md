@@ -2,6 +2,38 @@
 
 Dated evidence of pace. Every entry: what shipped, how it was verified.
 
+## 07-Aug-2026 (final) — Review pack (broker page 8): the broker lens is complete
+- **Mostly assembly, and deliberately so.** The pack is built by calling the same
+  functions Client 360 renders — `clientKpis`, `taxPosition`, `clientHoldings`,
+  `fundVerdict`, `clientHealth`. Nothing is recomputed and nothing is retyped, so the
+  document a client reads and the screen a broker sees cannot disagree. The verifier
+  asserts that identity field by field rather than trusting it.
+- Seeded a year of pack history (81 packs, 16 brokers, varied client responses including
+  20 that were never answered), the async render queue rows production already uses
+  (`download_history_logs`), and 45 `interactions` so a pack can reference the last real
+  conversation instead of a placeholder.
+- **Founder rulings applied:** due = 12 months **or** an attention flag, whichever comes
+  first, and the row says which one fired; packs carry **proposals**, drawn from the same
+  health levers as Client 360 — which makes them advice, so the disclaimer rides on every
+  copy and the pack is registered with its version and the client's response; **co-branded**,
+  Jhaveri's compliance footing with the broker named as the adviser.
+- aislop caught a check I had written with `as unknown as string || true` — a double type
+  assertion that made the assertion always pass. A fake check is worse than no check;
+  rewritten to actually compare against the ledger.
+- The page surfaces the finding that matters most: **Ravi has reviewed 3 of 53 clients**,
+  and 50 have never had a pack at all — ₹2.4 Cr of client money that has never been
+  formally reviewed.
+- Verified: `verify-reviewpack.ts`, 23 independent-SQL checks ALL PASS — pack figures
+  matching Client 360 exactly, every proposal traced to a real health lever, every section
+  naming its source, the due rule justified per row, and no response predating its pack.
+  **All nine prior verifiers PASS on a pristine reseed.** `next build` clean, zero console
+  errors across all eight broker pages. Both actions exercised live: generation wrote the
+  pack, the queue row and the event; logging "meeting booked" minted an owned action
+  traced to `pack:82`.
+- **Broker lens complete: 8 of 8.** Today · My clients · Client 360 · Onboarding ·
+  My earnings · My business · Marketing · Review pack. Ten verifiers, ~250 independent
+  checks. Next: the Ops lens (6 pages).
+
 ## 07-Aug-2026 (latest) — Marketing (broker page 7): two gates, enforced in SQL
 - **The consent work was already the strongest data in the seed** (2,141 records with real
   withdrawals) — but it was single-channel, and the money chain was broken:
