@@ -87,9 +87,16 @@ const euin = one<{ n: number }>('SELECT COUNT(*) n FROM transaction_master WHERE
 check('ops: EUIN-gap story present with remediation action', euin.n === 24 &&
   one<{ n: number }>("SELECT COUNT(*) n FROM actions WHERE action_type='euin_remediation'").n === 1, `${euin.n} gap txns`);
 
-const badSends = one<{ n: number }>(
-  "SELECT COUNT(*) n FROM campaign_sends s WHERE NOT EXISTS (SELECT 1 FROM consents c WHERE c.client_id=s.client_id AND c.purpose='marketing' AND c.state='granted')");
-check('compliance: zero campaign sends without marketing consent', badSends.n === 0);
+// Consent is per channel and lives on a timeline: a send is lawful if consent for
+// THAT channel was in force on the day it went out. Testing only today's state
+// condemns lawful history and, worse, ignoring the channel lets WhatsApp consent
+// justify an SMS.
+const badSends = one<{ n: number }>(`SELECT COUNT(*) n FROM campaign_sends s
+  WHERE NOT EXISTS (SELECT 1 FROM consents c
+    WHERE c.client_id = s.client_id AND c.channel = s.channel AND c.purpose = 'marketing'
+      AND (c.state = 'granted' OR (c.state = 'withdrawn' AND s.sent_at < c.ts)))`);
+check('compliance: every campaign send had consent for that channel on that day', badSends.n === 0,
+  `${badSends.n} unlawful sends`);
 
 const attention = one<{ n: number; clients: number }>('SELECT COUNT(*) n, COUNT(DISTINCT client_id) clients FROM mv_portfolio_attention');
 check('attention board: flags a minority of the book, not everyone',

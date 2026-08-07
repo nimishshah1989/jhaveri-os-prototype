@@ -450,6 +450,30 @@ a.col.on .n { color: var(--accent); }
   display: flex; align-items: center; gap: 7px; }
 .winlose .tblwrap table { min-width: 0; }
 
+/* marketing — the campaign shelf */
+.camp { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; background: var(--ground); }
+.camp.blocked { border-style: dashed; background: var(--panel); }
+.camp .cn { font-weight: 650; font-size: 13.5px; }
+.camp .cm { font-size: 11.5px; color: var(--muted); margin-top: 4px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.camp .cs { font-size: 12px; color: var(--muted); margin-top: 8px; }
+.camp .cs b { color: var(--ink); }
+.camp .appr { font-size: 11px; color: var(--pos); margin-top: 9px; padding-top: 8px; border-top: 1px solid var(--line); }
+.camp .appr code { display: block; color: var(--muted); font-size: 10px; margin-top: 3px; }
+.camp .appr.no { color: var(--neg); }
+.camp .campgo { display: flex; gap: 6px; margin-top: 10px; }
+.camp .campgo select { flex: 1; min-width: 0; font-size: 11.5px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 5px; background: var(--ground); color: var(--ink); }
+.camp .campgo button { background: var(--accent); color: #fff; border: 0; border-radius: 5px; padding: 4px 12px; font-size: 12px; cursor: pointer; white-space: nowrap; }
+
+/* marketing — the send-set subtraction */
+.subtract { border: 1px solid var(--line); border-radius: var(--radius); background: var(--ground); margin-bottom: 8px; max-width: 560px; }
+.subtract .sr { display: flex; justify-content: space-between; gap: 16px; padding: 9px 14px;
+  border-bottom: 1px solid var(--line); font-size: 12.5px; }
+.subtract .sr:last-child { border-bottom: 0; }
+.subtract .sr.minus { color: var(--neg); }
+.subtract .sr.total { background: var(--panel); font-weight: 650; border-top: 2px solid var(--line); }
+.tblwrap tr.greyed td { color: var(--muted); background: var(--panel); }
+.tblwrap tr.greyed a { color: var(--muted); }
+
 /* provenance */
 .prov { display: inline-block; position: relative; }
 .prov > summary {

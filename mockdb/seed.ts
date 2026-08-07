@@ -245,8 +245,22 @@ for (let i = 1; i <= 1200; i++) {
   }
   if (i <= 800) ins('bse_client_master', { id: i, bse_client_id: `MKYC${String(i).padStart(4, '0')}`, ucc_status: 'ACTIVE', holding_pattern: 'SI', first_applicant: name, pan_no: pan(i), kyc_type: 'K' });
   if (i <= 40) ins('client_login_master', { clm_id: i, fk_cm_user_id: i, clm_email: `${i}@app.example.in`, clm_pan_no: pan(i), is_kyc: 1, fk_sb_id: broker.id, last_login_at: addDays(TODAY, -intBetween(r, 0, 60)) });
+  // DPDP consent is per channel AND per purpose — a client who agreed to statements
+  // on WhatsApp has not agreed to marketing on it, and agreeing on one channel says
+  // nothing about another. Grant rates differ by channel because they do in life.
   ins('consents', { consent_id: i, client_id: i, channel: 'whatsapp', purpose: 'transactional', state: 'granted', captured_via: 'onboarding', ts: addDays(TODAY, -intBetween(r, 100, 900)) });
-  if (chance(r, 0.77)) ins('consents', { consent_id: 2000 + i, client_id: i, channel: 'whatsapp', purpose: 'marketing', state: chance(r, 0.94) ? 'granted' : 'withdrawn', captured_via: 'onboarding', ts: addDays(TODAY, -intBetween(r, 100, 900)) });
+  let cid = 2000 + i * 3;
+  ([['whatsapp', 0.77, 0.94], ['email', 0.62, 0.97], ['sms', 0.34, 0.88]] as [string, number, number][])
+    .forEach(([channel, asked, kept]) => {
+      if (!chance(r, asked)) return;
+      cid++;
+      ins('consents', {
+        consent_id: cid, client_id: i, channel, purpose: 'marketing',
+        state: chance(r, kept) ? 'granted' : 'withdrawn',
+        captured_via: pick(r, ['onboarding', 'onboarding', 'review meeting', 'app preference']),
+        ts: addDays(TODAY, -intBetween(r, 100, 900)),
+      });
+    });
 }
 
 let trId = 0, folioId = 0, sipId = 0, sxpId = 0, mandateId = 0;
@@ -998,19 +1012,139 @@ emit({ at: '2026-08-04', actorType: 'agent', actorId: 'nightly-eval', subjectTyp
 ins('segments', { segment_id: 1, name: 'Equity holders > ₹1L, marketing consent', owner: 'studio', definition: JSON.stringify({ asset: 'Equity', min_value: 100000, consent: 'marketing' }), is_shared: 1, created_at: '2026-07-20' });
 ins('segments', { segment_id: 2, name: 'Dormant > 14 months', owner: 'studio', definition: JSON.stringify({ rule: 'dormant_client' }), is_shared: 1, created_at: '2026-07-20' });
 ins('segments', { segment_id: 3, name: 'SIP-active, no ELSS', owner: 'studio', definition: JSON.stringify({ has_sip: true, missing_category: 'ELSS (Tax Savings)' }), is_shared: 0, created_at: '2026-08-01' });
-ins('campaign_templates', { template_id: 1, name: 'ELSS tax-season drive', creative_ref: 'creatives/elss-fy27.html', disclaimers_injected: 1, approval_artefact_ref: 'approvals/AMFI-ELSS-2026-07.pdf', approved_by: 'compliance', approved_at: '2026-07-21' });
-ins('campaigns', { campaign_id: 1, template_id: 1, name: 'ELSS drive · Aug', segment_id: 1, mode: 'through_broker', state: 'live', launched_at: addDays(TODAY, -14) });
-emit({ at: addDays(TODAY, -14), actorType: 'user', actorId: 'studio', subjectType: 'campaign', subjectId: 1, type: 'campaign_launched' });
-const marketable = db.prepare("SELECT c.client_id, f.advisor_code FROM (SELECT client_id, SUM(present_market_value) v FROM fifo_summary_holding_active GROUP BY client_id HAVING v > 100000) c JOIN fifo_summary_holding_active f ON f.client_id = c.client_id JOIN consents co ON co.client_id = c.client_id AND co.purpose='marketing' AND co.state='granted' GROUP BY c.client_id LIMIT 400").all() as { client_id: number; advisor_code: string }[];
+// ── The campaign shelf ───────────────────────────────────────────────────────
+// Head office writes them, compliance approves them, brokers run them. A template
+// without an approval artefact is not runnable — that gate is data, not policy,
+// so one template deliberately sits unapproved to prove the gate does something.
+const rm = rng(20260807 + 55);
+const TEMPLATES: [number, string, string, string | null, string | null][] = [
+  [1, 'ELSS tax-season drive', 'creatives/elss-fy27.html', 'approvals/AMFI-ELSS-2026-07.pdf', '2026-07-21'],
+  [2, 'SIP top-up on a raise', 'creatives/sip-topup.html', 'approvals/AMFI-SIPTOPUP-2026-05.pdf', '2026-05-14'],
+  [3, 'Idle money into liquid funds', 'creatives/liquid-parking.html', 'approvals/AMFI-LIQUID-2026-06.pdf', '2026-06-02'],
+  [4, 'Annual portfolio review invite', 'creatives/review-invite.html', 'approvals/AMFI-REVIEW-2026-04.pdf', '2026-04-11'],
+  [5, 'Nominee update reminder', 'creatives/nominee-nudge.html', 'approvals/AMFI-NOMINEE-2026-07.pdf', '2026-07-03'],
+  [6, 'New smallcap fund launch', 'creatives/smallcap-nfo.html', null, null],
+];
+for (const [id, name, creative, artefact, at] of TEMPLATES) {
+  ins('campaign_templates', {
+    template_id: id, name, creative_ref: creative, disclaimers_injected: 1,
+    approval_artefact_ref: artefact, approved_by: artefact ? 'compliance' : null, approved_at: at,
+  });
+}
+
+const CAMPAIGNS: [number, number, string, number, string, number][] = [
+  // id, template, name, segment, state, days ago launched
+  [1, 1, 'ELSS drive · Aug', 1, 'live', 6],
+  [2, 2, 'SIP top-up · Jul', 3, 'closed', 48],
+  [3, 3, 'Idle money · Jun', 1, 'closed', 76],
+  [4, 4, 'Review season invite', 2, 'live', 21],
+  // Drafted on an unapproved template. It appears on the shelf and cannot be sent —
+  // a gate nobody can see is a gate nobody trusts.
+  [5, 6, 'Smallcap NFO · draft', 1, 'draft', 2],
+];
+for (const [id, tpl, name, seg, state, ago] of CAMPAIGNS) {
+  ins('campaigns', { campaign_id: id, template_id: tpl, name, segment_id: seg, mode: 'through_broker', state, launched_at: addDays(TODAY, -ago) });
+  emit({ at: addDays(TODAY, -ago), actorType: 'user', actorId: 'studio', subjectType: 'campaign', subjectId: id, type: 'campaign_launched', payload: { template: tpl, segment: seg } });
+}
+
+// The send set is the segment intersected with consent for THAT channel and
+// purpose. The query is the enforcement — there is no policy layer to forget.
+const sendSet = db.prepare(`SELECT DISTINCT c.client_id, f.advisor_code, co.channel
+  FROM (SELECT client_id, SUM(present_market_value) v FROM fifo_summary_holding_active
+        GROUP BY client_id HAVING v > 100000) c
+  JOIN fifo_summary_holding_active f ON f.client_id = c.client_id
+  JOIN consents co ON co.client_id = c.client_id AND co.purpose='marketing' AND co.state='granted'
+  ORDER BY c.client_id`).all() as { client_id: number; advisor_code: string; channel: string }[];
+
+const RESPONSES: [string, number][] = [
+  ['replied_interested', 0.40], ['clicked', 0.34], ['declined', 0.18], ['unsubscribed', 0.08],
+];
+const pickResponse = () => {
+  let x = rm();
+  for (const [type, w] of RESPONSES) { if ((x -= w) <= 0) return type; }
+  return RESPONSES[0][0];
+};
+
+// The date of each client's most recent purchase, used only to decide who is
+// likely to have replied. The transactions themselves are untouched.
+const investedAfter = new Map<string, string>();
+for (const row of db.prepare(`SELECT t.fk_acc_id id, MAX(t.tr_date) d FROM transaction_master t
+  JOIN transaction_type_master tt ON tt.tr_type_id = t.fk_tran_type_id
+  WHERE tt.tr_type_buy_sell_flag = 1 GROUP BY 1`).all() as { id: number; d: string }[]) {
+  investedAfter.set(String(row.id), row.d);
+}
+
 let sendId = 0, respId = 0;
-for (const m of marketable) {
-  sendId++;
-  const sb = brokers.find(b => b.code === m.advisor_code)!;
-  ins('campaign_sends', { send_id: sendId, campaign_id: 1, client_id: m.client_id, sb_id: sb.id, channel: 'whatsapp', sent_at: addDays(TODAY, -13), delivery_state: 'delivered' });
-  if (respId < 37 && chance(r, 0.1)) {
+const responderActions: { actionId: number; clientId: number; at: string }[] = [];
+// Withdrawals must bite on every send that comes after them, so campaigns are
+// walked oldest-first and each send re-checks consent as of its own date. Walking
+// them in id order let a client who unsubscribed on an old campaign still receive
+// a newer one — lawful-looking in the row, unlawful on the timeline.
+const withdrawnAt = new Map<string, string>();
+const approvedTemplates = new Set(TEMPLATES.filter(t => t[3] !== null).map(t => t[0]));
+for (const [cid, tpl, cname, , state, ago] of [...CAMPAIGNS].sort((a, b) => b[5] - a[5])) {
+  // The seed obeys the same gate the page does: nothing goes out on an unapproved
+  // template, and a draft has not gone out at all.
+  if (!approvedTemplates.has(tpl) || state === 'draft') continue;
+  const sentAt = addDays(TODAY, -ago + 1);
+  for (const m of sendSet) {
+    // Not every campaign goes to everyone: each targets a slice of the consented set.
+    if (!chance(rm, cid === 1 ? 0.5 : 0.3)) continue;
+    const gone = withdrawnAt.get(`${m.client_id}|${m.channel}`);
+    if (gone && sentAt >= gone) continue;
+    sendId++;
+    const sb = brokers.find(b => b.code === m.advisor_code)!;
+    // Delivery is not guaranteed. A number that assumes it would be a lie.
+    const delivery = chance(rm, 0.94) ? 'delivered' : chance(rm, 0.5) ? 'failed' : 'pending';
+    ins('campaign_sends', { send_id: sendId, campaign_id: cid, client_id: m.client_id, sb_id: sb.id, channel: m.channel, sent_at: sentAt, delivery_state: delivery });
+    // Clients who went on to invest are likelier to have replied — that is the
+    // direction of causation, and selecting responders this way keeps every row
+    // truthful: the linked transaction genuinely exists and genuinely post-dates
+    // the reply. Without it the demo shows real data and an empty ROI column.
+    const invested = investedAfter.get(`${m.client_id}`);
+    if (delivery !== 'delivered' || !chance(rm, invested && invested > sentAt ? 0.42 : 0.08)) continue;
+
     respId++;
-    const act = mint({ subjectType: 'client', subjectId: m.client_id, type: 'campaign_responder', evidence: { campaign: 'ELSS drive · Aug', response: 'replied_interested' }, impact: 46800, lens: 'broker', sbId: sb.id, step: 'Call within 24h', slaDays: 1 });
-    ins('campaign_responses', { response_id: respId, send_id: sendId, response_type: 'replied_interested', responded_at: addDays(TODAY, -intBetween(r, 1, 12)), minted_action_id: act });
+    const type = pickResponse();
+    // A reply cannot arrive tomorrow. The most recent campaign went out five days
+    // ago, so an unclamped 1–6 day lag ran past today.
+    const lagged = addDays(sentAt, intBetween(rm, 1, 6));
+    const respondedAt = lagged > TODAY ? TODAY : lagged;
+    // Only an interested reply is worth someone's time; the rest are recorded but
+    // do not manufacture work for the broker.
+    const act = type === 'replied_interested'
+      ? mint({ subjectType: 'client', subjectId: m.client_id, type: 'campaign_responder', evidence: { campaign: cname, response: type, channel: m.channel }, impact: 46800, lens: 'broker', sbId: sb.id, step: 'Call within 24h', slaDays: 1 })
+      : null;
+    if (act) responderActions.push({ actionId: act, clientId: m.client_id, at: respondedAt });
+    ins('campaign_responses', { response_id: respId, send_id: sendId, response_type: type, responded_at: respondedAt, minted_action_id: act });
+    // A withdrawal recorded as a response must also stop future sends.
+    if (type === 'unsubscribed') {
+      db.prepare("UPDATE consents SET state='withdrawn', ts=?, captured_via='campaign opt-out' WHERE client_id=? AND channel=? AND purpose='marketing'")
+        .run(respondedAt, m.client_id, m.channel);
+      withdrawnAt.set(`${m.client_id}|${m.channel}`, respondedAt);
+    }
+  }
+}
+
+// ROI, the conservative way (founder's ruling): money counts only when a human
+// closed the action and named the transaction it produced. Everything else stays
+// unattributed rather than being claimed by a 30-day coincidence window.
+const linkTxn = db.prepare(`SELECT t.tr_id, t.tr_amount FROM transaction_master t
+  JOIN transaction_type_master tt ON tt.tr_type_id = t.fk_tran_type_id
+  WHERE t.fk_acc_id = ? AND tt.tr_type_buy_sell_flag = 1 AND t.tr_date >= ? AND t.tr_date <= ?
+  ORDER BY t.tr_amount DESC LIMIT 1`);
+const closeAction = db.prepare(`UPDATE actions SET state='done', outcome_type=?, outcome_value=?,
+  linked_txn_ids=?, closed_at=? WHERE action_id=?`);
+for (const ra of responderActions) {
+  if (!chance(rm, 0.7)) continue;                        // the rest are still open
+  const txn = linkTxn.get(ra.clientId, ra.at, TODAY) as { tr_id: number; tr_amount: number } | undefined;
+  const closedAt = addDays(ra.at, intBetween(rm, 1, 9));
+  if (txn) {
+    closeAction.run('invested', JSON.stringify({ amount: txn.tr_amount }), JSON.stringify([txn.tr_id]), closedAt, ra.actionId);
+    emit({ at: closedAt, actorType: 'user', subjectType: 'action', subjectId: ra.actionId, type: 'outcome_recorded', payload: { outcome: 'invested', linked_txn_ids: [txn.tr_id], amount: txn.tr_amount }, source: 'ui' });
+  } else {
+    closeAction.run('no_investment', JSON.stringify({ note: 'spoke to client, no action taken' }), null, closedAt, ra.actionId);
+    emit({ at: closedAt, actorType: 'user', subjectType: 'action', subjectId: ra.actionId, type: 'outcome_recorded', payload: { outcome: 'no_investment' }, source: 'ui' });
   }
 }
 

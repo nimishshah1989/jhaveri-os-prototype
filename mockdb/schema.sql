@@ -772,6 +772,10 @@ CREATE TABLE actions (
   outcome_type   TEXT,                         -- saved | executed | client_declined | no_response | auto_resolved | …
   outcome_value  TEXT,                         -- pg: jsonb
   created_from   TEXT,                         -- rule:<id> | campaign:<id> | manual
+  -- pg: bigint[] — the transactions this action actually caused. Only set when a
+  -- human names them on closing, which is what makes campaign ROI provable rather
+  -- than a correlation over a time window.
+  linked_txn_ids TEXT,
   created_at     TEXT NOT NULL,
   closed_at      TEXT,
   CHECK (state != 'dismissed' OR dismiss_reason IS NOT NULL)

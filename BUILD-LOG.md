@@ -2,6 +2,50 @@
 
 Dated evidence of pace. Every entry: what shipped, how it was verified.
 
+## 07-Aug-2026 (latest) — Marketing (broker page 7): two gates, enforced in SQL
+- **The consent work was already the strongest data in the seed** (2,141 records with real
+  withdrawals) — but it was single-channel, and the money chain was broken:
+  `actions.linked_txn_ids` is in the schema map's DDL and was **absent from the mock
+  schema**, so campaign → response → action → transaction could not be closed at all.
+- Consent is now **per channel and per purpose**: WhatsApp, email and SMS with different
+  grant rates (3,300+ records, 159 withdrawals). Agreeing on WhatsApp is not agreeing on
+  SMS, and the page proves it — the same broker reaches 35 clients on WhatsApp, 28 on
+  email, 16 on SMS, out of the same 52-client segment.
+- **Two invariants carry the page, both enforced in the query rather than in policy:**
+  1. *Compliance.* A template without an approval artefact cannot be sent. The server
+     action refuses the write; the disabled button is only a courtesy. A draft campaign
+     on an unapproved template sits on the shelf saying so — a gate nobody can see is a
+     gate nobody trusts.
+  2. *DPDP.* The recipient list **is** the consent query, so no second list can drift out
+     of step with it. Consent is a timeline: a send lawful in June is not re-judged by a
+     July withdrawal, and a July send after one is refused.
+- **Three bugs of my own making, caught by the verifier:**
+  1. I walked campaigns in id order while their dates ran the other way, so 8 sends went
+     out *after* the client had unsubscribed. Campaigns are now walked oldest-first and
+     each send re-checks consent as of its own date.
+  2. The seed generated sends for the draft campaign on the unapproved template —
+     violating the very gate it exists to demonstrate. The seed now obeys it too.
+  3. 14 responses were dated tomorrow (an unclamped 1–6 day reply lag on a campaign sent
+     five days ago). Same class as the future-dated transaction fixed on page 6.
+- Also corrected a **pre-existing hole in the compliance check** in `verify.ts`: it tested
+  today's consent state (condemning sends that were lawful when made) and **never checked
+  the channel at all**, so WhatsApp consent justified an SMS. Now time-aware and
+  channel-aware.
+- ROI follows the founder's ruling — money counts **only** when a human closed the action
+  and named the transaction. Every column of the funnel narrows on the one before it, and
+  unattributed money stays unattributed. Ravi: 18 responses, 1 client invested, ₹9,000
+  provable. Small and defensible beats large and hand-waved.
+- Clients who cannot be contacted are **named but greyed**, with "ask at next meeting"
+  minting a task — and asking grants nothing, because only the client can. A client who
+  withdrew is never re-asked.
+- Verified: `verify-marketing.ts`, 30 independent-SQL checks ALL PASS — including both
+  gates, the send-set subtraction adding up on every channel, unsubscribes always
+  withdrawing the matching consent, no response predating its send, and every linked
+  transaction being a purchase that post-dates the reply that claimed it. All eight prior
+  verifiers PASS on a pristine reseed. Both server actions exercised live: launch created
+  exactly the 35 reachable recipients with zero unlawful sends and logged which approval
+  artefact authorised it.
+
 ## 07-Aug-2026 (late) — My business (broker page 6): growth split into flows vs market
 - **The AUM matviews did not exist.** `mv_aum_daily` and `mv_monthly_aum` were absent
   and `aum_master` held 300 rows for a single date, so the page's headline block had no

@@ -1,8 +1,6 @@
 import { notFound } from 'next/navigation';
 
 const STUBS: Record<string, string> = {
-
-  marketing: 'Marketing',
   'review-packs': 'Review pack',
 };
 
@@ -13,7 +11,7 @@ export default async function StubPage({ params }: PageProps<'/[stub]'>) {
   return (
     <div className="stub">
       <h1>{title}</h1>
-      <p>Not built yet — page {Object.keys(STUBS).indexOf(stub) + 7} of the 8-page broker lens. Today, My clients, Client 360, Onboarding, My earnings and My business ship first; this one follows on the same foundation.</p>
+      <p>Not built yet — page {Object.keys(STUBS).indexOf(stub) + 8} of the 8-page broker lens. Today, My clients, Client 360, Onboarding, My earnings, My business and Marketing ship first; this one follows on the same foundation.</p>
     </div>
   );
 }
