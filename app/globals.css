@@ -1029,13 +1029,31 @@ h2.sec .ic { color: var(--gold); opacity: .9; }
 .dblock.close .qacts summary { border-color: var(--line); color: var(--accent); }
 .dblock.close .qacts .pop { right: auto; left: 0; }
 
-/* The row's own affordance: a chevron that says "there is more behind this". */
-.qopen { width: 26px; text-align: center; }
+/* The whole row is the click target. A stretched link covers it from the first
+   cell; only the Done/Snooze/Dismiss cell is lifted back above that link, because
+   it is the one place in the row that has its own controls. */
+.tblwrap.queue tbody tr.clickable { position: relative; cursor: pointer; }
+.rowhit { position: absolute; inset: 0; z-index: 1; }
+.rowhit:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; border-radius: 4px; }
+.tblwrap.queue td.qact { position: relative; z-index: 2; }
+
+/* Hover has to read as "this opens", not as a passing highlight. */
+.tblwrap.queue tbody tr.clickable:hover { background: var(--accent-soft); }
+.tblwrap.queue tbody tr.clickable:hover .qwho { color: var(--accent); }
+
+/* The name has to LOOK like the way in before anyone hovers, so it carries the
+   link colour at rest and a chevron sits right beside it. It lives next to the
+   name rather than in a trailing column because the table is wider than its
+   container — the last column is off the right edge, which is the real reason
+   the first attempt at this was invisible. */
+.tblwrap.queue tbody tr.clickable .qwho { color: var(--accent); }
+.tblwrap.queue tbody tr.clickable:hover .qwho { text-decoration: underline; text-underline-offset: 2px; }
 .chev {
-  display: block; color: var(--line); font-size: 1.15rem; line-height: 1;
-  text-decoration: none; font-weight: 700;
+  color: var(--accent); font-weight: 700; margin-left: 5px; opacity: .55;
+  display: inline-block; transition: transform .12s ease, opacity .12s ease;
 }
-.tblwrap.queue tbody tr:hover .chev { color: var(--accent); }
+.tblwrap.queue tbody tr.clickable:hover .chev { opacity: 1; transform: translateX(2px); }
+@media (prefers-reduced-motion: reduce) { .chev { transition: none; } }
 
 @media (max-width: 640px) {
   .drawer { width: 100vw; border-left: 0; }
@@ -1060,3 +1078,14 @@ a.qcard .evidence b { color: var(--ink); font-weight: 600; }
   .taskadd .mic.on { animation: micpulse 1.2s ease-in-out infinite; }
 }
 @keyframes micpulse { 50% { opacity: .55; } }
+
+/* The hint on the Act-now heading. Said once, quietly, then it gets out of the way. */
+.stream > h2 .hint {
+  margin-left: auto; font-weight: 500; color: var(--muted);
+  text-transform: none; letter-spacing: 0;
+}
+.stream > h2 .hint b {
+  font-family: var(--mono, ui-monospace, 'SF Mono', Menlo, monospace);
+  font-weight: 650; color: var(--ink); border: 1px solid var(--line);
+  border-bottom-width: 2px; border-radius: 3px; padding: 0 4px; margin: 0 1px;
+}

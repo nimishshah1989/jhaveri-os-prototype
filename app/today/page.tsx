@@ -84,7 +84,12 @@ export default async function TodayPage({ searchParams }: PageProps<'/today'>) {
           </form>
 
           <section className="stream red">
-            <h2><Icon name="alert" /> Act now <span className="count">· {q.red.length}</span></h2>
+            <h2>
+              <Icon name="alert" /> Act now <span className="count">· {q.red.length}</span>
+              {/* Said once, on the first queue only — the blue name and the chevron carry
+                  it after that. */}
+              <span className="hint">click a row for the full story · <b>j</b> <b>k</b> to move · <b>esc</b> to close</span>
+            </h2>
             <QueueTable items={q.red} shown={6} openId={openId} />
           </section>
 
