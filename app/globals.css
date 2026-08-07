@@ -17,11 +17,38 @@
   --grey-soft: #f1f3f4;
   --pos-soft: #e7f0ea;
   --radius: 6px;
+  --radius-lg: 10px;
   /* chart categorical slots — validated palette, fixed order, never cycled */
   --s1: #2a78d6;
   --s2: #eb6834;
   --s3: #1baf7a;
   --s4: #eda100;
+
+  /* Type scale. Six steps, and nothing between them — every size on the product
+     is one of these, which is most of what makes a screen feel deliberate. */
+  --t-hero: 1.9rem;
+  --t-xl: 1.35rem;
+  --t-lg: 1.05rem;
+  --t-md: 0.95rem;
+  --t-sm: 0.8rem;
+  --t-xs: 0.71rem;
+
+  /* Spacing rhythm. 4px base — every margin and pad is a multiple. */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+
+  /* One elevation level. Two would already be one too many. */
+  --lift: 0 1px 2px rgba(22, 33, 43, .05), 0 4px 14px rgba(22, 33, 43, .05);
+
+  /* Semantic surfaces — colour carries meaning, never decoration. */
+  --tint-pos: #f0f7f2;
+  --tint-neg: #fdf1ed;
+  --tint-warn: #fdf7e8;
+  --tint-info: #f1f5fc;
 }
 
 * { box-sizing: border-box; }
@@ -177,8 +204,15 @@ a.chip:hover { text-decoration: none; background: var(--panel); }
 }
 .tblwrap th.r, .tblwrap td.r { text-align: right; }
 .tblwrap td { padding: 9px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-/* sequencing cue: proportional fill behind the ranked column's values */
-.tblwrap td.valbar { background: linear-gradient(90deg, var(--accent-soft) calc(var(--w) * 1%), transparent calc(var(--w) * 1%)); }
+/* Sequencing cue. A tinted band behind the digits fought the digits and won —
+   the number is the content, so the bar sits under it as a thin rule instead. */
+.tblwrap td.valbar { position: relative; padding-bottom: 13px; }
+.tblwrap td.valbar::after {
+  content: ''; position: absolute; right: 12px; bottom: 7px; height: 2px; border-radius: 1px;
+  width: calc(var(--w) * 1%); max-width: calc(100% - 24px);
+  background: var(--accent); opacity: .34;
+}
+.tblwrap td.valbar.neg::after { background: var(--neg); opacity: .4; }
 .tblwrap tbody tr:hover { background: var(--panel); }
 .tblwrap td .sub { color: var(--muted); font-size: 11px; margin-left: 4px; }
 .tblwrap tfoot td { background: var(--panel); font-weight: 650; border-top: 2px solid var(--line); }
@@ -637,3 +671,103 @@ a.col.on .n { color: var(--accent); }
 .pksec.proposals { border-left: 3px solid var(--pos); padding-left: 14px; background: var(--pos-soft); border-radius: 0 6px 6px 0; padding-top: 10px; padding-bottom: 6px; }
 .pkdisc { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 18px; font-size: 10.5px; color: var(--muted); line-height: 1.5; }
 @media (max-width: 1000px) { .pkkpi { grid-template-columns: repeat(2, 1fr); } }
+
+/* ══ Design system additions — icons, explain, collapse, card polish ══════════ */
+
+/* Icons inherit colour and sit on the text baseline. */
+.ic { width: 1em; height: 1em; vertical-align: -0.13em; flex: none; }
+
+.lnk { color: var(--accent); }
+.lnk.muted { color: var(--muted); }
+
+/* Stat cards: bolder hierarchy, one elevation, colour only where it means something. */
+.card { transition: box-shadow .12s ease, border-color .12s ease; }
+.card:hover { border-color: #cdd5db; box-shadow: var(--lift); }
+.card .k { font-size: var(--t-xs); font-weight: 650; }
+.card .k .ic { color: var(--muted); }
+.card .v { font-size: var(--t-xl); letter-spacing: -.015em; line-height: 1.15; }
+.cards.six .card .v { font-size: var(--t-lg); }
+.card .s { font-size: var(--t-sm); }
+.card summary { padding: var(--sp-3); }
+.card.tone-pos { border-left: 3px solid var(--pos); }
+.card.tone-warn { border-left: 3px solid var(--neg); }
+.card.tone-opp { border-left: 3px solid var(--amber); }
+.card .delta { font-size: var(--t-sm); font-weight: 650; margin-left: var(--sp-2); white-space: nowrap; }
+.card .delta.up { color: var(--pos); }
+.card .delta.down { color: var(--neg); }
+
+/* Section headings carry a rule, so a long page reads as chapters. */
+h2.sec {
+  display: flex; align-items: center; gap: var(--sp-2);
+  font-size: var(--t-sm); letter-spacing: .08em; margin: var(--sp-6) 0 var(--sp-3);
+}
+h2.sec::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+h2.sec .ic { color: var(--accent); opacity: .75; }
+
+/* Page header: the question does the framing work. */
+.pagehead h1 { font-size: var(--t-xl); letter-spacing: -.015em; }
+.askq {
+  font-size: var(--t-md); color: var(--muted); margin: 0 0 var(--sp-3);
+  padding-left: var(--sp-3); border-left: 3px solid var(--accent-soft);
+}
+
+/* Explain popover — wider, structured, readable. */
+.prov > summary { border: 0; width: auto; height: auto; line-height: 1; color: var(--muted); opacity: .65; }
+.prov > summary:hover { opacity: 1; color: var(--accent); }
+.prov[open] > summary { background: none; border: 0; color: var(--accent); opacity: 1; }
+.prov .pop { width: 400px; padding: var(--sp-4); box-shadow: var(--lift); border-radius: var(--radius-lg); }
+.prov .ptitle { font-size: var(--t-md); font-weight: 650; margin-bottom: var(--sp-2); color: var(--ink); }
+.prov .ptag { display: flex; gap: var(--sp-2); align-items: flex-start; margin-bottom: var(--sp-3); }
+.prov .tagwhy { font-size: var(--t-xs); color: var(--muted); line-height: 1.45; }
+.prov .pmeans { margin: 0 0 var(--sp-2); font-size: var(--t-sm); line-height: 1.5; }
+.prov .pread, .prov .pform { margin: 0 0 var(--sp-2); font-size: var(--t-sm); line-height: 1.5; color: var(--muted); }
+.prov .pread b, .prov .pform b { color: var(--ink); }
+.prov .pcav {
+  margin: var(--sp-2) 0; font-size: var(--t-xs); line-height: 1.5; color: var(--amber);
+  background: var(--tint-warn); border-radius: var(--radius); padding: var(--sp-2);
+}
+.prov .pcav .ic { margin-right: 4px; }
+
+/* Collapse — every list says what it is holding back. */
+.collapse { display: contents; }
+.morebtn, .expandrow button {
+  display: inline-flex; align-items: center; gap: 6px; border: 0; background: none;
+  color: var(--accent); font-size: var(--t-sm); cursor: pointer; padding: var(--sp-2) 0;
+}
+.morebtn:hover, .expandrow button:hover { text-decoration: underline; }
+.tblwrap tr.expandrow td { background: var(--panel); padding: 2px var(--sp-3); text-align: center; }
+.tblwrap tr.expandrow:hover { background: var(--panel); }
+
+/* Tables: quieter chrome, louder numbers. */
+.tblwrap { border-radius: var(--radius-lg); }
+.tblwrap thead th { font-size: var(--t-xs); letter-spacing: .07em; }
+.tblwrap td { font-size: var(--t-sm); }
+.tblwrap tbody tr { transition: background .1s ease; }
+
+/* Chips carry state; the icon inside carries it again for anyone who cannot see colour. */
+.fchip { display: inline-flex; align-items: center; gap: 4px; }
+.hchip { display: inline-flex; align-items: center; gap: 4px; }
+
+/* backend appendix */
+.bnote { display: flex; gap: var(--sp-2); align-items: flex-start; background: var(--tint-info);
+  border: 1px solid var(--accent-soft); border-radius: var(--radius-lg);
+  padding: var(--sp-3) var(--sp-4); font-size: var(--t-sm); color: var(--ink);
+  line-height: 1.5; margin-bottom: var(--sp-4); }
+.bnote .ic { color: var(--accent); margin-top: 2px; }
+.bterm { border: 1px solid var(--line); border-radius: var(--radius-lg); padding: var(--sp-3) var(--sp-4);
+  margin-bottom: var(--sp-2); background: var(--ground); }
+.bterm .bt { display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; margin-bottom: var(--sp-2); }
+.bterm .bt b { font-size: var(--t-md); }
+.bterm p { margin: 0 0 var(--sp-1); font-size: var(--t-sm); line-height: 1.5; }
+.bterm .bread, .bterm .bform { color: var(--muted); }
+.bterm .bread b, .bterm .bform b { color: var(--ink); }
+.bterm .bcav { color: var(--amber); background: var(--tint-warn); border-radius: var(--radius);
+  padding: var(--sp-2); margin: var(--sp-2) 0; font-size: var(--t-xs); }
+.bterm .bsrc { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin-top: var(--sp-2); }
+.bterm .bsrc code, .bterm .bt code { font-size: var(--t-xs); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; color: var(--muted); }
+.tag { display: inline-block; font-size: var(--t-xs); font-weight: 700; text-transform: uppercase;
+  letter-spacing: .05em; border-radius: 3px; padding: 1px 7px; }
+.tag.computed { background: var(--pos-soft); color: var(--pos); }
+.tag.rule { background: var(--amber-soft); color: var(--amber); }
+.tag.learned { background: var(--grey-soft); color: var(--grey); }

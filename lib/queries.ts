@@ -13,7 +13,8 @@ export interface Figure<T> {
 }
 
 export interface StatList {
-  rows: { label: string; detail: string; amount: number }[];
+  /** client_id, where present, turns the label into a link to that client's 360. */
+  rows: { label: string; detail: string; amount: number; client_id?: number | null }[];
   total: number;
 }
 
@@ -96,14 +97,14 @@ export function onboardingStuck(): Figure<{ n: number; days: number }> {
 
 // Click-through lists — the rows behind each card, so no number is a dead end.
 export function bookList(code: string): StatList {
-  const rows = db().prepare(`SELECT client_name label, COUNT(*) || ' holdings' detail, SUM(present_market_value) amount
+  const rows = db().prepare(`SELECT client_name label, client_id, COUNT(*) || ' holdings' detail, SUM(present_market_value) amount
     FROM fifo_summary_holding_active WHERE advisor_code=? GROUP BY client_id ORDER BY amount DESC LIMIT 10`).all(code) as StatList['rows'];
   const total = (db().prepare('SELECT COUNT(DISTINCT client_id) n FROM fifo_summary_holding_active WHERE advisor_code=?').get(code) as { n: number }).n;
   return { rows, total };
 }
 
 export function flowsList(): StatList {
-  const rows = db().prepare(`SELECT c.cm_full_name label, tt.tr_type_name || ' · ' || t.tr_date detail,
+  const rows = db().prepare(`SELECT c.cm_full_name label, c.cm_user_id client_id, tt.tr_type_name || ' · ' || t.tr_date detail,
     CASE WHEN tt.tr_type_buy_sell_flag=-1 THEN -t.tr_amount ELSE t.tr_amount END amount
     FROM transaction_master t
     JOIN transaction_type_master tt ON tt.tr_type_id=t.fk_tran_type_id
@@ -116,7 +117,7 @@ export function flowsList(): StatList {
 }
 
 export function churnList(code: string): StatList {
-  const rows = db().prepare(`SELECT c.cm_full_name label, GROUP_CONCAT(DISTINCT a.flag_type) detail, v.value_now amount
+  const rows = db().prepare(`SELECT c.cm_full_name label, c.cm_user_id client_id, GROUP_CONCAT(DISTINCT a.flag_type) detail, v.value_now amount
     FROM mv_portfolio_attention a
     JOIN client_master c ON c.cm_user_id=a.client_id
     JOIN v_client_value v ON v.client_id=a.client_id
@@ -128,7 +129,7 @@ export function churnList(code: string): StatList {
 }
 
 export function idleList(code: string): StatList {
-  const rows = db().prepare(`SELECT f.client_name label, COUNT(*) || ' holdings, no SIP' detail, SUM(f.present_market_value) amount
+  const rows = db().prepare(`SELECT f.client_name label, f.client_id, COUNT(*) || ' holdings, no SIP' detail, SUM(f.present_market_value) amount
     FROM fifo_summary_holding_active f
     WHERE f.advisor_code=? AND f.client_id NOT IN (SELECT fk_acc_id FROM sip_master WHERE is_live_sip=1)
     GROUP BY f.client_id ORDER BY amount DESC LIMIT 10`).all(code) as StatList['rows'];
@@ -137,7 +138,7 @@ export function idleList(code: string): StatList {
 }
 
 export function sipRiskList(code: string): StatList {
-  const rows = db().prepare(`SELECT c.cm_full_name label,
+  const rows = db().prepare(`SELECT c.cm_full_name label, c.cm_user_id client_id,
     CASE WHEN x.npayments_missed>=2 THEN 'bounced ×' || x.npayments_missed ELSE 'mandate ends ' || ml.end_date END detail,
     s.tr_amount*12 amount
     FROM sip_master s
@@ -151,7 +152,7 @@ export function sipRiskList(code: string): StatList {
 }
 
 export function stuckList(): StatList {
-  const rows = db().prepare(`SELECT k.name label,
+  const rows = db().prepare(`SELECT k.name label, oa.client_id,
     CASE WHEN oa.elog_status='stalled' THEN 'BSE e-log unsigned since ' || oa.stall_since
          WHEN oa.kyc_status='REJECTED' THEN 'KRA rejected · ' || k.kra_status_code
          ELSE 'documents not with the KRA since ' || oa.started_at END detail,

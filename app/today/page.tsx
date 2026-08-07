@@ -1,7 +1,9 @@
 import { MarketStrip, NewsPanel } from '../../components/MarketStrip';
 import { StatCard } from '../../components/StatCard';
 import { QueueCard } from '../../components/QueueCard';
-import { Provenance } from '../../components/Provenance';
+import { Explain } from '../../components/Explain';
+import { PageHead } from '../../components/PageHead';
+import { Icon } from '../../components/Icon';
 import { inrCompact, signedInrCompact, dmy } from '../../lib/format';
 import { TODAY } from '../../mockdb/engines';
 import {
@@ -37,20 +39,21 @@ export default function TodayPage() {
   return (
     <>
       <MarketStrip />
-      <div className="pagehead">
-        <h1>Today</h1>
-        <span className="fresh">{dmy(TODAY)}</span>
-      </div>
+      <PageHead
+        title="Today" icon="spark"
+        question="What needs me today, and what is it worth if I do it?"
+        meta={`${me.name} · ${dmy(TODAY)}`}
+      />
 
       <div className="cols">
         <div>
           <div className="cards">
-            <StatCard label="My book" value={inrCompact(book.value.v)} sub={`${bookList(me.code).total} clients · as of ${dmy(book.value.as_of)}`} figure={book} list={bookList(me.code)} />
-            <StatCard label="Net flows · Aug" value={signedInrCompact(flows.value.v)} sub={`${flows.value.n} transactions this month`} tone={flows.value.v >= 0 ? 'pos' : 'warn'} figure={flows} list={flowsList()} />
-            <StatCard label="Churn risk" value={`${churn.value.n} clients`} sub={`${inrCompact(churn.value.v)} at risk · gone quiet / concentrated`} tone="warn" figure={churn} list={churnList(me.code)} />
-            <StatCard label="Invested, no SIP" value={`${idle.value.n} clients`} sub={`${inrCompact(idle.value.v)} held · zero monthly commitment`} tone="opp" figure={idle} list={idleList(me.code)} />
-            <StatCard label="SIPs at risk" value={`${sipRisk.value.n} plans`} sub={`${inrCompact(sipRisk.value.v)} / year on the line`} tone="warn" figure={sipRisk} list={sipRiskList(me.code)} />
-            <StatCard label="Onboarding stuck" value={`${stuck.value.n} application${stuck.value.n === 1 ? '' : 's'}`} sub={`oldest waiting ${stuck.value.days} days`} tone="warn" figure={stuck} list={stuckList()} listAmountKind="days" />
+            <StatCard id="my_book" icon="money" label="My book" value={inrCompact(book.value.v)} sub={`${bookList(me.code).total} clients · as of ${dmy(book.value.as_of)}`} figure={book} list={bookList(me.code)} />
+            <StatCard id="net_flows_mtd" icon="up" label="Net flows · Aug" value={signedInrCompact(flows.value.v)} sub={`${flows.value.n} transactions this month`} tone={flows.value.v >= 0 ? 'pos' : 'warn'} figure={flows} list={flowsList()} />
+            <StatCard id="churn_risk" icon="alert" label="Churn risk" value={`${churn.value.n} clients`} sub={`${inrCompact(churn.value.v)} at risk · gone quiet / concentrated`} tone="warn" figure={churn} list={churnList(me.code)} />
+            <StatCard id="idle_no_sip" icon="target" label="Invested, no SIP" value={`${idle.value.n} clients`} sub={`${inrCompact(idle.value.v)} held · zero monthly commitment`} tone="opp" figure={idle} list={idleList(me.code)} />
+            <StatCard id="sips_at_risk" icon="clock" label="SIPs at risk" value={`${sipRisk.value.n} plans`} sub={`${inrCompact(sipRisk.value.v)} / year on the line`} tone="warn" figure={sipRisk} list={sipRiskList(me.code)} />
+            <StatCard id="onboarding_stuck" icon="clock" label="Onboarding stuck" value={`${stuck.value.n} application${stuck.value.n === 1 ? '' : 's'}`} sub={`oldest waiting ${stuck.value.days} days`} tone="warn" figure={stuck} list={stuckList()} listAmountKind="days" />
           </div>
 
           <form className="taskadd" action={addTask}>
@@ -65,19 +68,19 @@ export default function TodayPage() {
           </form>
 
           <section className="stream red">
-            <h2>Act now <span className="count">· {q.red.length}</span></h2>
+            <h2><Icon name="alert" /> Act now <span className="count">· {q.red.length}</span></h2>
             {q.red.length === 0 && <div className="empty">Nothing urgent — the queue is clear.</div>}
             {q.red.map(item => <QueueCard key={item.action_id} item={item} />)}
           </section>
 
           <section className="stream amber">
-            <h2>Opportunities <span className="count">· {q.amber.length} — ranked by ₹</span></h2>
+            <h2><Icon name="target" /> Opportunities <span className="count">· {q.amber.length} — ranked by ₹</span></h2>
             {q.amber.length === 0 && <div className="empty">No open opportunities right now.</div>}
             {q.amber.map(item => <QueueCard key={item.action_id} item={item} />)}
           </section>
 
           <section className="stream grey">
-            <h2>Relationship &amp; FYI <span className="count">· {q.grey.length}</span></h2>
+            <h2><Icon name="users" /> Relationship &amp; FYI <span className="count">· {q.grey.length}</span></h2>
             {q.grey.length === 0 && <div className="empty">Nothing here today.</div>}
             {q.grey.map(item => <QueueCard key={item.action_id} item={item} />)}
           </section>
@@ -86,7 +89,7 @@ export default function TodayPage() {
         <aside className="side">
           <NewsPanel />
           <div className="panel score">
-            <h3>My scoreboard <Provenance figure={score} /></h3>
+            <h3>My scoreboard <Explain id="scoreboard" figure={score} /></h3>
             <div className="big num">
               {score.value.closed > 0 ? `${score.value.closedInSla} of ${score.value.closed}` : '—'}
             </div>
@@ -97,7 +100,7 @@ export default function TodayPage() {
             </div>
           </div>
           <div className="panel learn">
-            <h3>What the system is learning <Provenance figure={learn} /></h3>
+            <h3>What the system is learning <Explain figure={learn} as="bulb" /></h3>
             {learn.value.map(p => (
               <div key={`${p.workflow}-${p.policy_key}`} className="row">
                 <span>{p.workflow.replace(/_/g, ' ')} · {p.policy_key.replace(/_/g, ' ')}</span>
