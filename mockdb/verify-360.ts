@@ -6,7 +6,10 @@ import Database from 'better-sqlite3';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { TODAY } from './engines';
-import { clientKpis, clientHoldings, clientMix, taxPosition, clientTxns, familyMembers, clientHeader } from '../lib/client360';
+import {
+  clientKpis, clientHoldings, clientMix, taxPosition, clientTxns, familyMembers,
+  clientHeader, journeySeries, fundVerdict, riskScale,
+} from '../lib/client360';
 
 process.chdir(join(dirname(fileURLToPath(import.meta.url)), '..'));
 const raw = new Database(join(process.cwd(), 'mockdb', 'jhaveri.db'), { readonly: true });
@@ -61,6 +64,21 @@ check('household total == Σ member values (independent)', Math.abs(famSum - fam
 
 const lag = clientHoldings(101).rows.find(r => r.xirr != null && r.bmxirr != null && r.xirr < r.bmxirr - 10);
 check('Meera: the laggard holding is flagged-able (xirr < benchmark − 10)', !!lag, lag?.fund_name);
+check('Meera: fund verdict rule marks the Kotak holding lagging', !!lag && fundVerdict(lag).verdict === 'lagging');
+
+// The books must close: net money in − cost of what remains == realized P&L.
+const j = journeySeries(101).value;
+const jEnd = j[j.length - 1]?.cum ?? 0;
+const t101 = taxPosition(101).value;
+check('Meera: journey end + realized P&L == invested (the books close)',
+  Math.abs(jEnd + t101.real_lt + t101.real_st - meera.invested) < 1,
+  `${jEnd} + ${t101.real_lt + t101.real_st} vs ${meera.invested}`);
+check('journey series bounded by today', j.every(p => p.m <= TODAY.slice(0, 7)));
+
+const rs = riskScale(101, 'Very Aggressive').value;
+check('risk scale: client 5/5, portfolio within [1,5] and near profile',
+  rs.client === 5 && rs.portfolio != null && rs.portfolio >= 1 && rs.portfolio <= 5,
+  `portfolio ${rs.portfolio}`);
 
 console.log(failures === 0 ? '\nCLIENT 360: ALL CHECKS PASSED' : `\nCLIENT 360: ${failures} FAILURES`);
 process.exit(failures === 0 ? 0 : 1);

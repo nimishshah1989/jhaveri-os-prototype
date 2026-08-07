@@ -210,7 +210,44 @@ a.chip:hover { text-decoration: none; background: var(--panel); }
 .taxg .tb i { position: absolute; inset: 0 auto 0 0; background: var(--s3); opacity: .8; }
 .taxg .tb.st i { background: var(--s2); }
 .taxg .lab { color: var(--muted); white-space: nowrap; }
-h2.sec { font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: var(--accent); margin: 20px 0 8px; }
+h2.sec { font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: var(--accent); margin: 28px 0 10px; }
+
+/* client-360 tabs */
+.tabbar { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin: 18px 0 22px; flex-wrap: wrap; }
+.tabbar a { padding: 9px 16px; font-size: 13px; border-bottom: 2px solid transparent; margin-bottom: -1px; color: var(--muted); }
+.tabbar a:hover { text-decoration: none; background: var(--panel); }
+.tabbar a.on { color: var(--accent); font-weight: 600; border-bottom-color: var(--accent); }
+
+.fundcard {
+  border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 12px;
+  display: grid; grid-template-columns: minmax(0,1.6fr) repeat(4, minmax(0,1fr)) auto; gap: 8px 16px; align-items: center;
+}
+.fundcard.bad { border-left: 3px solid var(--neg); }
+.fundcard.good { border-left: 3px solid var(--pos); }
+.fundcard .fn { font-weight: 650; }
+.fundcard .fn .d { display: block; font-weight: 400; font-size: 11.5px; }
+.fundcard .m { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.fundcard .val { font-size: 13.5px; font-weight: 600; }
+.verdict { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; border-radius: 4px; padding: 3px 10px; white-space: nowrap; }
+.verdict.ok { background: var(--pos-soft); color: var(--pos); }
+.verdict.lag { background: var(--red-soft); color: var(--neg); }
+.verdict.watch { background: var(--amber-soft); color: var(--amber); }
+
+.riskscale { position: relative; height: 46px; margin: 18px 6px 6px; }
+.riskscale .track { position: absolute; top: 20px; left: 0; right: 0; height: 6px; border-radius: 3px;
+  background: linear-gradient(90deg, #7ba7de, #eda100, #d98a6f); opacity: .5; }
+.riskscale .pin { position: absolute; top: 0; transform: translateX(-50%); text-align: center; font-size: 10.5px; color: var(--muted); white-space: nowrap; }
+.riskscale .pin i { display: block; width: 12px; height: 12px; border-radius: 50%; margin: 14px auto 0; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--line); }
+.riskscale .pin.client i { background: var(--accent); }
+.riskscale .pin.port i { background: var(--s2); }
+.scale-ends { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--muted); margin-top: 2px; }
+
+.doc { display: flex; gap: 8px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--panel); font-size: 12.5px; }
+.doc:last-child { border-bottom: 0; }
+.doc .st { margin-left: auto; }
+.fchip.ghosted { background: var(--grey-soft); color: var(--muted); font-style: italic; text-transform: none; }
+.narrative { font-size: 13.5px; margin: 0; padding-left: 20px; }
+.narrative li { margin-bottom: 8px; }
 .outchip { display: inline-block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; border-radius: 3px; padding: 1px 6px; background: var(--grey-soft); color: var(--grey); }
 .below { color: var(--muted); font-size: 12px; margin-top: 10px; display: flex; gap: 18px; flex-wrap: wrap; }
 

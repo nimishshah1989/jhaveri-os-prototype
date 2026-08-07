@@ -2,6 +2,27 @@
 
 Dated evidence of pace. Every entry: what shipped, how it was verified.
 
+## 07-Aug-2026 (night) — Client 360 rebuilt as the real thing: 7 tabs, research-assembled
+- Founder verdict on v1 was right — a fund list is not a 360. Rebuilt multi-tab, each
+  block naming its researched source: Overview (Dezerv narrative — three rule-computed
+  review lines + the investment-journey chart whose line goes flat when the bounces
+  start), Portfolio analysis (Groww fund report cards + ET-Money-style verdict rule +
+  Nitrogen risk-appetite-vs-portfolio on one scale + category concentration), Holdings
+  & tax lots (Zerodha/Kuvera, carried over), Transactions, SIPs & mandates (bounce
+  history from the actual failed instalments), Profile & documents (DPDP consents,
+  documents on file, HUB24 held-away slot ghosted), Actions & notes (timeline +
+  capture). Consistent right rail: open actions · documents · household.
+- Tables app-wide got the founder's craft rules: spacious, centered headers,
+  colour-without-plus P&L, useful columns (SIP ₹/month, Next-step chip), column
+  picker, DD-MMM-YY, value-rank bars, №-notation explained on hover.
+- New cross-check that closes the books: net money in + realized P&L == cost of
+  current holdings, to the rupee. Honesty catch fixed live: the concentration panel
+  was showing asset split labelled as category — now truly fund_category, with the
+  sector-level boundary named (needs the fund-portfolio feed, real build).
+- Verified: verify-360 now 15 checks incl. verdict rule, risk scale, journey bounds,
+  books-close identity; all four verifiers green on pristine reseed; all 7 tabs
+  browser-clicked, zero console errors.
+
 ## 07-Aug-2026 (evening) — Client 360 live: page 3 of 23, the lot-level differentiator
 - `app/clients/[clientId]` — full 360 on founder pre-approval ("build both, see
   together"): header chips (family · risk · KYC · PAN · since), 5 KPI cards with XIRR

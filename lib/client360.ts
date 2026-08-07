@@ -45,6 +45,12 @@ FROM fifo_summary_holding_active WHERE client_id=? GROUP BY asset_name ORDER BY 
   return { value: db().prepare(sql).all(id) as MixRow[], tag: 'computed', sql, sources: ['fifo_summary_holding_active.asset_name', '.present_market_value'] };
 }
 
+export function clientCategoryMix(id: number): Figure<MixRow[]> {
+  const sql = `SELECT fund_category label, SUM(present_market_value) v
+FROM fifo_summary_holding_active WHERE client_id=? GROUP BY fund_category ORDER BY v DESC`;
+  return { value: db().prepare(sql).all(id) as MixRow[], tag: 'computed', sql, sources: ['fifo_summary_holding_active.fund_category', '.present_market_value'] };
+}
+
 export interface Lot {
   purchase_date: string;
   units: number;
@@ -200,4 +206,73 @@ export interface Interaction {
 export function clientInteractions(id: number): Interaction[] {
   return db().prepare(`SELECT interaction_id, kind, transcript, occurred_at
 FROM interactions WHERE client_id=? ORDER BY occurred_at DESC LIMIT 20`).all(id) as Interaction[];
+}
+
+export function journeySeries(id: number): Figure<{ m: string; cum: number }[]> {
+  const sql = `SELECT substr(t.tr_date,1,7) m,
+  ROUND(SUM(SUM(t.tr_amount * tt.tr_type_buy_sell_flag)) OVER (ORDER BY substr(t.tr_date,1,7))) cum
+FROM transaction_master t JOIN transaction_type_master tt ON tt.tr_type_id=t.fk_tran_type_id
+WHERE t.fk_acc_id=? AND tt.tr_type_buy_sell_flag != 0 AND t.tr_date <= '${TODAY}'
+GROUP BY m ORDER BY m`;
+  return { value: db().prepare(sql).all(id) as { m: string; cum: number }[], tag: 'computed', sql, sources: ['transaction_master.tr_amount', '.tr_date', 'transaction_type_master.tr_type_buy_sell_flag'] };
+}
+
+// Fund verdict — a registered rule, not a black box: lagging = trails its
+// benchmark by >10pts after 180 days of holding; younger holdings are 'watch'.
+export type Verdict = 'on_track' | 'lagging' | 'watch';
+
+export function fundVerdict(h: Holding): { verdict: Verdict; gap: number | null; ageDays: number } {
+  const ageDays = h.lots.length ? Math.max(...h.lots.map(l => l.holding_days)) : 0;
+  const gap = h.xirr != null && h.bmxirr != null ? Math.round((h.xirr - h.bmxirr) * 10) / 10 : null;
+  if (ageDays <= 180) return { verdict: 'watch', gap, ageDays };
+  if (gap != null && gap < -10) return { verdict: 'lagging', gap, ageDays };
+  return { verdict: 'on_track', gap, ageDays };
+}
+
+const RISK_GRADE: Record<string, number> = {
+  Low: 1, 'Moderately Low': 2, Moderate: 3, 'Moderately High': 4, High: 4.5, 'Very High': 5,
+};
+const PROFILE_GRADE: Record<string, number> = {
+  Conservative: 1, Moderate: 3, Aggressive: 4, 'Very Aggressive': 5,
+};
+
+export interface SchemeInfo { scheme_id: number; risk_level: string; expense: number; pick: number }
+
+export function schemeInfo(id: number): Map<number, SchemeInfo> {
+  const rows = db().prepare(`SELECT sm.scheme_id, sm.risk_level, sm.scheme_expense_ratio expense, sm.is_jhaveri_pick pick
+FROM scheme_master sm WHERE sm.scheme_id IN (SELECT scheme_id FROM fifo_summary_holding_active WHERE client_id=?)`)
+    .all(id) as SchemeInfo[];
+  return new Map(rows.map(r => [r.scheme_id, r]));
+}
+
+export function riskScale(id: number, profile: string): Figure<{ client: number; portfolio: number | null }> {
+  const sql = `portfolio risk = Σ(value × scheme risk grade) ÷ Σ value — grades: Low 1 … Very High 5;
+profile grade from client_master_mf_related.risk_profile (same scale)`;
+  const rows = db().prepare(`SELECT f.present_market_value v, sm.risk_level FROM fifo_summary_holding_active f
+JOIN scheme_master sm ON sm.scheme_id=f.scheme_id WHERE f.client_id=?`).all(id) as { v: number; risk_level: string }[];
+  const tot = rows.reduce((s, r) => s + r.v, 0);
+  const portfolio = tot > 0
+    ? Math.round((rows.reduce((s, r) => s + r.v * (RISK_GRADE[r.risk_level] ?? 3), 0) / tot) * 10) / 10
+    : null;
+  return { value: { client: PROFILE_GRADE[profile] ?? 3, portfolio }, tag: 'rule', sql, sources: ['scheme_master.risk_level', 'client_master_mf_related.risk_profile', 'fifo_summary_holding_active.present_market_value'] };
+}
+
+export interface ProfileInfo {
+  mobile: string; email: string; dob: string; risk_prof_date: string | null; tax_status: string;
+  consents: { channel: string; purpose: string; state: string }[];
+}
+
+export function profileInfo(id: number): ProfileInfo {
+  const c = db().prepare(`SELECT c.cm_mobile_number mobile, c.cm_email_id email, c.cm_date_of_birth dob,
+  r.risk_prof_date, r.tax_status FROM client_master c
+  LEFT JOIN client_master_mf_related r ON r.fk_cm_user_id=c.cm_user_id WHERE c.cm_user_id=?`).get(id) as Omit<ProfileInfo, 'consents'>;
+  const consents = db().prepare('SELECT channel, purpose, state FROM consents WHERE client_id=? ORDER BY purpose').all(id) as ProfileInfo['consents'];
+  return { ...c, consents };
+}
+
+export function sipBounceTxns(id: number): { tr_date: string; tr_amount: number; type_name: string }[] {
+  return db().prepare(`SELECT t.tr_date, t.tr_amount, tt.tr_type_name type_name
+FROM transaction_master t JOIN transaction_type_master tt ON tt.tr_type_id=t.fk_tran_type_id
+WHERE t.fk_acc_id=? AND tt.tr_type_name LIKE '%Reject%' AND t.tr_date <= '${TODAY}'
+ORDER BY t.tr_date DESC`).all(id) as { tr_date: string; tr_amount: number; type_name: string }[];
 }
