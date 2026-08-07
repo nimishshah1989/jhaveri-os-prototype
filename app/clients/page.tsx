@@ -197,7 +197,7 @@ export default async function ClientsPage({ searchParams }: PageProps<'/clients'
 
           <div className="below">
             <span>Tick clients for bulk actions · CSV export</span>
-            <span>Row click → the client&apos;s full profile (page 3 — next build)</span>
+            <span>Click a name for the client&apos;s full profile</span>
           </div>
         </div>
 

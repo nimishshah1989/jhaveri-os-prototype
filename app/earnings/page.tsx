@@ -5,7 +5,7 @@ import { Collapse } from '../../components/Collapse';
 import { Icon } from '../../components/Icon';
 import { Explain } from '../../components/Explain';
 import { StatCard } from '../../components/StatCard';
-import { inr, inrExact, inrCompact, dmy, dmy2 } from '../../lib/format';
+import { inr, inrExact, inrCompact, dmy, dmy2, monthLabel as MONTH_LABEL } from '../../lib/format';
 import { TODAY } from '../../mockdb/engines';
 import { broker, DEMO_SB } from '../../lib/queries';
 import {
@@ -15,9 +15,6 @@ import {
 import { raiseDispute } from './actions';
 
 export const dynamic = 'force-dynamic';
-
-const MONTH_LABEL = (m: string) =>
-  new Date(m + 'T00:00:00Z').toLocaleDateString('en-IN', { month: 'short', year: '2-digit', timeZone: 'UTC' });
 
 export default async function EarningsPage({ searchParams }: PageProps<'/earnings'>) {
   const sp = await searchParams;
@@ -309,7 +306,7 @@ export default async function EarningsPage({ searchParams }: PageProps<'/earning
                       <td style={{ textAlign: 'center' }}><span className={`fchip ${d.state === 'open' ? 'conc' : 'lt'}`}>{d.state}</span></td>
                       <td>{d.resolution_note ?? '—'}</td>
                       <td style={{ textAlign: 'center' }}>
-                        {d.action_id ? <Link href="/today" className="hchip">#{d.action_id}</Link> : <span className="hchip">—</span>}
+                        {d.action_id ? <Link href={`/today?action=${d.action_id}`} className="hchip">#{d.action_id}</Link> : <span className="hchip">—</span>}
                       </td>
                     </tr>
                   ))}

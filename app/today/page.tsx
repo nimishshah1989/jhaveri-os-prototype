@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { MarketStrip, NewsPanel } from '../../components/MarketStrip';
 import { StatCard } from '../../components/StatCard';
 import { QueueTable } from '../../components/QueueTable';
@@ -13,10 +14,17 @@ import {
 } from '../../lib/queries';
 import { addTask } from './actions';
 import { bookHealth } from '../../lib/scoring';
+import { actionDetail } from '../../lib/action-detail';
+import { ActionDrawer } from '../../components/ActionDrawer';
+import { QueueKeys } from '../../components/QueueKeys';
+import { VoiceTask } from '../../components/VoiceTask';
 
 export const dynamic = 'force-dynamic';
 
-export default function TodayPage() {
+export default async function TodayPage({ searchParams }: PageProps<'/today'>) {
+  const sp = await searchParams;
+  const openId = typeof sp.action === 'string' ? Number(sp.action) : undefined;
+  const detail = openId ? actionDetail(openId) : null;
   const me = broker();
   const book = myBook(me.code);
   const flows = netFlowsMtd();
@@ -32,6 +40,14 @@ export default function TodayPage() {
     item.score_gain = item.client_id != null ? scores.get(item.client_id)?.gain ?? 0 : 0;
   }
   q.amber.sort((a, b) => (b.impact_score * (1 + (b.score_gain ?? 0) / 20)) - (a.impact_score * (1 + (a.score_gain ?? 0) / 20)));
+  // "Next" has to mean the next row on his screen, so it is read off the sorted
+  // streams rather than re-queried — otherwise the drawer walks a different order
+  // than the list behind it.
+  const order = [...q.red, ...q.amber, ...q.grey];
+  const at = openId ? order.findIndex(i => i.action_id === openId) : -1;
+  const nextId = at >= 0 ? order[at + 1]?.action_id : undefined;
+  const prevId = at > 0 ? order[at - 1].action_id : undefined;
+
   const score = scoreboard();
   const learn = learning();
   const closedPct = score.value.closed > 0 ? Math.round((score.value.closedInSla / score.value.closed) * 100) : null;
@@ -63,23 +79,23 @@ export default function TodayPage() {
               <option value="3">in 3 days</option>
               <option value="7">next week</option>
             </select>
-            <button type="button" className="mic" title="Voice capture ships next — browser speech-to-text">🎙 voice — next</button>
+            <VoiceTask targetName="note" />
             <button type="submit">Add</button>
           </form>
 
           <section className="stream red">
             <h2><Icon name="alert" /> Act now <span className="count">· {q.red.length}</span></h2>
-            <QueueTable items={q.red} shown={6} />
+            <QueueTable items={q.red} shown={6} openId={openId} />
           </section>
 
           <section className="stream amber">
             <h2><Icon name="target" /> Opportunities <span className="count">· {q.amber.length} — ranked by ₹</span></h2>
-            <QueueTable items={q.amber} shown={4} />
+            <QueueTable items={q.amber} shown={4} openId={openId} />
           </section>
 
           <section className="stream grey">
             <h2><Icon name="users" /> Relationship &amp; FYI <span className="count">· {q.grey.length}</span></h2>
-            <QueueTable items={q.grey} shown={4} />
+            <QueueTable items={q.grey} shown={4} openId={openId} />
           </section>
         </div>
 
@@ -109,6 +125,31 @@ export default function TodayPage() {
           </div>
         </aside>
       </div>
+
+      <QueueKeys prevId={prevId} nextId={nextId} firstId={order[0]?.action_id} isOpen={!!openId} />
+
+      {detail && <ActionDrawer detail={detail} nextId={nextId} />}
+
+      {/* Other pages link here by action id, and some of those items belong to a
+          different broker — the lookup is scoped to the signed-in one on purpose.
+          Say so; a link that opens nothing is worse than one that explains itself. */}
+      {openId && !detail && (
+        <>
+          <Link href="/today" className="scrim" aria-label="Close" />
+          <aside className="drawer" aria-label="Item not available">
+            <header>
+              <span className="tchip grey">Not in your queue</span>
+              <Link href="/today" className="x" aria-label="Close">×</Link>
+            </header>
+            <h2>Item #{openId}</h2>
+            <p className="dnote">
+              This action is assigned to another broker, or has already been closed and
+              archived. You are seeing it referenced from another page — only its owner
+              can work it.
+            </p>
+          </aside>
+        </>
+      )}
     </>
   );
 }

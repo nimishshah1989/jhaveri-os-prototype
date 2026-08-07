@@ -1,12 +1,21 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { db } from '../../lib/db';
 import { TODAY } from '../../mockdb/engines';
 import { DEMO_SB } from '../../lib/queries';
 
 // ponytail: no auth — the prototype is hardwired to broker 4. The real build
 // derives the actor from the session and enforces RLS before any of these run.
+
+// The drawer sends the next queue item along with the outcome, so working thirty
+// items is one pass instead of thirty returns to the list. Called last, because
+// redirect() throws by design.
+function thenNext(formData: FormData): void {
+  const next = Number(formData.get('next'));
+  if (next) redirect(`/today?action=${next}`);
+}
 
 function emit(subjectId: number, eventType: string, payload: unknown): void {
   db().prepare(`INSERT INTO events (occurred_at, actor_type, actor_id, subject_type, subject_id, event_type, payload, source)
@@ -23,6 +32,7 @@ export async function closeAction(formData: FormData): Promise<void> {
     .run(outcome, JSON.stringify({ note }), TODAY, id);
   emit(id, 'outcome_recorded', { outcome, note });
   revalidatePath('/today');
+  thenNext(formData);
 }
 
 export async function dismissAction(formData: FormData): Promise<void> {
@@ -33,6 +43,7 @@ export async function dismissAction(formData: FormData): Promise<void> {
     .run(reason, TODAY, id);
   emit(id, 'action_dismissed', { reason });
   revalidatePath('/today');
+  thenNext(formData);
 }
 
 export async function snoozeAction(formData: FormData): Promise<void> {
@@ -42,6 +53,7 @@ export async function snoozeAction(formData: FormData): Promise<void> {
   db().prepare("UPDATE actions SET sla_due = date(?, '+' || ? || ' days') WHERE action_id=?").run(TODAY, days, id);
   emit(id, 'action_snoozed', { days });
   revalidatePath('/today');
+  thenNext(formData);
 }
 
 export async function addTask(formData: FormData): Promise<void> {

@@ -5,7 +5,7 @@ import { ClientLink } from '../../components/ClientLink';
 import { Collapse } from '../../components/Collapse';
 
 import { StatCard } from '../../components/StatCard';
-import { inr, inrCompact, signedInrCompact, dmy, dmy2 } from '../../lib/format';
+import { inr, inrCompact, signedInrCompact, dmy, dmy2, monthLabel as MONTH_LABEL } from '../../lib/format';
 import { TODAY } from '../../mockdb/engines';
 import { broker, DEMO_SB, netFlowsMtd } from '../../lib/queries';
 import {
@@ -14,9 +14,6 @@ import {
 } from '../../lib/business';
 
 export const dynamic = 'force-dynamic';
-
-const MONTH_LABEL = (m: string) =>
-  new Date(m + 'T00:00:00Z').toLocaleDateString('en-IN', { month: 'short', year: '2-digit', timeZone: 'UTC' });
 
 export default function BusinessPage() {
   const me = broker();

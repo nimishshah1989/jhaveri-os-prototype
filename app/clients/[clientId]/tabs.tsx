@@ -8,24 +8,12 @@ import {
   schemeInfo, riskScale, profileInfo, sipBounceTxns,
   type ClientHeader, type Verdict,
 } from '../../../lib/client360';
+import { typeOf, evidence } from '../../../lib/queue-display';
 import { captureNote } from './actions';
 import { mintForClients } from '../../clients/actions';
 
 const MIX_COLORS = ['var(--s1)', 'var(--s2)', 'var(--s3)', 'var(--s4)'];
 const FY_LTCG_EXEMPTION = 125000;
-
-export const ACTION_LABEL: Record<string, string> = {
-  sip_bounce_save: 'SIP bounce — save the plan',
-  kyc_unstick: 'Onboarding stuck',
-  mandate_expiring: 'Mandate expiring',
-  idle_no_sip: 'Invested, no SIP',
-  concentration_review: 'Concentration risk',
-  dormant_review: 'Dormant client',
-  tax_window: 'Tax-harvest window',
-  birthday_week: 'Birthday',
-  campaign_responder: 'Campaign response',
-  manual: 'Follow up',
-};
 
 const VERDICT_UI: Record<Verdict, { label: string; cls: string; card: string }> = {
   on_track: { label: 'On track', cls: 'ok', card: 'good' },
@@ -122,7 +110,7 @@ export function OverviewTab({ id, head }: { id: number; head: ClientHeader }) {
           </li>
           <li>
             <b className="down">Act now:</b>{' '}
-            {topAction ? `${ACTION_LABEL[topAction.action_type] ?? topAction.action_type} (${inrCompact(topAction.impact_score)} at stake, due ${dmy(topAction.sla_due)})` : 'nothing urgent'}
+            {topAction ? `${typeOf(topAction.action_type).label} (${inrCompact(topAction.impact_score)} at stake, due ${dmy(topAction.sla_due)})` : 'nothing urgent'}
             {headroom > 0 && `; separately, ${inrCompact(headroom)} of tax-free harvest headroom is open this FY`}.
           </li>
         </ol>
@@ -267,7 +255,12 @@ export function ProfileTab({ id, head }: { id: number; head: ClientHeader }) {
                 <td>{m.client_id === id ? m.name : <Link href={`/clients/${m.client_id}`}>{m.name}</Link>}{m.is_head === 1 && <span className="sub">head</span>}</td>
                 <td className="r num">{inr(m.v)}</td>
                 <td className="r num">{m.wx != null ? `${m.wx}%` : '—'}</td>
-                <td className="num" style={{ textAlign: 'center' }}>{m.open_actions}</td>
+                {/* A count nobody can open is worse than an empty cell. */}
+                <td className="num" style={{ textAlign: 'center' }}>
+                  {m.open_actions > 0
+                    ? <Link href={`/clients/${m.client_id}?tab=actions`}>{m.open_actions}</Link>
+                    : <span className="d">—</span>}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -283,19 +276,25 @@ export function ActionsTab({ id }: { id: number }) {
   return (
     <>
       {acts.open.length === 0 && <div className="empty" style={{ marginBottom: 14 }}>No open actions — the engine watches this client daily.</div>}
+      {/* The card opens the same drawer Today uses, so a broker who came here to deal
+          with this client's problems can deal with them here. */}
       {acts.open.map(a => (
-        <div key={a.action_id} className="qcard" style={{ borderLeftColor: 'var(--amber)' }}>
+        <Link key={a.action_id} href={`/today?action=${a.action_id}`} className="qcard open" style={{ borderLeftColor: 'var(--amber)' }}>
           <div className="top">
-            <span className="type">{ACTION_LABEL[a.action_type] ?? a.action_type}</span>
+            <span className="type">{typeOf(a.action_type).label}</span>
             <span className="sla">due {dmy(a.sla_due)}</span>
             {a.impact_score > 0 && <span className="impact num">{inrCompact(a.impact_score)}</span>}
           </div>
-          <div className="evidence">{Object.entries(JSON.parse(a.trigger_evidence) as Record<string, unknown>).map(([k, v]) => `${k.replace(/_/g, ' ')}: ${v}`).join(' · ')}</div>
-        </div>
+          <div className="evidence">
+            {evidence(a.trigger_evidence).map((p, i) => (
+              <span key={i}>{i > 0 && ' · '}{p.lead && `${p.lead} `}<b>{p.value}</b></span>
+            ))}
+          </div>
+        </Link>
       ))}
       {acts.closed.length > 0 && (
         <div className="d" style={{ margin: '10px 0 18px' }}>
-          Closed: {acts.closed.map(a => `${ACTION_LABEL[a.action_type] ?? a.action_type} (${a.outcome_type ?? a.state}${a.closed_at ? `, ${dmy2(a.closed_at)}` : ''})`).join(' · ')}
+          Closed: {acts.closed.map(a => `${typeOf(a.action_type).label} (${a.outcome_type ?? a.state}${a.closed_at ? `, ${dmy2(a.closed_at)}` : ''})`).join(' · ')}
         </div>
       )}
       <div className="viz">

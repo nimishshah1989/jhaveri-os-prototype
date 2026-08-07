@@ -17,12 +17,16 @@ function shade(name: string): number {
   return h;
 }
 
-export function ClientLink({ id, name, muted, avatar = true }: {
+export function ClientLink({ id, name, muted, avatar = true, href }: {
   id?: number | null; name: string; muted?: boolean; avatar?: boolean;
+  /** Somewhere other than the profile — the queue sends a name to its action drawer. */
+  href?: string;
 }) {
   const face = avatar ? <span className={`av a${shade(name)}`} aria-hidden="true">{initials(name)}</span> : null;
-  if (!id) return <span className={muted ? 'd' : undefined}>{face}{name}</span>;
+  const to = href ?? (id ? `/clients/${id}` : null);
+  if (!to) return <span className={muted ? 'd' : undefined}>{face}{name}</span>;
+  // An in-page destination must not jump the queue back to the top.
   return (
-    <Link href={`/clients/${id}`} className={muted ? 'lnk muted' : 'lnk'}>{face}{name}</Link>
+    <Link href={to} className={muted ? 'lnk muted' : 'lnk'} scroll={href ? false : undefined}>{face}{name}</Link>
   );
 }

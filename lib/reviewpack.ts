@@ -1,6 +1,7 @@
 import { db } from './db';
 import { TODAY } from '../mockdb/engines';
 import { Figure } from './queries';
+import { inr } from './format';
 import { clientHeader, clientKpis, taxPosition, clientHoldings, fundVerdict, clientInteractions } from './client360';
 import { clientHealth } from './scoring';
 
@@ -84,7 +85,6 @@ export interface Pack {
   lastConversation: { kind: string; on: string; note: string } | null;
 }
 
-const inr = (n: number) => `₹${new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(Math.round(n))}`;
 const pct = (n: number | null) => (n == null ? '—' : `${n > 0 ? '+' : ''}${n.toFixed(1)}%`);
 
 /** The pack itself, assembled from the same functions Client 360 renders. */

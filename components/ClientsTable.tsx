@@ -4,25 +4,14 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { ClientRow } from '../lib/queries';
 import { inr, inrCompact, dmy2 } from '../lib/format';
+import { typeOf } from '../lib/queue-display';
+import { ClientLink } from './ClientLink';
 import { mintForClients } from '../app/clients/actions';
 
 const FLAG_LABEL: Record<string, [string, string]> = {
   stale: ['stale', 'stale'],
   concentration: ['concentrated', 'conc'],
   laggard: ['laggard', 'conc'],
-};
-
-const ACTION_LABEL: Record<string, string> = {
-  sip_bounce_save: 'SIP bounce',
-  kyc_unstick: 'KYC stuck',
-  mandate_expiring: 'Mandate expiring',
-  idle_no_sip: 'Propose SIP',
-  concentration_review: 'Rebalance',
-  dormant_review: 'Re-engage',
-  tax_window: 'Tax harvest',
-  birthday_week: 'Birthday',
-  campaign_responder: 'Campaign reply',
-  manual: 'Follow up',
 };
 
 // Optional columns behind the picker; the default set stays lean (founder rule).
@@ -123,8 +112,10 @@ export function ClientsTable({ rows, totals, health }: { rows: ClientRow[]; tota
             {rows.map(r => (
               <tr key={r.client_id}>
                 <td><input type="checkbox" checked={selected.has(r.client_id)} onChange={() => toggle(r.client_id)} /></td>
+                {/* The name is the way in, as it is on every other table here — this
+                    was the one list where a client was plain text. */}
                 <td>
-                  {r.name}
+                  <ClientLink id={r.client_id} name={r.name} />
                   {r.dup > 1 && (
                     <span className="sub" title={`Client number — ${r.dup} clients in this book share the name ${r.name}`}>№{r.client_id}</span>
                   )}
@@ -147,7 +138,7 @@ export function ClientsTable({ rows, totals, health }: { rows: ClientRow[]; tota
                 <td className="r num">{r.sip_monthly > 0 ? inrCompact(r.sip_monthly) : <span className="sub" title="No live SIP — an opportunity">none</span>}</td>
                 <td style={{ textAlign: 'center' }}>
                   {r.top_action
-                    ? <span className={`fchip ${['sip_bounce_save', 'kyc_unstick'].includes(r.top_action) ? 'conc' : 'stale'}`}>{ACTION_LABEL[r.top_action] ?? r.top_action}</span>
+                    ? <span className={`fchip ${['sip_bounce_save', 'kyc_unstick'].includes(r.top_action) ? 'conc' : 'stale'}`}>{typeOf(r.top_action).label}</span>
                     : <span className="sub">—</span>}
                 </td>
                 {cols.has('flags') && (

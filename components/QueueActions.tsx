@@ -18,13 +18,19 @@ const DISMISS_REASONS = [
   ['client_unreachable', 'Client unreachable'],
 ] as const;
 
-export function QueueActions({ actionId, step }: { actionId: number; step: string | null }) {
+export function QueueActions({ actionId, step, next }: {
+  actionId: number; step: string | null;
+  /** When set, closing or dismissing lands on that item instead of the bare list. */
+  next?: number;
+}) {
+  const nextField = next ? <input type="hidden" name="next" value={next} /> : null;
   return (
     <div className="qacts">
       <details>
         <summary title={step ?? 'Record the outcome'}>Done</summary>
         <form className="pop" action={closeAction}>
           <input type="hidden" name="action_id" value={actionId} />
+          {nextField}
           {step && <p className="stephint">{step}</p>}
           {OUTCOMES.map(([v, l]) => (
             <label key={v}>
@@ -39,6 +45,7 @@ export function QueueActions({ actionId, step }: { actionId: number; step: strin
         <summary>Snooze</summary>
         <form className="pop" action={snoozeAction}>
           <input type="hidden" name="action_id" value={actionId} />
+          {nextField}
           <label><input type="radio" name="days" value="1" required /> Tomorrow</label>
           <label><input type="radio" name="days" value="3" /> In 3 days</label>
           <label><input type="radio" name="days" value="7" /> Next week</label>
@@ -49,6 +56,7 @@ export function QueueActions({ actionId, step }: { actionId: number; step: strin
         <summary>Dismiss</summary>
         <form className="pop" action={dismissAction}>
           <input type="hidden" name="action_id" value={actionId} />
+          {nextField}
           <select name="dismiss_reason" required defaultValue="">
             <option value="" disabled>Reason (required)</option>
             {DISMISS_REASONS.map(([v, l]) => (

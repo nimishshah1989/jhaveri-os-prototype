@@ -4,8 +4,9 @@ import { dmy, dmy2, inrCompact } from '../../../lib/format';
 import { TODAY } from '../../../mockdb/engines';
 import { clientHeader, clientActions, clientSips, familyMembers } from '../../../lib/client360';
 import {
-  OverviewTab, HoldingsTab, TransactionsTab, SipsTab, ProfileTab, ActionsTab, ACTION_LABEL,
+  OverviewTab, HoldingsTab, TransactionsTab, SipsTab, ProfileTab, ActionsTab,
 } from './tabs';
+import { typeOf } from '../../../lib/queue-display';
 import { AnalysisTab } from './analysis-tab';
 import { HealthTab } from './health-tab';
 
@@ -73,12 +74,12 @@ export default async function Client360({ params, searchParams }: PageProps<'/cl
             <h3>Open for {head.name.split(' ')[0]}</h3>
             {acts.open.length === 0 && <div className="d">Nothing open — the engine watches daily.</div>}
             {acts.open.map(a => (
-              <div key={a.action_id} className="op red">
-                <b>{ACTION_LABEL[a.action_type] ?? a.action_type}</b>
+              <Link key={a.action_id} href={`/today?action=${a.action_id}`} className="op red">
+                <b>{typeOf(a.action_type).label}</b>
                 <span className="m">
                   {a.impact_score > 0 ? `${inrCompact(a.impact_score)} at stake · ` : ''}due {dmy2(a.sla_due)}
                 </span>
-              </div>
+              </Link>
             ))}
           </div>
           <div className="panel">

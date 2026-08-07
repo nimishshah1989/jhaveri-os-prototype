@@ -176,7 +176,7 @@ export default function OnboardingPage() {
                     <td>{c.blocked}</td>
                     <td style={{ textAlign: 'center' }}>
                       {c.action_id
-                        ? <Link href="/today" className="hchip">#{c.action_id} · {c.action_state}</Link>
+                        ? <Link href={`/today?action=${c.action_id}`} className="hchip">#{c.action_id} · {c.action_state}</Link>
                         : <span className="hchip">—</span>}
                     </td>
                     <td className="rowacts always">

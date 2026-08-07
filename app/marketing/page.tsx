@@ -229,7 +229,7 @@ export default async function MarketingPage({ searchParams }: PageProps<'/market
                     <td style={{ textAlign: 'center' }}>{dmy2(r.responded_at)}</td>
                     <td style={{ textAlign: 'center' }}>
                       {r.action_id
-                        ? <Link href="/today" className="hchip">#{r.action_id} · {r.outcome_type ?? r.action_state}</Link>
+                        ? <Link href={`/today?action=${r.action_id}`} className="hchip">#{r.action_id} · {r.outcome_type ?? r.action_state}</Link>
                         : <span className="d">no action — not a lead</span>}
                     </td>
                     <td className="r num">{r.linked_amount ? inr(r.linked_amount) : '—'}</td>

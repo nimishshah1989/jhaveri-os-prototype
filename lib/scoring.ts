@@ -1,5 +1,6 @@
 import { db } from './db';
 import { TODAY } from '../mockdb/engines';
+import { inr } from './format';
 import { lookThrough, fundOverlap } from './portfolio';
 
 // v0 weights and gates — founder-delegated draft, proposed from the data.
@@ -217,11 +218,10 @@ function taxScore(i: Inputs): number {
 }
 function taxSteps(i: Inputs): Step[] {
   const c = R.tax;
-  const rupee = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
   const headroom = Math.max(0, c.fy_exemption - Math.max(0, i.realLt));
   const steps: Step[] = [{ label: 'Nothing left on the table', effect: 'starts at 20' }];
   if (i.unrealLt > c.harvest_min_lt && headroom > 0) {
-    steps.push({ label: `${rupee(i.unrealLt)} of long-term gains could be banked tax-free (${rupee(headroom)} of allowance unused)`, effect: `−${c.harvest_open}` });
+    steps.push({ label: `${inr(i.unrealLt)} of long-term gains could be banked tax-free (${inr(headroom)} of allowance unused)`, effect: `−${c.harvest_open}` });
   }
   const mix = i.unrealSt + i.unrealLt;
   if (mix > 0 && i.unrealSt / mix > c.st_mix_cap && i.unrealSt > 25000) {
@@ -260,7 +260,7 @@ export function clientHealth(id: number): Health {
     why: i.wx != null && i.bmx != null && i.bmx > i.wx ? `trailing benchmark by ${Math.round((i.bmx - i.wx) * 10) / 10} pts` : 'tracking benchmark',
     breakdown: perfSteps(i),
     challenges: i.laggard
-      ? [`${i.laggard.name} is the drag: ${i.laggard.xirr}% against a benchmark of ${i.laggard.bmxirr}%, on ₹${Math.round(i.laggard.v).toLocaleString('en-IN')} of holdings`]
+      ? [`${i.laggard.name} is the drag: ${i.laggard.xirr}% against a benchmark of ${i.laggard.bmxirr}%, on ${inr(i.laggard.v)} of holdings`]
       : perf < 20 ? ['Returns sit below the blended benchmark, spread across holdings rather than one obvious laggard'] : [],
     levers: perfLevers,
   });
@@ -331,10 +331,10 @@ export function clientHealth(id: number): Health {
   const headroom = Math.max(0, R.tax.fy_exemption - Math.max(0, i.realLt));
   const txLevers: Lever[] = [];
   if (i.unrealLt > R.tax.harvest_min_lt && headroom > 0) {
-    txLevers.push({ key: 'harvest', label: `Harvest ₹${Math.round(Math.min(i.unrealLt, headroom)).toLocaleString('en-IN')} inside the FY exemption`, delta: taxScore({ ...i, unrealLt: 0 }) - tx, detail: 'tax-free; window closes 31-Mar' });
+    txLevers.push({ key: 'harvest', label: `Harvest ${inr(Math.min(i.unrealLt, headroom))} inside the FY exemption`, delta: taxScore({ ...i, unrealLt: 0 }) - tx, detail: 'tax-free; window closes 31-Mar' });
   }
   const txChallenges: string[] = [];
-  if (txLevers.length) txChallenges.push(`₹${Math.round(Math.min(i.unrealLt, headroom)).toLocaleString('en-IN')} of gains could be banked without paying tax this year — the allowance resets 31-Mar and does not carry forward`);
+  if (txLevers.length) txChallenges.push(`${inr(Math.min(i.unrealLt, headroom))} of gains could be banked without paying tax this year — the allowance resets 31-Mar and does not carry forward`);
   const mixTot = i.unrealSt + i.unrealLt;
   if (mixTot > 0 && i.unrealSt / mixTot > R.tax.st_mix_cap && i.unrealSt > 25000) txChallenges.push('Most gains are still short-term; selling now attracts the higher rate — holding past one year changes the bill');
   components.push({

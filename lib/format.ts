@@ -35,3 +35,9 @@ export function dmy2(iso: string): string {
   const [y, m, d] = iso.slice(0, 10).split('-');
   return `${d}-${MONTHS[Number(m) - 1]}-${y.slice(2)}`;
 }
+
+// Chart and column headers, from a YYYY-MM key: "Aug 26".
+export function monthLabel(m: string): string {
+  const [y, mm] = m.slice(0, 7).split('-');
+  return `${MONTHS[Number(mm) - 1]} ${y.slice(2)}`;
+}

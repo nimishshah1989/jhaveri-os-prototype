@@ -956,3 +956,107 @@ h2.sec .ic { color: var(--gold); opacity: .9; }
 .gauges { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .gauges figure { margin: 0; text-align: center; }
 .gauges figcaption { font-size: var(--t-xs); color: var(--muted); margin-top: 4px; }
+
+/* ── Action drawer ───────────────────────────────────────────────────────────
+   Opening a queue item must not cost the broker his place in the queue — he
+   works eight of these in a row. So the detail slides over the list instead of
+   replacing it, and the whole thing is driven by ?action=<id> in the URL: no
+   client-side state, refreshable, and a single item is a shareable link. */
+.scrim {
+  position: fixed; inset: 0; z-index: 40; background: rgba(22, 33, 43, .28);
+  backdrop-filter: blur(1px);
+}
+.drawer {
+  position: fixed; z-index: 41; top: 0; right: 0; bottom: 0; width: min(440px, 100vw);
+  background: var(--ground); border-left: 1px solid var(--line);
+  box-shadow: -8px 0 28px rgba(22, 33, 43, .10);
+  overflow-y: auto; padding: var(--sp-4) var(--sp-5) var(--sp-6);
+}
+.drawer header { display: flex; align-items: center; justify-content: space-between; }
+.drawer .x {
+  font-size: 1.4rem; line-height: 1; color: var(--muted); text-decoration: none;
+  padding: 0 var(--sp-2); border-radius: 4px;
+}
+.drawer .x:hover { background: var(--panel); color: var(--ink); }
+.drawer h2 {
+  font-family: var(--display); font-size: var(--t-xl); margin: var(--sp-3) 0 var(--sp-1);
+}
+.drawer .dsub { font-size: var(--t-sm); color: var(--muted); margin-bottom: var(--sp-4); }
+.drawer .dsub b { color: var(--ink); }
+
+.dblock { border-top: 1px solid var(--line); padding: var(--sp-4) 0 var(--sp-2); }
+.dblock h3 {
+  display: flex; align-items: center; gap: 6px; margin: 0 0 var(--sp-3);
+  font-size: var(--t-xs); text-transform: uppercase; letter-spacing: .07em; color: var(--muted);
+}
+.dblock h3 .ic { color: var(--accent); width: .95em; height: .95em; }
+.dblock.thin { opacity: .7; }
+
+/* Facts read as a two-column ledger: quiet label, weighted value. */
+.dfacts { margin: 0; }
+.dfacts > div {
+  display: flex; justify-content: space-between; gap: var(--sp-4);
+  padding: 5px 0; border-bottom: 1px dotted var(--line); font-size: var(--t-sm);
+}
+.dfacts dt { color: var(--muted); }
+.dfacts dd { margin: 0; font-weight: 650; text-align: right; }
+
+.dnote { margin: var(--sp-3) 0 0; font-size: var(--t-xs); color: var(--muted); line-height: 1.55; }
+.dnote code { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: .95em; }
+
+.dblock.do { background: var(--tint-info); margin: 0 calc(var(--sp-5) * -1); padding: var(--sp-4) var(--sp-5); }
+.dstep { margin: 0 0 var(--sp-3); font-size: var(--t-md); font-weight: 650; line-height: 1.45; }
+.dcontact { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.btn {
+  display: inline-flex; align-items: center; gap: 5px; text-decoration: none;
+  background: var(--accent); color: #fff; border-radius: var(--radius);
+  padding: 6px 12px; font-size: var(--t-sm); font-weight: 600;
+}
+.btn:hover { filter: brightness(1.1); }
+.btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--line); }
+.btn.ghost:hover { background: var(--ground); filter: none; }
+/* The draft is shown, never sent — the broker's own words leave his own device. */
+.ddraft {
+  margin: var(--sp-3) 0 0; font-size: var(--t-sm); line-height: 1.55; color: var(--ink);
+  border-left: 2px solid var(--accent); padding-left: var(--sp-3);
+}
+.ddraft .d { display: block; font-size: var(--t-xs); color: var(--muted); margin-top: 3px; }
+
+.dstat { margin: 0; font-size: var(--t-sm); line-height: 1.5; color: var(--muted); }
+.dstat b { font-size: var(--t-lg); color: var(--ink); display: block; }
+.dfull { display: inline-block; margin-top: var(--sp-3); font-size: var(--t-sm); }
+.dblock.close .qacts { justify-content: flex-start; }
+.dblock.close .qacts summary { border-color: var(--line); color: var(--accent); }
+.dblock.close .qacts .pop { right: auto; left: 0; }
+
+/* The row's own affordance: a chevron that says "there is more behind this". */
+.qopen { width: 26px; text-align: center; }
+.chev {
+  display: block; color: var(--line); font-size: 1.15rem; line-height: 1;
+  text-decoration: none; font-weight: 700;
+}
+.tblwrap.queue tbody tr:hover .chev { color: var(--accent); }
+
+@media (max-width: 640px) {
+  .drawer { width: 100vw; border-left: 0; }
+}
+.dfacts > div.wide { justify-content: flex-start; }
+.dfacts > div.wide dd { text-align: left; }
+
+/* Action cards on Client 360 are links now, so they need the affordance. */
+a.qcard { display: block; text-decoration: none; color: inherit; }
+a.qcard:hover { background: var(--accent-soft); border-color: var(--accent); }
+a.qcard .evidence b { color: var(--ink); font-weight: 600; }
+.panel a.op { display: block; text-decoration: none; color: inherit; }
+.panel a.op:hover { background: var(--accent-soft); }
+
+/* Walk the queue without going back to the list. */
+.dwalk { margin-top: var(--sp-3); }
+.dwalk .btn { font-size: var(--t-sm); }
+
+/* The mic actually listens now; it pulses while it does. */
+.taskadd .mic.on { border-color: var(--neg); color: var(--neg); background: var(--red-soft); }
+@media (prefers-reduced-motion: no-preference) {
+  .taskadd .mic.on { animation: micpulse 1.2s ease-in-out infinite; }
+}
+@keyframes micpulse { 50% { opacity: .55; } }
