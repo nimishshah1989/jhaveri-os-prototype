@@ -862,6 +862,7 @@ CREATE TABLE onboarding_applications (
   channel         TEXT NOT NULL,               -- digital | offline
   holding_type    TEXT DEFAULT 'Single',
   digio_request_id TEXT,
+  kyc_log_id      INTEGER REFERENCES client_kyc_logs(id),
   kyc_status      TEXT,
   kra_status      TEXT,
   bse_status      TEXT,

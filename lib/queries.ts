@@ -77,11 +77,21 @@ export function sipsAtRisk(code: string): Figure<{ n: number; v: number }> {
   return figure(SIP_RISK_SQL, ['sip_master.tr_amount', 'bse_sxp_list.npayments_missed', 'bse_mandate_list.end_date'], 'rule', [code, TODAY]);
 }
 
-const STUCK_SQL = `SELECT COUNT(*) n, COALESCE(MAX(CAST(julianday(?) - julianday(stall_since) AS INTEGER)),0) days
-FROM onboarding_applications WHERE sb_id=? AND elog_status='stalled'`;
+// "Stuck" means the same thing here as on the Onboarding page: an unsigned BSE
+// e-log, a KRA rejection, or documents still not filed past the promised TAT.
+// Independent SQL, deliberately — verify-onboarding.ts asserts it agrees with
+// stalls() in lib/onboarding.ts, so the two can never quietly drift apart.
+const STUCK_WHERE = `oa.sb_id = ? AND oa.ucc_status IS NOT 'ACTIVE' AND (
+    oa.kyc_status = 'REJECTED'
+ OR (oa.elog_status IN ('sent','stalled') AND julianday(?) - julianday(oa.stall_since) > 7)
+ OR (oa.kyc_status = 'PENDING' AND julianday(?) - julianday(oa.started_at) > 7))`;
+
+const STUCK_SQL = `SELECT COUNT(*) n,
+  COALESCE(MAX(CAST(julianday(?) - julianday(COALESCE(oa.stall_since, oa.started_at)) AS INTEGER)), 0) days
+FROM onboarding_applications oa WHERE ${STUCK_WHERE}`;
 
 export function onboardingStuck(): Figure<{ n: number; days: number }> {
-  return figure(STUCK_SQL, ['onboarding_applications.elog_status', '.stall_since'], 'rule', [TODAY, DEMO_SB]);
+  return figure(STUCK_SQL, ['onboarding_applications.elog_status', '.stall_since', '.kyc_status', '.started_at'], 'rule', [TODAY, DEMO_SB, TODAY, TODAY]);
 }
 
 // Click-through lists — the rows behind each card, so no number is a dead end.
@@ -139,13 +149,14 @@ export function sipRiskList(code: string): StatList {
 }
 
 export function stuckList(): StatList {
-  const rows = db().prepare(`SELECT COALESCE(c.cm_full_name, l.name, 'Application #' || oa.application_id) label,
-    'stalled at ' || 'BSE e-log' || ' since ' || oa.stall_since detail,
-    CAST(julianday(?) - julianday(oa.stall_since) AS INTEGER) amount
+  const rows = db().prepare(`SELECT k.name label,
+    CASE WHEN oa.elog_status='stalled' THEN 'BSE e-log unsigned since ' || oa.stall_since
+         WHEN oa.kyc_status='REJECTED' THEN 'KRA rejected · ' || k.kra_status_code
+         ELSE 'documents not with the KRA since ' || oa.started_at END detail,
+    CAST(julianday(?) - julianday(COALESCE(oa.stall_since, oa.started_at)) AS INTEGER) amount
     FROM onboarding_applications oa
-    LEFT JOIN client_master c ON c.cm_user_id=oa.client_id
-    LEFT JOIN leads l ON l.lead_id=oa.lead_id
-    WHERE oa.sb_id=? AND oa.elog_status='stalled' ORDER BY amount DESC`).all(TODAY, DEMO_SB) as StatList['rows'];
+    JOIN client_kyc_logs k ON k.id = oa.kyc_log_id
+    WHERE ${STUCK_WHERE} ORDER BY amount DESC`).all(TODAY, DEMO_SB, TODAY, TODAY) as StatList['rows'];
   return { rows, total: rows.length };
 }
 

@@ -2,6 +2,49 @@
 
 Dated evidence of pace. Every entry: what shipped, how it was verified.
 
+## 07-Aug-2026 (night) — Onboarding (broker page 4): the pipeline, measured not stored
+- **Seed had to be rebuilt before the page could be honest.** The old onboarding seed
+  gave broker 4 two applications, put no stage timestamps anywhere, left the 8 KYC
+  rejections attached to nobody, and stored a `broker_links.applications` counter that
+  contradicted the application rows (8 vs 2). All four were fixed, not worked around.
+- Seed now walks each of 80 applications through a real journey and **emits one event
+  per stage entry** (`lead_created` → `application_started` → `kyc_verified` →
+  `elog_completed` → `ucc_allotted`), plus `kyc_rejected` / `elog_sent` / `elog_stalled`
+  off-path. Every funnel count and every "days at this stage" is read off that ledger;
+  nothing is stored as a duration. 118 leads, one `client_kyc_logs` row per application
+  joined via the new `onboarding_applications.kyc_log_id`.
+- **Domain bug I introduced and caught in QA:** offline applications were landing in a
+  "stalled at the BSE e-log" state. Paper has no e-log step. The seed now forces the
+  e-log stages onto the digital path, and offline applications stall where they really
+  stall — on documents, at KYC. Channel split came out 78% offline / 23% digital,
+  which is the 80%-offline truth Jeet named, now visible on screen.
+- `lib/onboarding.ts` — pipeline / funnel / daysToLive / stalls / stallAging /
+  rejections / linkStats / monthCounts, plus `ONBOARDING_RULES` as the single home for
+  the thresholds. **One time-based knob** (`stall_days: 7`) governs both an unsigned
+  e-log and a KYC still sitting with the KRA; a rejection blocks from day one and is
+  deliberately not on that clock. An earlier draft had two knobs where only one
+  governed — dead config, removed.
+- `app/onboarding` — goal metric against the AssetPlus 180-second bar, 6 cards, funnel
+  + stall-aging charts, the 5-column board, the stall table with both fixes on every
+  row (broker nudges; ops takes the backend failures), rejections in plain words, and
+  a start form that writes a real lead + KYC record + application.
+- **The phrasebook is written policy, not generation.** Each KRA code carries the
+  sentence to say and the document to ask for. Codes without a written sentence show
+  the official wording and say so — a wrong sentence here sends a client for the wrong
+  document, so nothing is guessed.
+- Verified: `verify-onboarding.ts`, 29 independent-SQL checks ALL PASS, including the
+  cross-page identity (Today's "onboarding stuck" == this page's stalls for the same
+  broker, 3 and 3, same oldest), funnel monotonicity, an independently computed median,
+  every stall owning an action, and Arjun still stalled at 11 days. All five prior
+  verifiers PASS on a pristine reseed. `next build` clean, zero type errors, zero
+  console errors on all four pages. All four server actions exercised live in the
+  browser (start writes lead+app+2 events; nudge moves the action to in_progress;
+  escalate reassigns to the ops lens; refile closes the action with outcome `refiled`
+  and returns the application to PENDING), then the DB reseeded to pristine.
+- Two fixes from visual QA: a `<div>` nested inside a `<p>` (React DOM nesting error),
+  and row actions half-hidden — "Hand to ops" showed while "Nudge client" waited for
+  hover.
+
 ## 07-Aug-2026 (deep) — Portfolio analysis rebuilt on real fund holdings from Atlas
 - Founder: sector composition is critical, diversification cannot be judged on fund
   labels, and Atlas already holds the data. He was right on all three.

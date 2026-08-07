@@ -436,23 +436,130 @@ ceased.forEach((s, i) => {
 months.forEach((m, i) => ins('brokerage_payout_queue', { id: i + 1, from_date: m, to_date: addDays(monthStart(addDays(m, 40)), -1), requested_by: 1, status: 2, approved_by: 2, approved_at: addDays(m, 36) }));
 ins('brokerage_payout_queue', { id: 99, from_date: monthStart(TODAY), to_date: TODAY, requested_by: 1, status: 0 });
 
-// KYC, leads, onboarding applications
-for (let i = 1; i <= 60; i++) {
-  const rejected = i > 52;
-  const pending = i > 40 && i <= 52;
-  ins('client_kyc_logs', { id: i, fk_clm_id: i <= 40 ? i : null, name: `${pick(r, FIRST)} ${pick(r, LAST)}`, pan_no: pan(3000 + i), status: rejected ? 'REJECTED' : pending ? 'PENDING' : 'VERIFIED', kra_status: rejected ? 'KRA Rejected' : pending ? 'Under Process' : 'KRA Verified', kra_status_code: rejected ? pick(r, ['ERR-00009', 'ERR-00004', 'ERR-00017']) : 'ERR-00000', bse_status: rejected ? null : 'Registered', rejection_level: rejected ? 'KRA' : null, kyc_type: 'Aadhaar eKYC', is_digio: i % 3 === 0 ? 1 : 0, kyc_linked: 1, entry_date: addDays(TODAY, -intBetween(r, 2, 90)) });
-}
+// ── Onboarding: leads → applications, with the whole stage trail in `events` ──
+// Five stages: lead → KYC → e-log → UCC → live. Each stage entry is one event, so
+// the funnel and the median days per stage are read off the ledger, never stored.
+// Offline (paper) applications have no BSE e-log step — they clear that stage the
+// moment KRA verifies. That is what makes the 80%-offline base visible.
+// Its own RNG stream, so tuning onboarding never reshuffles the rest of the seed.
+const ro = rng(20260807 + 41);
 const LEAD_SOURCES = ['link', 'referral', 'campaign', 'walk_in', 'manual'];
-for (let i = 1; i <= 24; i++) {
-  const stage = pick(r, ['new', 'new', 'contacted', 'onboarding', 'converted', 'lost']);
-  ins('leads', { lead_id: i, source: pick(r, LEAD_SOURCES), sb_id: pick(r, brokers.filter(b => b.active)).id, name: `${pick(r, FIRST)} ${pick(r, LAST)}`, mobile: `97${String(20000000 + i * 517).slice(0, 8)}`, consent_state: 'granted', stage, created_at: addDays(TODAY, -intBetween(r, 1, 60)), converted_client_id: stage === 'converted' ? 1118 + i : null });
+const KRA_REJECTS = ['ERR-00009', 'ERR-00004', 'ERR-00017', 'ERR-00010', 'ERR-00031'];
+const activeBrokers = brokers.filter(b => b.active);
+const obWeights = activeBrokers.flatMap(b => Array(b.tier >= 5 ? 4 : 2).fill(b) as BrokerSeed[]);
+
+type ObStage = 'rejected' | 'kyc' | 'elog_sent' | 'elog_stalled' | 'ucc' | 'live';
+const OB_MIX: [ObStage, number][] = [['rejected', 10], ['kyc', 16], ['elog_sent', 4], ['elog_stalled', 6], ['ucc', 8], ['live', 36]];
+const obPlan = OB_MIX.flatMap(([s, n]) => Array<ObStage>(n).fill(s));
+for (let i = obPlan.length - 1; i > 0; i--) {
+  const j = intBetween(ro, 0, i);
+  [obPlan[i], obPlan[j]] = [obPlan[j], obPlan[i]];
 }
-for (let i = 1; i <= 30; i++) {
-  const digital = i <= 12;
+// Application 1 is Arjun Patel, stalled 11 days at the BSE e-log — the seeded story.
+obPlan.splice(obPlan.indexOf('elog_stalled'), 1);
+obPlan.unshift('elog_stalled');
+
+const clientsByBroker = new Map<number, number[]>();
+for (const c of clients) {
+  if (!clientsByBroker.has(c.broker.id)) clientsByBroker.set(c.broker.id, []);
+  clientsByBroker.get(c.broker.id)!.push(c.id);
+}
+const usedClients = new Set<number>(Object.values(STORY));
+let leadId = 0;
+
+for (let i = 1; i <= obPlan.length; i++) {
   const isArjun = i === 1;
-  const stalled = isArjun || i === 2 || i === 3;
-  ins('onboarding_applications', { application_id: i, lead_id: i <= 24 ? i : null, client_id: isArjun ? STORY.arjun : null, sb_id: isArjun ? 4 : pick(r, brokers.filter(b => b.active)).id, channel: digital ? 'digital' : 'offline', holding_type: 'Single', digio_request_id: digital ? `DGO-${7000 + i}` : null, kyc_status: stalled ? 'VERIFIED' : pick(r, ['VERIFIED', 'PENDING']), kra_status: 'KRA Verified', bse_status: stalled ? 'Registered' : null, elog_status: stalled ? 'stalled' : digital ? pick(r, ['completed', 'sent']) : null, ucc_status: stalled ? 'PENDING_ELOG' : null, stall_since: isArjun ? addDays(TODAY, -11) : stalled ? addDays(TODAY, -intBetween(r, 8, 15)) : null, started_at: addDays(TODAY, -intBetween(r, 5, 45)), completed_at: !stalled && chance(r, 0.6) ? addDays(TODAY, -intBetween(r, 1, 20)) : null });
+  const stage = obPlan[i - 1];
+  const sb = isArjun ? brokers[3] : pick(ro, obWeights);
+  // The BSE e-log is a digital-path step only. Paper applications clear it the
+  // moment KRA verifies — when they stall, they stall on documents, at KYC.
+  const digital = isArjun || stage === 'elog_sent' || stage === 'elog_stalled' || chance(ro, 0.1);
+  const reached = { kyc: true, elogSent: stage !== 'rejected' && stage !== 'kyc', elogDone: stage === 'ucc' || stage === 'live', ucc: stage === 'live' };
+
+  // Gaps between stages, then days sitting in the current one — start date follows.
+  const g1 = intBetween(ro, 0, 3);                        // lead → application opened
+  const g2 = intBetween(ro, 1, 4);                        // opened → KRA verdict
+  const g3 = digital ? intBetween(ro, 1, 2) : 0;          // verdict → e-log sent
+  const g4 = digital ? intBetween(ro, 1, 6) : 0;          // e-log sent → e-log cleared
+  const g5 = intBetween(ro, 1, 3);                        // e-log cleared → UCC allotted
+  const waiting = isArjun ? 11
+    : stage === 'rejected' ? intBetween(ro, 1, 25)
+      : stage === 'kyc' ? intBetween(ro, 1, 9)
+        : stage === 'elog_sent' ? intBetween(ro, 1, 6)
+          : stage === 'elog_stalled' ? intBetween(ro, 8, 22)
+            : stage === 'ucc' ? intBetween(ro, 1, 9)
+              // Live: skewed towards recent, so completions land every week rather
+              // than spreading flat over four months and leaving this month empty.
+              : 1 + Math.floor(ro() ** 2 * 119);
+  const dVerdict = waiting + (stage === 'rejected' || stage === 'kyc' ? 0 : g3 + (reached.elogDone ? g4 : 0) + (reached.ucc ? g5 : 0));
+  const dStarted = dVerdict + (stage === 'kyc' ? 0 : g2);
+  const dLead = dStarted + g1;
+  const on = (daysAgo: number) => addDays(TODAY, -Math.max(daysAgo, 0));
+  const at = { lead: on(dLead), started: on(dStarted), verdict: on(dVerdict), elogSent: on(dVerdict - g3), elogDone: on(dVerdict - g3 - g4), ucc: on(dVerdict - g3 - g4 - g5) };
+
+  const clientPool = (clientsByBroker.get(sb.id) ?? []).filter(id => !usedClients.has(id));
+  const clientId = isArjun ? STORY.arjun : stage === 'live' && clientPool.length ? pick(ro, clientPool) : null;
+  if (clientId) usedClients.add(clientId);
+  const name = clientId ? clients[clientId - 1].name : `${pick(ro, FIRST)} ${pick(ro, LAST)}`;
+
+  // The lead exists unless this walked in as paper across the counter.
+  const hasLead = digital || chance(ro, 0.55);
+  const myLead = hasLead ? ++leadId : null;
+  if (myLead) {
+    ins('leads', { lead_id: myLead, source: digital ? pick(ro, ['link', 'campaign', 'referral']) : pick(ro, LEAD_SOURCES), sb_id: sb.id, name, mobile: `97${String(20000000 + i * 517).slice(0, 8)}`, email: `${name.toLowerCase().replace(/[^a-z]/g, '.')}@example.in`, consent_state: 'granted', stage: stage === 'live' ? 'converted' : 'onboarding', created_at: at.lead, converted_client_id: clientId });
+    emit({ at: at.lead, subjectType: 'application', subjectId: i, type: 'lead_created', payload: { source: digital ? 'link' : 'walk_in', sb_id: sb.id }, source: 'ui' });
+  }
+
+  const reject = stage === 'rejected' ? pick(ro, KRA_REJECTS) : null;
+  ins('client_kyc_logs', {
+    id: i, fk_clm_id: clientId, name, mobile_no: `97${String(20000000 + i * 517).slice(0, 8)}`, pan_no: pan(4000 + i), dob: addDays(TODAY, -intBetween(ro, 8000, 22000)),
+    request_id: digital ? `DGO-${7000 + i}` : `KRA-${7000 + i}`,
+    status: reject ? 'REJECTED' : stage === 'kyc' ? 'PENDING' : 'VERIFIED',
+    kra_status: reject ? 'KRA Rejected' : stage === 'kyc' ? 'Under Process' : 'KRA Verified',
+    kra_status_code: reject ?? 'ERR-00000',
+    bse_status: reject || stage === 'kyc' ? null : 'Registered',
+    rejection_level: reject ? 'KRA' : null,
+    kyc_type: digital ? 'Aadhaar eKYC' : 'Physical KRA',
+    is_digio: digital ? 1 : 0, kyc_linked: clientId ? 1 : 0,
+    entry_date: at.started, modification_date: stage === 'kyc' ? at.started : at.verdict,
+  });
+
+  ins('onboarding_applications', {
+    application_id: i, lead_id: myLead, client_id: clientId, sb_id: sb.id,
+    channel: digital ? 'digital' : 'offline', holding_type: chance(ro, 0.18) ? 'Joint' : 'Single',
+    digio_request_id: digital ? `DGO-${7000 + i}` : null, kyc_log_id: i,
+    kyc_status: reject ? 'REJECTED' : stage === 'kyc' ? 'PENDING' : 'VERIFIED',
+    kra_status: reject ? 'KRA Rejected' : stage === 'kyc' ? 'Under Process' : 'KRA Verified',
+    bse_status: reject || stage === 'kyc' ? null : 'Registered',
+    elog_status: !reached.elogSent ? null : stage === 'elog_stalled' ? 'stalled' : reached.elogDone ? 'completed' : 'sent',
+    ucc_status: stage === 'live' ? 'ACTIVE' : reached.elogDone ? 'PENDING_UCC' : reached.elogSent ? 'PENDING_ELOG' : null,
+    // When this application entered the e-log stage — the clock the stall rule reads.
+    stall_since: reached.elogSent && !reached.elogDone ? at.elogSent : null,
+    started_at: at.started, completed_at: stage === 'live' ? at.ucc : null,
+  });
+
+  emit({ at: at.started, actorType: 'user', actorId: sb.id, subjectType: 'application', subjectId: i, type: 'application_started', payload: { channel: digital ? 'digital' : 'offline', sb_id: sb.id }, source: 'ui' });
+  if (reject) {
+    emit({ at: at.verdict, subjectType: 'application', subjectId: i, type: 'kyc_rejected', payload: { error_code: reject, level: 'KRA' }, source: 'api' });
+  } else if (stage !== 'kyc') {
+    emit({ at: at.verdict, subjectType: 'application', subjectId: i, type: 'kyc_verified', payload: { kyc_type: digital ? 'Aadhaar eKYC' : 'Physical KRA' }, source: 'api' });
+    if (digital) emit({ at: at.elogSent, subjectType: 'application', subjectId: i, type: 'elog_sent', payload: { digio_request_id: `DGO-${7000 + i}` }, source: 'api' });
+    if (stage === 'elog_stalled') emit({ at: at.elogSent, subjectType: 'application', subjectId: i, type: 'elog_stalled', payload: { since: at.elogSent }, source: 'system' });
+    if (reached.elogDone) emit({ at: at.elogDone, subjectType: 'application', subjectId: i, type: 'elog_completed', payload: digital ? {} : { note: 'paper mandate — no BSE e-log step' }, source: 'api' });
+    if (reached.ucc) emit({ at: at.ucc, subjectType: 'application', subjectId: i, type: 'ucc_allotted', payload: { client_id: clientId }, source: 'api' });
+  }
 }
+
+// Leads that never became an application — the top of the funnel.
+for (let i = 0; i < 62; i++) {
+  const stage = pick(ro, ['new', 'new', 'new', 'contacted', 'contacted', 'lost']);
+  ins('leads', { lead_id: ++leadId, source: pick(ro, LEAD_SOURCES), sb_id: pick(ro, obWeights).id, name: `${pick(ro, FIRST)} ${pick(ro, LAST)}`, mobile: `97${String(31000000 + i * 733).slice(0, 8)}`, consent_state: chance(ro, 0.85) ? 'granted' : 'unknown', stage, created_at: addDays(TODAY, -intBetween(ro, 1, 75)) });
+}
+
+// The link counter is the ledger's count, not a stored guess. Visits stay stored —
+// they come from web analytics, which this database genuinely does not hold.
+db.exec(`UPDATE broker_links SET applications =
+  (SELECT COUNT(*) FROM onboarding_applications oa WHERE oa.sb_id = broker_links.sb_id)`);
 
 // files, import runs, quarantine, AUM recon
 let fhId = 0;
@@ -512,9 +619,26 @@ for (const s of bouncedSips) {
   const isMeera = s.fk_acc_id === STORY.meera;
   mint({ subjectType: 'sip', subjectId: s.sip_id, type: 'sip_bounce_save', evidence: { folio: s.tr_folio_no, missed: s.npayments_missed, monthly: s.tr_amount, mandate_expires: isMeera ? '2026-08-12' : undefined }, impact: s.tr_amount * 12, lens: 'broker', sbId: s.fk_sb_id, step: 'Call client · WhatsApp draft ready', slaDays: isMeera ? 0 : 2, ruleKey: 'sip_bounce_x2', state: isMeera ? 'assigned' : pick(r, ['assigned', 'assigned', 'in_progress', 'done']), outcomeType: chance(r, 0.5) ? 'saved' : 'no_response' });
 }
-(db.prepare("SELECT application_id, sb_id, stall_since FROM onboarding_applications WHERE elog_status='stalled'").all() as { application_id: number; sb_id: number; stall_since: string }[]).forEach(row => {
-  mint({ subjectType: 'application', subjectId: row.application_id, type: 'kyc_unstick', evidence: { stalled_at: 'BSE e-log authentication', since: row.stall_since }, impact: 120000, lens: 'broker', sbId: row.sb_id, step: 'Send e-log nudge · Call', slaDays: 1, ruleKey: 'kyc_stall_days' });
-});
+// Every stalled application owns an action, whichever way it is stuck. The three
+// kinds need three different conversations, so they carry three different steps.
+(db.prepare(`SELECT oa.application_id, oa.sb_id, oa.elog_status, oa.kyc_status, oa.stall_since, oa.started_at, k.kra_status_code
+  FROM onboarding_applications oa JOIN client_kyc_logs k ON k.id = oa.kyc_log_id
+  WHERE oa.ucc_status IS NOT 'ACTIVE' AND (oa.kyc_status='REJECTED'
+     OR (oa.elog_status IN ('sent','stalled') AND julianday('${TODAY}') - julianday(oa.stall_since) > 7)
+     OR (oa.kyc_status='PENDING' AND julianday('${TODAY}') - julianday(oa.started_at) > 7))`)
+  .all() as { application_id: number; sb_id: number; elog_status: string | null; kyc_status: string; stall_since: string | null; started_at: string; kra_status_code: string }[]).forEach(row => {
+    const elog = row.elog_status === 'stalled';
+    const rejected = row.kyc_status === 'REJECTED';
+    mint({
+      subjectType: 'application', subjectId: row.application_id, type: 'kyc_unstick',
+      evidence: elog ? { stalled_at: 'BSE e-log authentication', since: row.stall_since }
+        : rejected ? { rejected_by: 'KRA', error_code: row.kra_status_code, since: row.started_at }
+          : { stalled_at: 'documents not filed with the KRA', since: row.started_at },
+      impact: 120000, lens: 'broker', sbId: row.sb_id,
+      step: elog ? 'Send e-log nudge · Call' : rejected ? 'Collect the corrected document · Refile' : 'Chase the missing documents',
+      slaDays: 1, ruleKey: 'kyc_stall_days',
+    });
+  });
 const dormant = db.prepare(`
   SELECT v.client_id, v.value_now, m.fk_primary_sub_broker_id sb, (SELECT MAX(tr_date) FROM transaction_master t JOIN transaction_type_master tt ON tt.tr_type_id=t.fk_tran_type_id WHERE t.fk_acc_id=v.client_id AND tt.tr_type_add_in_fifo=1) last_txn
   FROM v_client_value v JOIN client_master m ON m.cm_user_id=v.client_id
