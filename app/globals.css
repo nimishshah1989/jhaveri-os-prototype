@@ -870,3 +870,28 @@ h2.sec .ic { color: var(--accent); opacity: .75; }
 .fmtrow:last-child { border-bottom:0; }
 .fmtrow b { flex:none; width:74px; text-transform:capitalize; color:var(--ink); }
 .fmtrow span { color:var(--muted); line-height:1.45; }
+
+/* ask the book */
+.askbox { display:flex; align-items:center; gap:var(--sp-2); border:1px solid var(--line);
+  border-radius:var(--radius-lg); padding:var(--sp-2) var(--sp-3); background:var(--panel); margin-bottom:var(--sp-2); }
+.askbox input { flex:1; border:0; background:none; font:inherit; font-size:var(--t-md); color:var(--muted); }
+.askbox input:disabled { cursor:not-allowed; }
+.askbox .soon { font-size:var(--t-xs); font-weight:650; text-transform:uppercase; letter-spacing:.06em;
+  color:var(--muted); border:1px dashed var(--muted); border-radius:20px; padding:2px 9px; white-space:nowrap; }
+.answer { border:1px solid var(--accent-soft); border-radius:var(--radius-lg); padding:var(--sp-3);
+  background:var(--tint-info); margin:var(--sp-3) 0 var(--sp-4); }
+.answer .ahead { display:flex; align-items:baseline; gap:var(--sp-3); margin-bottom:var(--sp-2); flex-wrap:wrap; }
+.answer .ahead b { font-size:var(--t-md); }
+.answer .ahead .d { display:block; margin-top:2px; }
+.answer .ahead form { margin-left:auto; }
+.answer .ahead button { display:inline-flex; align-items:center; gap:5px; border:1px solid var(--accent);
+  background:var(--ground); color:var(--accent); border-radius:5px; padding:4px 11px;
+  font-size:var(--t-xs); font-weight:650; cursor:pointer; }
+.answer .tblwrap { background:var(--ground); }
+.ghostpanel { border-style:dashed; }
+.semrow { display:flex; gap:var(--sp-2); font-size:var(--t-xs); padding:5px 0; border-bottom:1px solid var(--panel); }
+.semrow b { flex:none; width:58px; color:var(--ink); }
+.semrow span { color:var(--muted); line-height:1.45; }
+.semrules { margin-top:var(--sp-2); font-size:var(--t-xs); color:var(--muted); line-height:1.5; }
+.semrules div { display:flex; gap:6px; align-items:flex-start; margin-bottom:5px; }
+.semrules .ic { color:var(--accent); opacity:.7; margin-top:2px; flex:none; }

@@ -147,7 +147,13 @@ for (let i = 0; i < 60; i++) {
   // a liquid or gold fund has no stock look-through to show.
   const pool = atlasByCat.get(CATS[cat - 1][0]) ?? [];
   const real = equity ? pool[Math.floor(i / 10) % Math.max(pool.length, 1)] : undefined;
-  const name = real ? real.fund_name : `${AMCS[amc - 1]} ${CATS[cat - 1][0]} ${pick(r, STYLE)}`;
+  // "Arbitrage Fund" + "Fund" reads as a typo to anyone looking at a report, so a
+  // category that already names the vehicle does not take a style word.
+  const catName = CATS[cat - 1][0];
+  const style = pick(r, STYLE);
+  const name = real ? real.fund_name
+    : /Fund$|FoF$/.test(catName) ? `${AMCS[amc - 1]} ${catName}`
+      : `${AMCS[amc - 1]} ${catName} ${style}`;
   const useAmc = real ? (amcId.get(real.amc_name) ?? amc) : amc;
   const s: SchemeSeed = { id: i + 1, name, amc: useAmc, cat, bench: catBench[cat - 1], series, equity };
   schemes.push(s);

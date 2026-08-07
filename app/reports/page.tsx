@@ -7,6 +7,7 @@ import { dmy, dmy2 } from '../../lib/format';
 import { TODAY } from '../../mockdb/engines';
 import { broker, DEMO_SB } from '../../lib/queries';
 import { REPORT_FORMAT, REPORTS, NOT_CARRIED, catalogue, queue } from '../../lib/reports';
+import { QUESTIONS, SEMANTIC_SKETCH, ask } from '../../lib/ask';
 import { requestReport } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -15,7 +16,9 @@ const GROUP_ICON: Record<string, string> = {
   'Client-facing': 'users', Tax: 'file', 'Book & activity': 'calendar', Commission: 'money',
 };
 
-export default function ReportsPage() {
+export default async function ReportsPage({ searchParams }: PageProps<'/reports'>) {
+  const sp = await searchParams;
+  const asked = typeof sp.q === 'string' ? ask(sp.q) : null;
   const me = broker();
   const groups = catalogue(DEMO_SB);
   const q = queue(DEMO_SB);
@@ -35,6 +38,72 @@ export default function ReportsPage() {
 
       <div className="cols">
         <div>
+          <h2 className="sec"><Icon name="bulb" /> Ask the book</h2>
+          <div className="askbox">
+            <input type="text" disabled
+              placeholder="Ask anything about your book — “which clients bought gold last quarter?”" />
+            <span className="soon">free text — next</span>
+          </div>
+          <div className="d" style={{ marginBottom: 10 }}>
+            These questions are written and verified. Click one and it runs against your real book —
+            the numbers are the same ones every other page uses. Typing your own is what the semantic
+            layer below unlocks; it is deliberately not wired up yet.
+          </div>
+          <div className="chips">
+            {QUESTIONS.map(q => (
+              <Link key={q.id} href={`/reports?q=${q.id}`}
+                className={`chip${asked?.q.id === q.id ? ' on' : ''}`}>
+                {q.question}
+              </Link>
+            ))}
+          </div>
+
+          {asked && (
+            <div className="answer">
+              <div className="ahead">
+                <div>
+                  <b>{asked.q.question}</b>
+                  <span className="d">reads {asked.q.reads} · {asked.answer.rows.length} rows</span>
+                </div>
+                <form action={requestReport}>
+                  <input type="hidden" name="report_id" value="portfolio_valuation" />
+                  <input type="hidden" name="format" value="xlsx" />
+                  <input type="hidden" name="scope" value={asked.q.question} />
+                  <button type="submit"><Icon name="money" /> Export</button>
+                </form>
+              </div>
+              <div className="tblwrap">
+                <table>
+                  <thead>
+                    <tr>{asked.answer.columns.map(c => (
+                      <th key={c.key} className={c.align === 'r' ? 'r' : undefined}
+                        style={c.align ? undefined : { textAlign: 'left' }}>{c.label}</th>
+                    ))}</tr>
+                  </thead>
+                  <tbody>
+                    <Collapse shown={6} noun="rows" as="rows" span={asked.answer.columns.length}
+                      items={asked.answer.rows.map((row, i) => (
+                        <tr key={i}>
+                          {asked.answer.columns.map(c => (
+                            <td key={c.key} className={c.align === 'r' ? 'r num' : undefined}>
+                              {c.key === 'name' || c.key === 'fund' || c.key === 'amc'
+                                ? <b>{row[c.key]}</b>
+                                : typeof row[c.key] === 'number'
+                                  ? (row[c.key] as number).toLocaleString('en-IN')
+                                  : row[c.key]}
+                            </td>
+                          ))}
+                        </tr>
+                      ))} />
+                  </tbody>
+                </table>
+              </div>
+              {asked.answer.truncated && (
+                <div className="d">Showing the first {asked.answer.rows.length}. The full answer exports in one click.</div>
+              )}
+            </div>
+          )}
+
           {groups.map(g => (
             <div key={g.group}>
               <h2 className="sec"><Icon name={GROUP_ICON[g.group]} /> {g.group}</h2>
@@ -166,6 +235,22 @@ export default function ReportsPage() {
             <div className="d">
               After <b>{REPORT_FORMAT.expiry_days} days</b> a generated file stops working. It holds a
               client&apos;s holdings and PAN — it should not outlive the reason it was made.
+            </div>
+          </div>
+
+          <div className="panel ghostpanel">
+            <h3><Icon name="bulb" /> The layer behind free text</h3>
+            <div className="d">
+              Not built yet, and shown so the shape is visible. A question has to land on named
+              things and known measures — a model picks from these; it never writes SQL and never
+              computes a number.
+            </div>
+            <div className="semrow"><b>Things</b><span>{SEMANTIC_SKETCH.entities.map(e => e.name).join(' · ')}</span></div>
+            <div className="semrow"><b>Measures</b><span>{SEMANTIC_SKETCH.metrics.map(m => m.name).join(' · ')}</span></div>
+            <div className="semrules">
+              {SEMANTIC_SKETCH.guardrails.slice(0, 3).map((g, i) => (
+                <div key={i}><Icon name="shield" /> {g}</div>
+              ))}
             </div>
           </div>
 
