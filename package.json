@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "seed": "tsx mockdb/seed.ts",
-    "verify:db": "tsx mockdb/verify.ts"
+    "verify:db": "tsx mockdb/verify.ts",
+    "vendor:pack": "tsx mockdb/gen-vendor-pack.ts"
   },
   "dependencies": {
     "next": "16.3.0",
