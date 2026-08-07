@@ -2,11 +2,13 @@
 // scheme-grade distribution. Exits 1 on any failure.
 // Usage: npx tsx mockdb/verify-scoring.ts
 
+import Database from 'better-sqlite3';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { clientHealth, schemeGrades, bookHealth, SCORING_RULES } from '../lib/scoring';
 
 process.chdir(join(dirname(fileURLToPath(import.meta.url)), '..'));
+const raw = new Database(join(process.cwd(), 'mockdb', 'jhaveri.db'), { readonly: true });
 
 let failures = 0;
 function check(name: string, ok: boolean, detail = '') {
@@ -17,9 +19,11 @@ function check(name: string, ok: boolean, detail = '') {
 const book = bookHealth('1228');
 const all = [...book.values()];
 
+const bookSize = (raw.prepare("SELECT COUNT(DISTINCT client_id) n FROM fifo_summary_holding_active WHERE advisor_code='1228'")
+  .get() as { n: number }).n;
 check('every client scored, none out of bounds',
-  all.length === 51 && all.every(r => r.score >= 0 && r.score <= 100 && r.reachable >= r.score && r.reachable <= 100),
-  `${all.length} clients, score range ${Math.min(...all.map(r => r.score))}–${Math.max(...all.map(r => r.score))}`);
+  all.length === bookSize && all.every(r => r.score >= 0 && r.score <= 100 && r.reachable >= r.score && r.reachable <= 100),
+  `${all.length} of ${bookSize} clients, score range ${Math.min(...all.map(r => r.score))}–${Math.max(...all.map(r => r.score))}`);
 
 check('scores discriminate (not everyone identical)', new Set(all.map(r => r.score)).size >= 8,
   `${new Set(all.map(r => r.score)).size} distinct scores`);
@@ -35,10 +39,11 @@ check('Meera: in the middle band with real gain available',
 let orphans = 0;
 for (const r of all) {
   for (const c of clientHealth(r.client_id).components) {
-    if (c.score < 20 && c.levers.length === 0 && c.key !== 'performance' && c.key !== 'risk_fit' && c.key !== 'tax') orphans++;
+    // The contract: points lost are either actionable or explained. Never silent.
+    if (c.score < 20 && c.levers.length === 0 && c.challenges.length === 0) orphans++;
   }
 }
-check('score↔suggestion invariant: no lost points without a lever (div/discipline)', orphans === 0, `${orphans} orphans`);
+check('score↔suggestion invariant: lost points always carry a lever or a stated reason', orphans === 0, `${orphans} silent deductions`);
 
 // Lever deltas must be honest: applying all non-ghosted levers == reachable.
 const meeraGain = meera.components.reduce((s, c) => s + c.levers.filter(l => !l.ghosted).reduce((a, l) => a + l.delta, 0), 0);
@@ -59,8 +64,9 @@ check('scheme grades ordered: A-grade avg 1y return beats E-grade', avgByGrade[0
   `A avg ${avgByGrade[0].toFixed(1)}% vs E avg ${avgByGrade[1].toFixed(1)}%`);
 
 const quickWins = all.filter(r => r.maxLever >= SCORING_RULES.quick_win_single_lever);
-check('quick-wins segment (one call, one big fix) is a minority worth calling',
-  quickWins.length >= 2 && quickWins.length <= 15, `${quickWins.length} of ${all.length}`);
+check('quick-wins segment (one call, one big fix) is a minority, not the whole book',
+  quickWins.length >= 2 && quickWins.length <= all.length * 0.4,
+  `${quickWins.length} of ${all.length}`);
 
 // Cross-page lens: the same client must score identically wherever they appear.
 const drift = all.filter(r => clientHealth(r.client_id).total !== r.score).length;

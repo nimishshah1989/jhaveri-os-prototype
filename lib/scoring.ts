@@ -1,5 +1,6 @@
 import { db } from './db';
 import { TODAY } from '../mockdb/engines';
+import { lookThrough, fundOverlap } from './portfolio';
 
 // v0 weights and gates — founder-delegated draft, proposed from the data.
 // ONE home for every knob: the Admin page's rules view reads this object, and
@@ -8,7 +9,14 @@ export const SCORING_RULES = {
   version: 'health_v0 · scheme_grade_v0 — 07-Aug-2026',
   components: ['performance', 'diversification', 'discipline', 'tax', 'risk_fit'] as const,
   performance: { zero_at_gap_pts: 15 },
-  diversification: { category_cap: 0.45, fund_cap: 0.45, w_category: 0.6, w_fund: 0.4 },
+  // Diversification is judged on what the client actually owns, not on fund
+  // labels: two "different" funds holding the same 45 stocks is not diversified.
+  diversification: {
+    top_sector_ok: 20, top_sector_max: 35, w_sector: 0.35,
+    top10_ok: 30, top10_max: 55, w_top10: 0.25,
+    overlap_ok: 25, overlap_max: 60, w_overlap: 0.40,
+    min_coverage: 50,
+  },
   discipline: { bounce: 8, mandate_expiring: 4, dormant: 6, no_sip_idle: 4, idle_floor: 100000, dormant_months: 14, mandate_window_days: 45 },
   tax: { harvest_open: 6, harvest_min_lt: 10000, st_heavy: 4, st_mix_cap: 0.5, fy_exemption: 125000 },
   risk_fit: { per_grade: 8 },
@@ -71,6 +79,12 @@ interface Inputs {
   unrealSt: number;
   realLt: number;
   laggard: { name: string; v: number; xirr: number; bmxirr: number } | null;
+  topSectorPct: number;
+  top10Pct: number;
+  overlapPct: number;
+  overlapStocks: number;
+  coveragePct: number;
+  topSector: string | null;
   totalValue: number;
   profileGrade: number;
   portfolioGrade: number | null;
@@ -103,6 +117,7 @@ function gather(id: number): Inputs {
       WHEN 'Moderately High' THEN 4 WHEN 'High' THEN 4.5 ELSE 5 END) / SUM(f.present_market_value) g
     FROM fifo_summary_holding_active f JOIN scheme_master sm ON sm.scheme_id=f.scheme_id WHERE f.client_id=?`).get(id) as { g: number | null };
   const profileGrade = { Conservative: 1, Moderate: 3, Aggressive: 4, 'Very Aggressive': 5 }[risk?.risk_profile ?? 'Moderate'] ?? 3;
+  const lt = lookThrough(id).value;
   const tv = Number(k.tv ?? 0);
   const dormantCut = db().prepare(`SELECT date('${TODAY}', '-${R.discipline.dormant_months} months') d`).get() as { d: string };
   return {
@@ -119,6 +134,12 @@ function gather(id: number): Inputs {
     unrealSt: Number(k.ust),
     realLt: Number(k.rlt),
     laggard: lag ?? null,
+    topSectorPct: lt.top_sector_pct,
+    top10Pct: lt.top10_pct,
+    overlapPct: lt.overlap_pct,
+    overlapStocks: lt.overlap_stocks,
+    coveragePct: lt.coverage_pct,
+    topSector: lt.sectors[0]?.sector ?? null,
     profileGrade,
     portfolioGrade: port.g != null ? Math.round(port.g * 10) / 10 : null,
   };
@@ -140,20 +161,30 @@ function perfSteps(i: Inputs): Step[] {
     { label: `Score = 20 × (1 − gap ÷ ${R.performance.zero_at_gap_pts})`, effect: `${perfScore(i)}/20` },
   ];
 }
+const ramp = (v: number, ok: number, max: number) => clamp((v - ok) / (max - ok), 0, 1);
+
 function divScore(i: Inputs): number {
   const c = R.diversification;
-  const pen = (Math.max(i.topCatShare - c.category_cap, 0) / (1 - c.category_cap)) * c.w_category
-    + (Math.max(i.topFundWeight - c.fund_cap, 0) / (1 - c.fund_cap)) * c.w_fund;
+  // Not enough disclosed holdings to judge honestly — say so rather than guess.
+  if (i.coveragePct < c.min_coverage) return 10;
+  const pen = ramp(i.topSectorPct, c.top_sector_ok, c.top_sector_max) * c.w_sector
+    + ramp(i.top10Pct, c.top10_ok, c.top10_max) * c.w_top10
+    + ramp(i.overlapPct, c.overlap_ok, c.overlap_max) * c.w_overlap;
   return Math.round(20 * clamp(1 - pen, 0, 1));
 }
 function divSteps(i: Inputs): Step[] {
   const c = R.diversification;
-  const catPen = (Math.max(i.topCatShare - c.category_cap, 0) / (1 - c.category_cap)) * c.w_category;
-  const fundPen = (Math.max(i.topFundWeight - c.fund_cap, 0) / (1 - c.fund_cap)) * c.w_fund;
+  if (i.coveragePct < c.min_coverage) {
+    return [{ label: `Only ${i.coveragePct}% of the portfolio has disclosed stock holdings — not enough to judge`, effect: 'half marks, 10' }];
+  }
+  const p1 = ramp(i.topSectorPct, c.top_sector_ok, c.top_sector_max) * c.w_sector;
+  const p2 = ramp(i.top10Pct, c.top10_ok, c.top10_max) * c.w_top10;
+  const p3 = ramp(i.overlapPct, c.overlap_ok, c.overlap_max) * c.w_overlap;
   return [
-    { label: `Largest category holds ${Math.round(i.topCatShare * 100)}% (comfortable up to ${c.category_cap * 100}%)`, effect: catPen > 0 ? `−${Math.round(catPen * 100)}% of the marks` : 'within range' },
-    { label: `Largest single fund holds ${Math.round(i.topFundWeight * 100)}% (comfortable up to ${c.fund_cap * 100}%)`, effect: fundPen > 0 ? `−${Math.round(fundPen * 100)}% of the marks` : 'within range' },
-    { label: 'Score after both penalties', effect: `${divScore(i)}/20` },
+    { label: `Biggest sector ${i.topSector ?? '—'} is ${i.topSectorPct}% of the money (comfortable up to ${c.top_sector_ok}%)`, effect: p1 > 0 ? `−${Math.round(p1 * 100)}% of the marks` : 'within range' },
+    { label: `Top 10 stocks are ${i.top10Pct}% (comfortable up to ${c.top10_ok}%)`, effect: p2 > 0 ? `−${Math.round(p2 * 100)}% of the marks` : 'within range' },
+    { label: `${i.overlapPct}% sits in ${i.overlapStocks} stocks that two or more of the funds both hold (comfortable up to ${c.overlap_ok}%)`, effect: p3 > 0 ? `−${Math.round(p3 * 100)}% of the marks` : 'within range' },
+    { label: `Score · judged on ${i.coveragePct}% of the portfolio that discloses holdings`, effect: `${divScore(i)}/20` },
   ];
 }
 function discScore(i: Inputs): number {
@@ -235,15 +266,49 @@ export function clientHealth(id: number): Health {
   });
 
   const dv = divScore(i);
+  const dc_ = R.diversification;
   const divChallenges: string[] = [];
-  if (i.topCatShare > R.diversification.category_cap) divChallenges.push(`${Math.round(i.topCatShare * 100)}% of the portfolio sits in a single fund category — one market mood moves almost everything`);
-  if (i.topFundWeight > R.diversification.fund_cap) divChallenges.push(`${Math.round(i.topFundWeight * 100)}% sits in one fund — single-manager risk on the bulk of the money`);
+  const divLevers: Lever[] = [];
+  if (i.coveragePct < dc_.min_coverage) {
+    divChallenges.push(`Only ${i.coveragePct}% of this portfolio publishes what it holds — the rest cannot be judged on sectors yet`);
+  } else {
+    if (i.overlapPct > dc_.overlap_ok) {
+      const pair = fundOverlap(id)[0];
+      divChallenges.push(`${i.overlapPct}% of the money sits in ${i.overlapStocks} stocks that more than one of these funds holds${pair ? ` — ${pair.a} and ${pair.b} alone share ${pair.shared} stocks` : ''}. Different funds, same book.`);
+      divLevers.push({
+        key: 'cut_overlap',
+        label: pair ? `Consolidate the duplication between ${pair.a} and ${pair.b}` : 'Cut the duplication across funds',
+        delta: divScore({ ...i, overlapPct: dc_.overlap_ok }) - dv,
+        detail: `${pair ? `${pair.shared} shared stocks, ${pair.shared_pct}% common weight — ` : ''}one of them plus a genuinely different category buys real diversification`,
+      });
+    }
+    if (i.topSectorPct > dc_.top_sector_ok) {
+      divChallenges.push(`${i.topSector} alone is ${i.topSectorPct}% of the money — no single fund shows this, it only appears when you look through all of them`);
+      divLevers.push({
+        key: 'trim_sector',
+        label: `Trim ${i.topSector} exposure`,
+        delta: divScore({ ...i, topSectorPct: dc_.top_sector_ok }) - dv,
+        detail: `sector concentration is invisible at fund level; comfortable is ${dc_.top_sector_ok}%`,
+      });
+    }
+    if (i.top10Pct > dc_.top10_ok) {
+      divChallenges.push(`The ten largest stocks carry ${i.top10Pct}% of the portfolio`);
+      divLevers.push({
+        key: 'spread_top10',
+        label: 'Spread the concentration in the largest holdings',
+        delta: divScore({ ...i, top10Pct: dc_.top10_ok }) - dv,
+        detail: `top ten stocks are ${i.top10Pct}%; comfortable is ${dc_.top10_ok}%`,
+      });
+    }
+  }
   components.push({
     key: 'diversification', label: 'Diversification', score: dv,
-    why: `${Math.round(i.topCatShare * 100)}% in one category, ${Math.round(i.topFundWeight * 100)}% in one fund`,
+    why: i.coveragePct < dc_.min_coverage
+      ? `only ${i.coveragePct}% discloses holdings`
+      : `${i.topSector ?? '—'} ${i.topSectorPct}% · ${i.overlapPct}% duplicated across funds`,
     breakdown: divSteps(i),
     challenges: divChallenges,
-    levers: dv < 20 ? [{ key: 'rebalance_bands', label: 'Spread per the risk-band model', delta: 20 - dv, detail: '', ghosted: 'allocation bands per risk profile await compliance sign-off — schema exists, rows pending' }] : [],
+    levers: divLevers.filter(l => l.delta > 0),
   });
 
   const dc = discScore(i);

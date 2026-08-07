@@ -1,6 +1,7 @@
 import { db } from './db';
 import { TODAY } from '../mockdb/engines';
 import { figure, type Figure, type MixRow } from './queries';
+import { benchmarkComparison } from './portfolio';
 
 const CLIENT_BLEND = `SUM(CASE WHEN xirr IS NOT NULL THEN present_market_value*xirr END)
                     / SUM(CASE WHEN xirr IS NOT NULL THEN present_market_value END)`;
@@ -28,15 +29,22 @@ export function clientHeader(id: number): ClientHeader | undefined {
     WHERE c.cm_user_id=?`).get(id) as ClientHeader | undefined;
 }
 
+/**
+ * Client-level return is a true money-weighted XIRR over the actual cashflows —
+ * NOT a value-weighted average of per-holding XIRRs, which is not a valid
+ * operation on rates. The benchmark figure comes from the same engine and the
+ * same cashflows, so the KPI card and the growth chart cannot disagree.
+ */
 export function clientKpis(id: number): Figure<{ v: number; invested: number; wx: number | null; bmx: number | null }> {
-  const sql = `SELECT
-  (SELECT SUM(present_market_value) FROM fifo_summary_holding_active WHERE client_id=?) v,
-  (SELECT SUM(cost_amount) FROM fifo_summary_holding_active WHERE client_id=?) invested,
-  (SELECT ROUND(${CLIENT_BLEND},1) FROM fifo_summary_holding_active WHERE client_id=?) wx,
-  (SELECT ROUND(SUM(CASE WHEN sh_bmxirr IS NOT NULL THEN sh_current_value*sh_bmxirr END)
-              / SUM(CASE WHEN sh_bmxirr IS NOT NULL THEN sh_current_value END),1)
-     FROM fifo_summary_holding WHERE fk_acc_id=?) bmx`;
-  return figure(sql, ['fifo_summary_holding_active.present_market_value', '.cost_amount', '.xirr', 'fifo_summary_holding.sh_bmxirr'], 'computed', [id, id, id, id]);
+  const totals = db().prepare(`SELECT COALESCE(SUM(present_market_value),0) v, COALESCE(SUM(cost_amount),0) invested
+    FROM fifo_summary_holding_active WHERE client_id=?`).get(id) as { v: number; invested: number };
+  const cmp = benchmarkComparison(id);
+  return {
+    value: { v: totals.v, invested: totals.invested, wx: cmp.value.client_xirr, bmx: cmp.value.bench_xirr },
+    tag: 'computed',
+    sql: cmp.sql,
+    sources: ['fifo_summary_holding_active.present_market_value/.cost_amount', ...cmp.sources],
+  };
 }
 
 export function clientMix(id: number): Figure<MixRow[]> {

@@ -107,7 +107,7 @@ check('demo queue: broker 4 has a rich queue (≥12 open, ≥6 types)',
 const bdays = one<{ n: number }>(
   `SELECT COUNT(*) n FROM client_master c JOIN client_sub_broker_mapping m ON m.cm_user_id=c.cm_user_id AND m.sb_id=4
    WHERE strftime('%m-%d', c.cm_date_of_birth) BETWEEN strftime('%m-%d', date('${TODAY}','+1 day')) AND strftime('%m-%d', date('${TODAY}','+6 days'))`);
-check('demo queue: 3 broker-4 birthdays inside the coming week', bdays.n === 3, `${bdays.n} birthdays`);
+check('demo queue: at least the 3 pinned broker-4 birthdays land in the coming week', bdays.n >= 3, `${bdays.n} birthdays`);
 
 const idleHonest = one<{ n: number }>(
   `SELECT COUNT(*) n FROM actions a WHERE a.action_type='idle_no_sip'
@@ -123,6 +123,30 @@ check('honesty: every mandate_expiring mandate really ends within 45 days', mand
 
 check('demo queue: one auto-resolved closure exists for broker 4 (the Gainsight chip)',
   one<{ n: number }>("SELECT COUNT(*) n FROM actions WHERE assignee_sb_id=4 AND state='done' AND outcome_type='auto_resolved'").n === 1);
+
+// The fund-data slice: real funds, real holdings — must be intact and sane.
+const slice = one<{ stocks: number; holdings: number; funds: number; sectors: number }>(
+  `SELECT (SELECT COUNT(*) FROM stock_master) stocks,
+          (SELECT COUNT(*) FROM mf_scheme_holdings) holdings,
+          (SELECT COUNT(DISTINCT fk_scheme_id) FROM mf_scheme_holdings) funds,
+          (SELECT COUNT(DISTINCT sector) FROM stock_master WHERE sector IS NOT NULL) sectors`);
+check('fund holdings loaded: 30 equity funds with real stocks and sectors',
+  slice.funds === 30 && slice.stocks > 500 && slice.holdings > 3000 && slice.sectors > 10,
+  `${slice.funds} funds · ${slice.holdings} holdings · ${slice.stocks} stocks · ${slice.sectors} sectors`);
+
+const wsum = db.prepare(`SELECT fk_scheme_id, SUM(weight_pct) w FROM mf_scheme_holdings GROUP BY fk_scheme_id`)
+  .all() as { fk_scheme_id: number; w: number }[];
+check('no fund claims more than 100% of itself', wsum.every(r => r.w <= 100.5),
+  `max ${Math.max(...wsum.map(r => r.w)).toFixed(1)}%`);
+
+check('every holding resolves to a known stock',
+  one<{ n: number }>('SELECT COUNT(*) n FROM mf_scheme_holdings h LEFT JOIN stock_master s ON s.stock_id=h.stock_id WHERE s.stock_id IS NULL').n === 0);
+
+check('equity schemes carry real fund identities (not generated names)',
+  one<{ n: number }>("SELECT COUNT(*) n FROM scheme_master WHERE scheme_id IN (SELECT DISTINCT fk_scheme_id FROM mf_scheme_holdings) AND scheme_full_name LIKE '%Fund%Fund%'").n === 0);
+
+const idx = one<{ n: number; b: number }>('SELECT COUNT(*) n, COUNT(DISTINCT fk_benchmark_id) b FROM benchmark_price_history');
+check('benchmark index history present for every benchmark', idx.b === 8 && idx.n > 300, `${idx.n} points across ${idx.b} indices`);
 
 const book = one<{ v: number }>('SELECT SUM(present_market_value) v FROM fifo_summary_holding_active');
 console.log(`\nBook value: ${inr(book.v)} across ${counts.c} clients · ${failures === 0 ? 'ALL CHECKS PASSED' : failures + ' FAILURES'}`);

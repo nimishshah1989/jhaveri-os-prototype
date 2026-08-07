@@ -204,6 +204,31 @@ CREATE TABLE mf_latest_price_master (
   price_date   TEXT NOT NULL
 );
 
+CREATE TABLE stock_master (                 -- underlying securities (fund-data feed)
+  stock_id     TEXT PRIMARY KEY,
+  stock_name   TEXT NOT NULL,
+  sector       TEXT,
+  industry     TEXT,
+  cap_band     TEXT,                          -- Large | Mid | Small (AMFI rank convention)
+  market_cap   NUMERIC
+);
+
+CREATE TABLE mf_scheme_holdings (           -- what each fund actually owns
+  fk_scheme_id INTEGER NOT NULL REFERENCES scheme_master(scheme_id),
+  stock_id     TEXT NOT NULL REFERENCES stock_master(stock_id),
+  weight_pct   NUMERIC NOT NULL,
+  as_of_date   TEXT NOT NULL,
+  PRIMARY KEY (fk_scheme_id, stock_id)
+);
+CREATE INDEX idx_msh_stock ON mf_scheme_holdings(stock_id);
+
+CREATE TABLE benchmark_price_history (      -- index level history (TRI), monthly
+  fk_benchmark_id INTEGER NOT NULL REFERENCES benchmark_master(benchmark_id),
+  price_date      TEXT NOT NULL,
+  price           NUMERIC NOT NULL,
+  PRIMARY KEY (fk_benchmark_id, price_date)
+);
+
 CREATE TABLE mf_historical_price_master (
   fk_scheme_id INTEGER NOT NULL REFERENCES scheme_master(scheme_id),
   price_date   TEXT NOT NULL,

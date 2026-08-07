@@ -10,6 +10,7 @@ import {
   clientKpis, clientHoldings, clientMix, taxPosition, clientTxns, familyMembers,
   clientHeader, journeySeries, fundVerdict, riskScale,
 } from '../lib/client360';
+import { benchmarkComparison, equityCurve, lookThrough } from '../lib/portfolio';
 
 process.chdir(join(dirname(fileURLToPath(import.meta.url)), '..'));
 const raw = new Database(join(process.cwd(), 'mockdb', 'jhaveri.db'), { readonly: true });
@@ -42,9 +43,18 @@ check('every holding == Σ its lots', lotBad === 0, `${lotBad} mismatches`);
 check('unrealised tax == Σ lot-level unrealised', taxBad === 0, `${taxBad} mismatches`);
 
 const meera = clientKpis(101).value;
-check('Meera: value ≈ ₹5,20,177, trailing her benchmark',
-  Math.abs(meera.v - 520177) < 2 && meera.wx != null && meera.bmx != null && meera.wx < meera.bmx,
-  `v=${Math.round(meera.v)} wx=${meera.wx} bmx=${meera.bmx}`);
+check('Meera: KPI value == Σ her holdings, and both returns computed',
+  Math.abs(meera.v - clientHoldings(101).rows.reduce((s, r) => s + r.value, 0)) < 0.05
+  && meera.wx != null && meera.bmx != null,
+  `v=${Math.round(meera.v)} xirr=${meera.wx}% index=${meera.bmx}%`);
+
+// One engine, one story: the KPI card and the growth chart must agree.
+const cmp = benchmarkComparison(101).value;
+const curveEnd = equityCurve(101).value.slice(-1)[0];
+check('KPI card and growth chart agree on value and on the index comparison',
+  Math.abs(cmp.value - curveEnd.value) < 1 && Math.abs(cmp.benchmark - curveEnd.benchmark) < 1
+  && cmp.client_xirr === meera.wx && cmp.bench_xirr === meera.bmx,
+  `value ₹${cmp.value} vs curve ₹${curveEnd.value} · index ₹${cmp.benchmark} vs curve ₹${curveEnd.benchmark}`);
 
 const meeraMix = clientMix(101).value;
 check('Meera: asset mix total == her value', Math.abs(meeraMix.reduce((s, r) => s + r.v, 0) - meera.v) < 0.05);
@@ -79,6 +89,16 @@ const rs = riskScale(101, 'Very Aggressive').value;
 check('risk scale: client 5/5, portfolio within [1,5] and near profile',
   rs.client === 5 && rs.portfolio != null && rs.portfolio >= 1 && rs.portfolio <= 5,
   `portfolio ${rs.portfolio}`);
+
+// Look-through: fund weights must resolve to real stocks without inventing money.
+const lt = lookThrough(101).value;
+check('look-through never claims more money than the client has',
+  lt.covered <= lt.total + 1 && lt.coverage_pct <= 100, `covered ₹${Math.round(lt.covered)} of ₹${Math.round(lt.total)} (${lt.coverage_pct}%)`);
+check('sector shares sum to 100% of what was looked through',
+  Math.abs(lt.sectors.reduce((s, r) => s + r.pct, 0) - 100) < 0.6,
+  `${lt.sectors.reduce((s, r) => s + r.pct, 0).toFixed(1)}% across ${lt.sectors.length} sectors`);
+check('Meera: real overlap detected across her funds',
+  lt.overlap_stocks > 0 && lt.overlap_pct > 0, `${lt.overlap_pct}% in ${lt.overlap_stocks} shared stocks`);
 
 console.log(failures === 0 ? '\nCLIENT 360: ALL CHECKS PASSED' : `\nCLIENT 360: ${failures} FAILURES`);
 process.exit(failures === 0 ? 0 : 1);

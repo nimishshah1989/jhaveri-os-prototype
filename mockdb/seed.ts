@@ -61,8 +61,40 @@ CATS.forEach(([name, asset], i) => ins('category_master', { category_id: i + 1, 
 const BENCH = ['NIFTY 500 TRI', 'NIFTY 100 TRI', 'NIFTY Midcap 150 TRI', 'NIFTY Smallcap 250 TRI', 'CRISIL Corporate Bond Index', 'CRISIL Liquid Index', 'CRISIL Hybrid 35+65 Index', 'Domestic Gold Index'];
 BENCH.forEach((b, i) => ins('benchmark_master', { benchmark_id: i + 1, benchmark_name: b }));
 const catBench = [1, 2, 3, 4, 1, 5, 6, 7, 7, 8];
-const AMCS = ['HDFC', 'ICICI Prudential', 'SBI', 'Axis', 'Kotak', 'Nippon India', 'Aditya Birla SL', 'UTI', 'Mirae Asset', 'DSP', 'Tata', 'Franklin India'];
-AMCS.forEach((a, i) => ins('amc_master', { amc_id: i + 1, amc_name: a + ' Mutual Fund' }));
+// Real funds, their real holdings, real sectors — a slice of Atlas (the fund
+// manager's system) snapshotted by mockdb/extract-atlas.sh. Atlas is a data
+// source only; nothing in the app links to it. The real build ingests these same
+// shapes from the AMC portfolio-disclosure feed.
+interface AtlasHolding { stock_id: string; stock: string; sector: string; industry: string | null; weight: number; cap_band: string | null }
+interface AtlasFund { mstar_id: string; fund_name: string; amc_name: string; category: string; holdings: AtlasHolding[] }
+interface AtlasStock { stock_id: string; name: string; sector: string; industry: string | null; cap_band: string | null; market_cap: number | null }
+const atlas = JSON.parse(readFileSync(join(DIR, 'atlas-slice.json'), 'utf8')) as
+  { as_of: string; funds: AtlasFund[]; stocks: AtlasStock[] };
+const ATLAS_CAT: Record<string, string> = {
+  'India Fund Flexi Cap': 'Flexi Cap', 'India Fund Large-Cap': 'Large Cap',
+  'India Fund Mid-Cap': 'Mid Cap', 'India Fund Small-Cap': 'Small Cap',
+  'India Fund ELSS (Tax Savings)': 'ELSS (Tax Savings)',
+};
+const atlasByCat = new Map<string, AtlasFund[]>();
+for (const f of atlas.funds) {
+  const c = ATLAS_CAT[f.category];
+  if (!c) continue;
+  if (!atlasByCat.has(c)) atlasByCat.set(c, []);
+  atlasByCat.get(c)!.push(f);
+}
+for (const st of atlas.stocks) {
+  ins('stock_master', { stock_id: st.stock_id, stock_name: st.name, sector: st.sector, industry: st.industry, cap_band: st.cap_band, market_cap: st.market_cap });
+}
+
+const SYNTH_AMCS = ['HDFC', 'ICICI Prudential', 'SBI', 'Axis', 'Kotak', 'Nippon India', 'Aditya Birla SL', 'UTI', 'Mirae Asset', 'DSP', 'Tata', 'Franklin India'];
+const REAL_AMCS = [...new Set(atlas.funds.map(f => f.amc_name))];
+const AMCS = [...SYNTH_AMCS, ...REAL_AMCS];
+const amcId = new Map<string, number>();
+AMCS.forEach((a, i) => {
+  const label = SYNTH_AMCS.includes(a) ? a + ' Mutual Fund' : a;
+  amcId.set(a, i + 1);
+  ins('amc_master', { amc_id: i + 1, amc_name: label });
+});
 
 const TXN_TYPES: [number, string, number, Partial<Record<string, number>>][] = [
   [1, 'Purchase', 1, {}], [2, 'Redemption', -1, {}], [3, 'Systematic Investment', 1, {}],
@@ -109,17 +141,33 @@ for (let i = 0; i < 60; i++) {
   const amc = (i % 12) + 1;
   const [drift, vol, startNav] = CAT_PROFILE[cat];
   const series = makeNavSeries(r, startNav * between(r, 0.7, 1.4), 44, drift + between(r, -0.03, 0.03), vol, TODAY);
-  const name = `${AMCS[amc - 1]} ${CATS[cat - 1][0]} ${pick(r, STYLE)}`;
   const equity = cat <= 5;
-  const s: SchemeSeed = { id: i + 1, name, amc, cat, bench: catBench[cat - 1], series, equity };
+  // Equity schemes ARE real funds (name, AMC, holdings) from the Atlas slice;
+  // non-equity keep synthetic identities — Atlas's universe is equity-only, and
+  // a liquid or gold fund has no stock look-through to show.
+  const pool = atlasByCat.get(CATS[cat - 1][0]) ?? [];
+  const real = equity ? pool[Math.floor(i / 10) % Math.max(pool.length, 1)] : undefined;
+  const name = real ? real.fund_name : `${AMCS[amc - 1]} ${CATS[cat - 1][0]} ${pick(r, STYLE)}`;
+  const useAmc = real ? (amcId.get(real.amc_name) ?? amc) : amc;
+  const s: SchemeSeed = { id: i + 1, name, amc: useAmc, cat, bench: catBench[cat - 1], series, equity };
   schemes.push(s);
   const latest = series.navs[series.navs.length - 1];
-  ins('scheme_master', { scheme_id: s.id, scheme_full_name: name, scheme_short_name: name, fk_amc_id: amc, fk_category_id: cat, fk_benchmark_id: s.bench, scheme_amfi_code: String(100000 + i), scheme_isin_code: `INF${200 + amc}K0${1000 + i}`, scheme_rta: chance(r, 0.55) ? 'C' : 'K', scheme_exit_load: equity ? 1 : 0, scheme_expense_ratio: round2(between(r, 0.4, 1.9)), scheme_day_end_nav: latest, scheme_day_end_nav_date: TODAY, risk_level: equity ? 'Very High' : 'Moderate', is_jhaveri_pick: chance(r, 0.18) ? 1 : 0 });
+  ins('scheme_master', { scheme_id: s.id, scheme_full_name: name, scheme_short_name: name, fk_amc_id: useAmc, fk_category_id: cat, fk_benchmark_id: s.bench, scheme_amfi_code: String(100000 + i), scheme_isin_code: `INF${200 + amc}K0${1000 + i}`, scheme_rta: chance(r, 0.55) ? 'C' : 'K', scheme_exit_load: equity ? 1 : 0, scheme_expense_ratio: round2(between(r, 0.4, 1.9)), scheme_day_end_nav: latest, scheme_day_end_nav_date: TODAY, risk_level: equity ? 'Very High' : 'Moderate', is_jhaveri_pick: chance(r, 0.18) ? 1 : 0 });
   ins('mf_latest_price_master', { fk_scheme_id: s.id, price: latest, price_date: TODAY });
   series.dates.forEach((d, j) => histStmt.run(s.id, d, series.navs[j]));
+  if (real) {
+    for (const h of real.holdings) {
+      ins('mf_scheme_holdings', { fk_scheme_id: s.id, stock_id: h.stock_id, weight_pct: h.weight, as_of_date: atlas.as_of });
+    }
+  }
 }
 const benchSeries = new Map<number, NavSeries>();
-for (let b = 1; b <= 8; b++) benchSeries.set(b, makeNavSeries(r, 100, 44, [0.13, 0.12, 0.15, 0.16, 0.07, 0.065, 0.10, 0.09][b - 1], [0.14, 0.12, 0.18, 0.22, 0.02, 0.004, 0.09, 0.12][b - 1], TODAY));
+const benchStmt = db.prepare('INSERT INTO benchmark_price_history (fk_benchmark_id, price_date, price) VALUES (?,?,?)');
+for (let b = 1; b <= 8; b++) {
+  const bs = makeNavSeries(r, 100, 44, [0.13, 0.12, 0.15, 0.16, 0.07, 0.065, 0.10, 0.09][b - 1], [0.14, 0.12, 0.18, 0.22, 0.02, 0.004, 0.09, 0.12][b - 1], TODAY);
+  benchSeries.set(b, bs);
+  bs.dates.forEach((d, j) => benchStmt.run(b, d, bs.navs[j]));
+}
 for (let a = 1; a <= 12; a++) {
   ins('amc_rate_card', { card_id: a * 2 - 1, amc_id: a, scheme_category: 'Equity', agreed_trail_bps: intBetween(r, 85, 110), effective_from: '2025-04-01', source_doc_ref: `empanelment/AMC-${a}-FY26.pdf`, entered_by: 'ops', approved_by: 'management' });
   ins('amc_rate_card', { card_id: a * 2, amc_id: a, scheme_category: 'Non-Equity', agreed_trail_bps: intBetween(r, 35, 60), effective_from: '2025-04-01', source_doc_ref: `empanelment/AMC-${a}-FY26.pdf`, entered_by: 'ops', approved_by: 'management' });

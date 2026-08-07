@@ -2,6 +2,39 @@
 
 Dated evidence of pace. Every entry: what shipped, how it was verified.
 
+## 07-Aug-2026 (deep) — Portfolio analysis rebuilt on real fund holdings from Atlas
+- Founder: sector composition is critical, diversification cannot be judged on fund
+  labels, and Atlas already holds the data. He was right on all three.
+- `mockdb/extract-atlas.sh` pulls a slice of Atlas (the fund manager's system) into
+  `atlas-slice.json`: 30 real equity funds with their disclosed holdings, 662 stocks,
+  21 sectors, market-cap bands, as of 25-Jul-2026. Atlas is a data SOURCE only —
+  nothing in this app links to it, and the demo runs offline from the snapshot.
+  New mock tables `stock_master` + `mf_scheme_holdings` mirror what the real build
+  ingests from the AMC portfolio-disclosure feed. The 30 equity schemes now carry real
+  fund identities; non-equity stays synthetic (Atlas's universe is equity-only) and the
+  UI says so rather than pretending.
+- **Diversification score rewritten on what clients actually own**: sector
+  concentration, top-ten weight, and money duplicated across funds — replacing the
+  fund-category measure, which was exactly the illusion the founder described. Meera:
+  Banking 24.3%, 58.9% of her money in 45 stocks that both her "different" flexi-cap
+  funds hold. Her levers are now real ("Consolidate the duplication between WhiteOak
+  and Edelweiss, +7") and the compliance-blocked ghost is gone.
+- **Two money-math corrections found while wiring this:**
+  ① client-level XIRR was a value-weighted average of per-holding XIRRs — not a valid
+  operation on rates. Replaced with a true money-weighted XIRR on actual cashflows
+  (Meera 12.5%, not 21.5%). ② the KPI benchmark and the growth chart came from
+  different engines and disagreed. Both now derive from one cashflow model, with a
+  check asserting they cannot diverge.
+- Portfolio analysis tab rebuilt: growth-vs-benchmark curve with a fund picker (all by
+  default, tick funds to isolate), sector look-through, the overlap table, ten largest
+  shareholdings, real market-cap lens (from actual market caps, not category rules),
+  fund report cards with in-place deep dives (own benchmark curve, fund facts, its
+  holdings, ✕ to close), segment performance against the whole catalogue, risk fit.
+- Verified: 5 new data-integrity checks (no fund claims >100% of itself, every holding
+  resolves to a known stock, real identities, index history complete) + look-through
+  and chart/KPI-agreement checks in verify-360. All five verifiers green on pristine
+  reseed; pages still render in ~0.2s with book-wide scoring.
+
 ## 07-Aug-2026 (late) — Health view rebuilt as cards + deep dives, and the loop now closes
 - Founder direction: every health parameter and opportunity becomes a card; clicking it
   opens how the score was calculated, where the challenge is, and what to do — with the

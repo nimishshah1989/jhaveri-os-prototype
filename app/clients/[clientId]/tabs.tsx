@@ -9,7 +9,6 @@ import {
   type ClientHeader, type Verdict,
 } from '../../../lib/client360';
 import { captureNote } from './actions';
-import { schemeGrades } from '../../../lib/scoring';
 import { mintForClients } from '../../clients/actions';
 
 const MIX_COLORS = ['var(--s1)', 'var(--s2)', 'var(--s3)', 'var(--s4)'];
@@ -128,79 +127,6 @@ export function OverviewTab({ id, head }: { id: number; head: ClientHeader }) {
           </li>
         </ol>
         <div className="d" style={{ marginTop: 8 }}>Every sentence computes from rules over this client&apos;s rows — never generated prose over money numbers.</div>
-      </div>
-    </>
-  );
-}
-
-export function AnalysisTab({ id, head }: { id: number; head: ClientHeader }) {
-  const holdings = clientHoldings(id);
-  const info = schemeInfo(id);
-  const grades = schemeGrades();
-  const mix = clientCategoryMix(id);
-  const mixTotal = mix.value.reduce((s, r) => s + r.v, 0);
-  const scale = riskScale(id, head.risk);
-
-  return (
-    <>
-      <div className="viz" style={{ marginBottom: 18 }}>
-        <h4>Fund report cards <Provenance figure={{ tag: 'rule', sql: 'verdict rule v1: holding age ≤ 180 days → watch; XIRR below benchmark by >10 pts → lagging; else on track', sources: ['fifo_summary_holding.sh_xirr', '.sh_bmxirr', 'scheme_master.scheme_expense_ratio', '.risk_level', '.is_jhaveri_pick'] }} /></h4>
-        {holdings.rows.map(h => {
-          const v = fundVerdict(h);
-          const ui = VERDICT_UI[v.verdict];
-          const si = info.get(h.scheme_id);
-          const g = grades.get(h.scheme_id);
-          return (
-            <div key={h.scheme_id} className={`fundcard ${ui.card}`}>
-              <span className="fn">
-                {g && <span className={`gradechip g${g.grade}`} title={`Scheme grade ${g.grade} — 1y return ${g.ret1y}% vs category average ${g.cat_avg}% (percentile ${g.pctile}, expense- and house-view-adjusted)`} style={{ marginRight: 8 }}>{g.grade}</span>}
-                {h.fund_name} <span className="d">{h.fund_category}{si?.pick === 1 && ' · Jhaveri pick ★'}</span>
-              </span>
-              <span><span className="m">Value</span><br /><span className="val num">{inr(h.value)}</span></span>
-              <span><span className="m">XIRR / bench</span><br />
-                <span className={`val num ${h.xirr != null && h.xirr < 0 ? 'down' : 'up'}`}>{h.xirr ?? '—'}%</span>
-                <span className="val num"> / {h.bmxirr ?? '—'}%</span></span>
-              <span><span className="m">Expense</span><br /><span className="val num">{si ? `${si.expense}%` : '—'}</span></span>
-              <span><span className="m">Risk</span><br /><span className="val">{si?.risk_level ?? '—'}</span></span>
-              <span className={`verdict ${ui.cls}`}>{ui.label}{v.verdict === 'lagging' && v.gap != null ? ` ${Math.abs(v.gap)} pts` : ''}</span>
-            </div>
-          );
-        })}
-        <div className="d">The verdict formula is a registered rule (gap vs benchmark × holding age), versioned, changeable without code — never a black box.</div>
-      </div>
-
-      <div className="viz" style={{ marginBottom: 18 }}>
-        <h4>Category concentration <Provenance figure={mix} /></h4>
-        <div className="stack">
-          {mix.value.map((r, i) => (
-            <div key={r.label} style={{ flex: r.v, background: MIX_COLORS[i] ?? 'var(--grey)' }} title={`${r.label} ${inrCompact(r.v)}`} />
-          ))}
-        </div>
-        <div className="lg">
-          {mix.value.map((r, i) => (
-            <span key={r.label} style={{ ['--c' as string]: MIX_COLORS[i] ?? 'var(--grey)' }}>
-              <b>{r.label} {((r.v / mixTotal) * 100).toFixed(1)}%</b> {inrCompact(r.v)}
-            </span>
-          ))}
-        </div>
-        <div className="mark">Category-level today, honestly labelled — true sector split (Banking/IT/Pharma) arrives with the fund-portfolio feed in the real build.</div>
-      </div>
-
-      <div className="viz">
-        <h4>Risk appetite vs what the portfolio actually holds <Provenance figure={scale} /></h4>
-        <div className="riskscale">
-          <div className="track" />
-          <div className="pin client" style={{ left: `${(scale.value.client / 5) * 96}%` }}>Profile · {head.risk}<i /></div>
-          {scale.value.portfolio != null && (
-            <div className="pin port" style={{ left: `${(scale.value.portfolio / 5) * 96}%`, top: 26 }}>Portfolio {scale.value.portfolio} / 5<i /></div>
-          )}
-        </div>
-        <div className="scale-ends"><span>Conservative 1</span><span>Very Aggressive 5</span></div>
-        <div className="d" style={{ marginTop: 10 }}>
-          {scale.value.portfolio != null && Math.abs(scale.value.portfolio - scale.value.client) <= 0.5
-            ? 'Profile and portfolio agree — suitability evidence on file for every proposal.'
-            : 'Profile and portfolio diverge — flag for the next review.'}
-        </div>
       </div>
     </>
   );
