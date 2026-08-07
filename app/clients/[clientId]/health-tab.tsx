@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Provenance } from '../../../components/Provenance';
+import { Explain } from '../../../components/Explain';
 import { inr, dmy, dmy2 } from '../../../lib/format';
 import { clientSips, clientTxns, type ClientHeader } from '../../../lib/client360';
 import { clientHealth, SCORING_RULES, type Component, type Lever } from '../../../lib/scoring';
@@ -139,7 +139,7 @@ export async function HealthTab({ id, head, focus }: { id: number; head: ClientH
   return (
     <>
       <div className="viz" style={{ marginBottom: 18 }}>
-        <h4>Portfolio health <Provenance figure={{ tag: 'rule', sql: `five components × 20 points, ${SCORING_RULES.version}\nweights live in lib/scoring.ts SCORING_RULES — the Admin page shows them; the real build moves them into rules_registry`, sources: ['fifo_summary_holding_active', 'fifo_summary_holding', 'sip_master', 'bse_mandate_list', 'scheme_master.risk_level'] }} /></h4>
+        <h4>Portfolio health <Explain id="health_score" /></h4>
         <div className="scorehead">
           <div className="ring" style={{ ['--pct' as string]: h.total, ['--ringc' as string]: BAND_COLOR[h.band.label] }}>
             <i>{h.total}<small>of 100<br />{h.band.label}</small></i>

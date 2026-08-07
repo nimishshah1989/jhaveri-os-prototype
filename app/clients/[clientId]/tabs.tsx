@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { HoldingsTable } from '../../../components/HoldingsTable';
-import { Provenance } from '../../../components/Provenance';
+import { Explain } from '../../../components/Explain';
 import { inr, inrCompact, dmy, dmy2 } from '../../../lib/format';
 import {
   clientKpis, clientCategoryMix, clientHoldings, taxPosition, clientTxns, clientSips,
@@ -64,7 +64,7 @@ export function OverviewTab({ id, head }: { id: number; head: ClientHeader }) {
     <>
       <div className="cards six" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
         <div className="card"><div className="body">
-          <div className="k">Value <Provenance figure={kpis} /></div>
+          <div className="k">Value <Explain figure={kpis} /></div>
           <div className="v num">{inr(kpis.value.v)}</div>
           <div className="s">{holdings.rows.length} funds</div>
         </div></div>
@@ -78,7 +78,7 @@ export function OverviewTab({ id, head }: { id: number; head: ClientHeader }) {
           <div className="s num">{((pnl / kpis.value.invested) * 100).toFixed(1)}% absolute</div>
         </div></div>
         <div className="card"><div className="body">
-          <div className="k">XIRR vs benchmark <Provenance figure={kpis} /></div>
+          <div className="k">XIRR vs benchmark <Explain figure={kpis} /></div>
           <div className={`v num ${(kpis.value.wx ?? 0) >= 0 ? 'good' : 'warn'}`}>{kpis.value.wx != null ? `${kpis.value.wx}%` : '—'}</div>
           <div className="s num">benchmark {kpis.value.bmx != null ? `${kpis.value.bmx}%` : '—'}{gap != null && gap > 0 ? ` — trailing by ${gap} pts` : ''}</div>
         </div></div>
@@ -90,7 +90,7 @@ export function OverviewTab({ id, head }: { id: number; head: ClientHeader }) {
       </div>
 
       <div className="viz" style={{ marginBottom: 18 }}>
-        <h4>Investment journey <Provenance figure={journey} /></h4>
+        <h4>Investment journey <Explain id="journey" figure={journey} /></h4>
         <svg viewBox="0 0 600 140" style={{ width: '100%', height: 'auto' }} role="img"
           aria-label={`Cumulative investment from ${pts[0]?.m} to ${pts[pts.length - 1]?.m}, value today ${inr(kpis.value.v)}`}>
           <polyline fill="none" stroke="var(--s1)" strokeWidth="2" points={poly} />
@@ -107,7 +107,7 @@ export function OverviewTab({ id, head }: { id: number; head: ClientHeader }) {
       </div>
 
       <div className="viz">
-        <h4>The review, in three lines <span className="prov"><Provenance figure={{ tag: 'rule', sql: 'performance: blended XIRR vs benchmark blend, worst-gap fund named\ndiversification: top category share + top holding weight vs the 45% concentration rule\nact-now: highest-impact open action + FY harvest headroom', sources: ['fifo_summary_holding_active', 'actions', 'fifo_summary_holding'] }} /></span></h4>
+        <h4>The review, in three lines </h4>
         <ol className="narrative">
           <li>
             <b className={gap != null && gap > 2 ? 'down' : 'up'}>Performance:</b>{' '}
@@ -139,7 +139,7 @@ export function HoldingsTab({ id }: { id: number }) {
   return (
     <>
       <div className="viz" style={{ marginBottom: 18 }}>
-        <h4>Tax position — the lot-level truth <Provenance figure={tax} /></h4>
+        <h4>Tax position — the lot-level truth <Explain id="tax_position" figure={tax} /></h4>
         <div className="taxg">
           <span className="lab">Unrealised LTCG</span>
           <span className="tb"><i style={{ width: `${Math.min(100, (Math.max(0, tax.value.unreal_lt) / FY_LTCG_EXEMPTION) * 100)}%` }} /></span>
@@ -237,7 +237,7 @@ export function ProfileTab({ id, head }: { id: number; head: ClientHeader }) {
   return (
     <>
       <div className="viz" style={{ marginBottom: 18 }}>
-        <h4>Profile</h4>
+        <h4>Profile <Explain id="risk_fit" /></h4>
         <div className="taxg" style={{ gridTemplateColumns: 'auto 1fr' }}>
           <span className="lab">Mobile</span><span className="num">{p.mobile}</span>
           <span className="lab">Email</span><span>{p.email}</span>
@@ -247,7 +247,7 @@ export function ProfileTab({ id, head }: { id: number; head: ClientHeader }) {
         </div>
       </div>
       <div className="viz" style={{ marginBottom: 18 }}>
-        <h4>Consents — DPDP registry, enforced in every send query</h4>
+        <h4>Consents — DPDP registry, enforced in every send query <Explain id="client_consents" /></h4>
         {p.consents.length === 0 && <div className="d">No consents recorded — nothing can be sent to this client.</div>}
         {p.consents.map((c, i) => (
           <div key={i} className="doc">{c.channel} · {c.purpose}<span className={`st fchip ${c.state === 'granted' ? 'lt' : 'conc'}`}>{c.state}</span></div>
@@ -299,7 +299,7 @@ export function ActionsTab({ id }: { id: number }) {
         </div>
       )}
       <div className="viz">
-        <h4>Conversation timeline</h4>
+        <h4>Conversation timeline <Explain id="decision_trail" /></h4>
         <form action={captureNote} style={{ marginBottom: 10 }}>
           <input type="hidden" name="client_id" value={id} />
           <textarea name="note" rows={3} required placeholder="What did the call cover?"

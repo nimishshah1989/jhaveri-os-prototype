@@ -1,0 +1,1560 @@
+<title>Jhaveri OS — vendor build pack</title>
+<style>
+/* Tokens inherited from the product's own system (app/globals.css) so the spec and
+   the thing it specifies look like one family. Neutrals are biased toward the navy
+   accent rather than being pure grey. */
+:root{
+  --ground:#ffffff; --panel:#f5f7f9; --ink:#16212b; --muted:#5b6b78; --line:#e0e5ea;
+  --accent:#23408e; --accent-soft:#eef1f9;
+  --pos:#2c6b41; --pos-soft:#e7f0ea; --amber:#8a5d10; --amber-soft:#fbf3df;
+  --grey-soft:#f1f3f4; --code-bg:#0f172a; --code-ink:#e2e8f0;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --ground:#0f151b; --panel:#161e26; --ink:#e6eaee; --muted:#94a3b0; --line:#2a343e;
+    --accent:#8fa9f0; --accent-soft:#1b2436;
+    --pos:#7fc196; --pos-soft:#16281d; --amber:#d9ae62; --amber-soft:#2a2214;
+    --grey-soft:#1c242c; --code-bg:#0a0f15; --code-ink:#d7dee6;
+  }
+}
+:root[data-theme="light"]{
+  --ground:#ffffff; --panel:#f5f7f9; --ink:#16212b; --muted:#5b6b78; --line:#e0e5ea;
+  --accent:#23408e; --accent-soft:#eef1f9; --pos:#2c6b41; --pos-soft:#e7f0ea;
+  --amber:#8a5d10; --amber-soft:#fbf3df; --grey-soft:#f1f3f4; --code-bg:#0f172a; --code-ink:#e2e8f0;
+}
+:root[data-theme="dark"]{
+  --ground:#0f151b; --panel:#161e26; --ink:#e6eaee; --muted:#94a3b0; --line:#2a343e;
+  --accent:#8fa9f0; --accent-soft:#1b2436; --pos:#7fc196; --pos-soft:#16281d;
+  --amber:#d9ae62; --amber-soft:#2a2214; --grey-soft:#1c242c; --code-bg:#0a0f15; --code-ink:#d7dee6;
+}
+*{box-sizing:border-box}
+html{background:var(--ground)}
+body{margin:0;font:14px/1.55 -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  color:var(--ink);background:var(--ground);-webkit-text-size-adjust:100%}
+.wrap{max-width:1080px;margin:0 auto;padding:36px 24px 90px;display:flex;flex-direction:column;gap:0}
+h1{font-size:1.7rem;letter-spacing:-.022em;margin:0 0 6px;text-wrap:balance}
+h2{font-size:1.05rem;margin:44px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--accent);
+  color:var(--accent);text-wrap:balance}
+h3{font-size:.95rem;margin:28px 0 10px;text-wrap:balance}
+h4{font-size:.82rem;margin:20px 0 8px;color:var(--muted);font-weight:650;letter-spacing:.02em}
+p.sub{color:var(--muted);margin:0 0 22px;max-width:70ch}
+.note{color:var(--muted);font-size:.83rem;max-width:74ch}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:22px 0}
+.stat{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--ground)}
+.stat b{display:block;font-size:1.5rem;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.stat span{font-size:.7rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+ol.howto,ul.howto{max-width:76ch;padding-left:20px}
+ol.howto li,ul.howto li{margin-bottom:8px}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:8px;margin:10px 0 18px}
+table.t{width:100%;border-collapse:collapse;font-size:.83rem;min-width:520px}
+table.t th{text-align:left;font-size:.68rem;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--muted);padding:9px 11px;border-bottom:1px solid var(--line);background:var(--panel)}
+table.t td{padding:9px 11px;border-bottom:1px solid var(--line);vertical-align:top}
+table.t tr:last-child td{border-bottom:0}
+code{font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:.75rem;background:var(--panel);
+  border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:var(--ink)}
+pre{background:var(--code-bg);color:var(--code-ink);border-radius:8px;padding:12px 14px;
+  overflow-x:auto;font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:.73rem;
+  line-height:1.6;margin:8px 0;tab-size:2}
+details.ddl{border:1px solid var(--line);border-radius:8px;margin-bottom:6px;background:var(--ground)}
+details.ddl>summary{cursor:pointer;padding:9px 12px;display:flex;gap:8px;align-items:center;
+  flex-wrap:wrap;font-size:.83rem;border-radius:8px}
+details.ddl>summary::-webkit-details-marker{display:none}
+details.ddl>summary:hover{background:var(--panel)}
+details.ddl>summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+details.ddl pre,details.ddl .tags,details.ddl .checks{margin-left:12px;margin-right:12px;margin-bottom:12px}
+.pill{font-size:.67rem;color:var(--muted);background:var(--panel);border:1px solid var(--line);
+  border-radius:20px;padding:1px 8px;font-variant-numeric:tabular-nums}
+.pill.mv{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.fig{border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:10px;background:var(--ground)}
+.fig .fh{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.fig p{margin:0 0 5px;font-size:.85rem;max-width:74ch}
+.fig p.cav{color:var(--amber);background:var(--amber-soft);border-radius:6px;padding:7px 9px;font-size:.8rem}
+.tag{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;border-radius:3px;padding:1px 7px}
+.tag.computed{background:var(--pos-soft);color:var(--pos)}
+.tag.rule{background:var(--amber-soft);color:var(--amber)}
+.tag.learned{background:var(--grey-soft);color:var(--muted)}
+ol.checks{padding-left:24px;font-size:.82rem;max-width:80ch}
+ol.checks li{margin-bottom:5px}
+a{color:var(--accent)}
+a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.foot{margin-top:32px;padding-top:14px;border-top:1px solid var(--line);font-size:.78rem;
+  color:var(--muted);max-width:80ch}
+.phead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.phead .brand{font-weight:700;font-size:.95rem;letter-spacing:-.01em}
+.phead .brand span{font-weight:400;color:var(--muted)}
+.phead .gen{margin-left:auto;font-size:.74rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.tabs{display:flex;gap:2px;flex-wrap:wrap;position:sticky;top:0;z-index:5;background:var(--ground);
+  border-bottom:1px solid var(--line);margin-bottom:22px;padding-top:2px}
+.tabs button{appearance:none;background:none;border:0;border-bottom:2px solid transparent;
+  margin-bottom:-1px;padding:9px 13px;font:inherit;font-size:.83rem;color:var(--muted);cursor:pointer;
+  border-radius:6px 6px 0 0}
+.tabs button:hover{background:var(--panel);color:var(--ink)}
+.tabs button[aria-selected]{color:var(--accent);font-weight:650;border-bottom-color:var(--accent)}
+.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.panel[hidden]{display:none}
+.panel>h2:first-child{margin-top:0}
+@media(max-width:820px){.stats{grid-template-columns:repeat(2,1fr)}.wrap{padding:24px 16px 60px}
+  .tabs{overflow-x:auto;flex-wrap:nowrap}.tabs button{white-space:nowrap}}
+@media print{details.ddl{break-inside:avoid}details[open] pre{max-height:none}}
+</style>
+<div class="wrap">
+  <header class="phead">
+    <div class="brand">Jhaveri OS <span>vendor build pack</span></div>
+    <div class="gen">generated 2026-08-07</div>
+  </header>
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-t="overview" aria-selected="true">Overview</button><button role="tab" data-t="data">Data layer</button><button role="tab" data-t="pages">Page spec</button><button role="tab" data-t="queries">All queries</button><button role="tab" data-t="rules">Thresholds</button><button role="tab" data-t="writes">Write paths</button><button role="tab" data-t="accept">Acceptance</button><button role="tab" data-t="gaps">Gaps</button>
+  </nav>
+  <section id="p-overview" class="panel"><h1>Jhaveri OS — vendor build pack</h1>
+<p class="sub">Generated from the running prototype on 2026-08-07. Every
+query, threshold and acceptance criterion below was read out of the code that produces the screens —
+not written alongside it. Re-generating after a change is the only way this document is updated, so it
+cannot describe a version of the system that no longer exists.</p>
+<div class="stats">
+<div class="stat"><b>87</b><span>tables in the schema</span></div>
+<div class="stat"><b>56</b><span>carried from production</span></div>
+<div class="stat"><b>31</b><span>new objects to build</span></div>
+<div class="stat"><b>7</b><span>materialised views</span></div>
+<div class="stat"><b>66</b><span>queries captured with SQL</span></div>
+<div class="stat"><b>15</b><span>write paths</span></div>
+<div class="stat"><b>238</b><span>acceptance assertions</span></div>
+<div class="stat"><b>35</b><span>figures documented in plain words</span></div>
+</div>
+
+<h2>How to read this</h2>
+<ol class="howto">
+  <li><b>Section 2</b> is the data layer: what already exists in production and is carried forward
+      unchanged, and what has to be created. Full DDL is given for everything new.</li>
+  <li><b>Section 3</b> is the page-by-page specification. Each figure names what it means in plain
+      words, the exact SQL that produces it, and the tables and columns it resolves to.</li>
+  <li><b>Section 4</b> is every threshold in the product, with its current value and where it lives.
+      None of these are hard-coded in a screen.</li>
+  <li><b>Section 5</b> is every write path — what each user action inserts or updates.</li>
+  <li><b>Section 6 is the contract.</b> 238 assertions run against a freshly seeded
+      database. A build is done when they all pass — not when the screens look right.</li>
+</ol>
+
+<h2>1 · Architecture decisions already taken</h2>
+<div class="scroll"><table class="t"><thead><tr><th>Decision</th><th>Why it is fixed</th></tr></thead><tbody>
+<tr><td>Postgres as the single spine</td><td>No Kafka, no microservices, no vector store. Every workflow is an explicit state machine over tables. Production precedent: a 43M-row job queue already runs this way.</td></tr>
+<tr><td>Append-only <code>events</code> ledger</td><td>Every other table's changes emit here. The UI and analytics are projections of it; it doubles as the audit record. No update or delete grants.</td></tr>
+<tr><td>Owned work lives in <code>actions</code></td><td>A signal that nobody owns is not a feature. Every action carries evidence, an assignee, an SLA and a mandatory reason on dismissal.</td></tr>
+<tr><td>Three-tier intelligence</td><td>T0 deterministic rules over the ledger (most of it), T1 schema-validated LLM calls through one gateway with a named fallback, T2 nightly aggregate reasoning behind an experiment gate. <b>AI never computes a client's money.</b></td></tr>
+<tr><td>Thresholds live in <code>rules_registry</code></td><td>Changing a threshold is a versioned, audited edit — never a deploy. Section 4 lists them all.</td></tr>
+<tr><td>Provenance on every figure</td><td>Each number is tagged <code>computed</code>, <code>rule</code> or <code>learned</code> and can name its own source. This is a product requirement, not a debug aid.</td></tr>
+</tbody></table></div></section>
+<section id="p-data" class="panel" hidden><h2>2 · The data layer</h2>
+<h3>2.1 New objects — build these (31)</h3>
+<p class="note">Full DDL as it runs in the prototype. Column comments carry the production mapping
+where one exists.</p>
+<details class="ddl"><summary><code>stock_master</code><span class="pill">6 columns</span></summary><pre>CREATE TABLE stock_master (                 -- underlying securities (fund-data feed)
+  stock_id     TEXT PRIMARY KEY,
+  stock_name   TEXT NOT NULL,
+  sector       TEXT,
+  industry     TEXT,
+  cap_band     TEXT,                          -- Large | Mid | Small (AMFI rank convention)
+  market_cap   NUMERIC
+);</pre></details>
+<details class="ddl"><summary><code>mf_scheme_holdings</code><span class="pill">5 columns</span></summary><pre>CREATE TABLE mf_scheme_holdings (           -- what each fund actually owns
+  fk_scheme_id INTEGER NOT NULL REFERENCES scheme_master(scheme_id),
+  stock_id     TEXT NOT NULL REFERENCES stock_master(stock_id),
+  weight_pct   NUMERIC NOT NULL,
+  as_of_date   TEXT NOT NULL,
+  PRIMARY KEY (fk_scheme_id, stock_id)
+);</pre></details>
+<details class="ddl"><summary><code>events</code><span class="pill">9 columns</span></summary><pre>CREATE TABLE events (                          -- THE LEDGER. Append-only.
+  event_id     INTEGER PRIMARY KEY,
+  occurred_at  TEXT NOT NULL,
+  actor_type   TEXT NOT NULL,                  -- user | agent | system | client
+  actor_id     TEXT,
+  subject_type TEXT NOT NULL,                  -- client | folio | sip | order | action | broker | campaign | application | workflow
+  subject_id   TEXT NOT NULL,
+  event_type   TEXT NOT NULL,
+  payload      TEXT,                           -- pg: jsonb
+  source       TEXT                            -- import | ui | api | agent
+);</pre></details>
+<details class="ddl"><summary><code>actions</code><span class="pill">19 columns</span></summary><pre>CREATE TABLE actions (
+  action_id      INTEGER PRIMARY KEY,
+  subject_type   TEXT NOT NULL,
+  subject_id     TEXT NOT NULL,
+  action_type    TEXT NOT NULL,                -- sip_bounce_save | kyc_unstick | dormant_review | tax_window | recon_break | quarantine_fix | …
+  trigger_evidence TEXT,                       -- pg: jsonb — the rows that fired, human-readable
+  impact_score   NUMERIC,                      -- ₹ at stake
+  owner_lens     TEXT NOT NULL,                -- broker | rm | ops | management
+  assignee_sb_id INTEGER,
+  assignee_user  INTEGER,
+  suggested_step TEXT,
+  sla_due        TEXT,
+  state          TEXT NOT NULL DEFAULT 'proposed',  -- proposed→assigned→in_progress→done|dismissed
+  dismiss_reason TEXT,                         -- mandatory when state='dismissed' (CHECK below)
+  outcome_type   TEXT,                         -- saved | executed | client_declined | no_response | auto_resolved | …
+  outcome_value  TEXT,                         -- pg: jsonb
+  created_from   TEXT,                         -- rule:&lt;id&gt; | campaign:&lt;id&gt; | manual
+  -- pg: bigint[] — the transactions this action actually caused. Only set when a
+  -- human names them on closing, which is what makes campaign ROI provable rather
+  -- than a correlation over a time window.
+  linked_txn_ids TEXT,
+  created_at     TEXT NOT NULL,
+  closed_at      TEXT,
+  CHECK (state != 'dismissed' OR dismiss_reason IS NOT NULL)
+);</pre></details>
+<details class="ddl"><summary><code>rules_registry</code><span class="pill">10 columns</span></summary><pre>CREATE TABLE rules_registry (
+  rule_id       INTEGER PRIMARY KEY,
+  rule_key      TEXT NOT NULL,                 -- e.g. 'sip_bounce_x2', 'dormant_months', 'concentration_pct'
+  name          TEXT,
+  definition_sql TEXT,
+  params        TEXT,                          -- pg: jsonb — thresholds
+  version       INTEGER NOT NULL DEFAULT 1,
+  owner         TEXT,
+  approved_by   TEXT,
+  is_active     INTEGER DEFAULT 1,
+  valid_from    TEXT,
+  UNIQUE (rule_key, version)
+);</pre></details>
+<details class="ddl"><summary><code>policies</code><span class="pill">10 columns</span></summary><pre>CREATE TABLE policies (
+  policy_id   INTEGER PRIMARY KEY,
+  workflow    TEXT NOT NULL,                   -- sip_save | kyc_unblock | dormant_reactivation | …
+  policy_key  TEXT NOT NULL,                   -- e.g. 'nudge_framing', 'escalation_day'
+  belief      TEXT,                            -- pg: jsonb — current best choice + weights
+  evidence_n  INTEGER DEFAULT 0,
+  target_n    INTEGER DEFAULT 200,             -- honesty threshold: ghosted below this
+  version     INTEGER DEFAULT 1,
+  changed_at  TEXT,
+  changed_by  TEXT,
+  approved_by TEXT,
+  UNIQUE (workflow, policy_key, version)
+);</pre></details>
+<details class="ddl"><summary><code>experiments</code><span class="pill">7 columns</span></summary><pre>CREATE TABLE experiments (
+  experiment_id INTEGER PRIMARY KEY,
+  workflow      TEXT NOT NULL,
+  variants      TEXT NOT NULL,                 -- pg: jsonb — pre-approved set only
+  allocation    TEXT,
+  status        TEXT DEFAULT 'draft',          -- draft→approved→running→concluded
+  approved_by   TEXT,
+  started_at    TEXT, concluded_at TEXT
+);</pre></details>
+<details class="ddl"><summary><code>interactions</code><span class="pill">9 columns</span></summary><pre>CREATE TABLE interactions (
+  interaction_id INTEGER PRIMARY KEY,
+  client_id      INTEGER NOT NULL REFERENCES client_master(cm_user_id),
+  sb_id          INTEGER,
+  kind           TEXT NOT NULL,                -- voice | doc | note | call | meeting
+  media_ref      TEXT,
+  transcript     TEXT,
+  structured     TEXT,                         -- pg: jsonb
+  minted_action_id INTEGER REFERENCES actions(action_id),
+  occurred_at    TEXT NOT NULL
+);</pre></details>
+<details class="ddl"><summary><code>consents</code><span class="pill">7 columns</span></summary><pre>CREATE TABLE consents (
+  consent_id  INTEGER PRIMARY KEY,
+  client_id   INTEGER NOT NULL REFERENCES client_master(cm_user_id),
+  channel     TEXT NOT NULL,                   -- whatsapp | email | sms
+  purpose     TEXT NOT NULL,                   -- transactional | marketing
+  state       TEXT NOT NULL DEFAULT 'granted', -- granted | withdrawn
+  captured_via TEXT,
+  ts          TEXT NOT NULL,
+  UNIQUE (client_id, channel, purpose)
+);</pre></details>
+<details class="ddl"><summary><code>leads</code><span class="pill">8 columns</span></summary><pre>CREATE TABLE leads (
+  lead_id     INTEGER PRIMARY KEY,
+  source      TEXT NOT NULL,                   -- link | referral | campaign | walk_in | manual
+  sb_id       INTEGER,
+  name        TEXT, mobile TEXT, email TEXT,
+  consent_state TEXT DEFAULT 'unknown',
+  stage       TEXT DEFAULT 'new',              -- new→contacted→onboarding→converted|lost
+  created_at  TEXT,
+  converted_client_id INTEGER
+);</pre></details>
+<details class="ddl"><summary><code>onboarding_applications</code><span class="pill">16 columns</span></summary><pre>CREATE TABLE onboarding_applications (
+  application_id  INTEGER PRIMARY KEY,
+  lead_id         INTEGER REFERENCES leads(lead_id),
+  client_id       INTEGER,
+  sb_id           INTEGER,
+  channel         TEXT NOT NULL,               -- digital | offline
+  holding_type    TEXT DEFAULT 'Single',
+  digio_request_id TEXT,
+  kyc_log_id      INTEGER REFERENCES client_kyc_logs(id),
+  kyc_status      TEXT,
+  kra_status      TEXT,
+  bse_status      TEXT,
+  elog_status     TEXT,                        -- pending | sent | completed | stalled
+  ucc_status      TEXT,
+  stall_since     TEXT,
+  started_at      TEXT,
+  completed_at    TEXT
+);</pre></details>
+<details class="ddl"><summary><code>broker_links</code><span class="pill">8 columns</span></summary><pre>CREATE TABLE broker_links (
+  link_id     INTEGER PRIMARY KEY,
+  sb_id       INTEGER NOT NULL REFERENCES sub_broker_master(sb_id),
+  slug        TEXT UNIQUE,
+  campaign_id INTEGER,
+  created_at  TEXT,
+  expires_at  TEXT,
+  visits      INTEGER DEFAULT 0,
+  applications INTEGER DEFAULT 0
+);</pre></details>
+<details class="ddl"><summary><code>segments</code><span class="pill">6 columns</span></summary><pre>CREATE TABLE segments (
+  segment_id INTEGER PRIMARY KEY,
+  name       TEXT NOT NULL,
+  owner      TEXT,
+  definition TEXT NOT NULL,                    -- pg: jsonb — filter spec
+  is_shared  INTEGER DEFAULT 0,
+  created_at TEXT
+);</pre></details>
+<details class="ddl"><summary><code>campaign_templates</code><span class="pill">7 columns</span></summary><pre>CREATE TABLE campaign_templates (
+  template_id           INTEGER PRIMARY KEY,
+  name                  TEXT,
+  creative_ref          TEXT,
+  disclaimers_injected  INTEGER DEFAULT 1,
+  approval_artefact_ref TEXT,                  -- stored written approval (AMFI gate)
+  approved_by           TEXT,
+  approved_at           TEXT
+);</pre></details>
+<details class="ddl"><summary><code>campaigns</code><span class="pill">7 columns</span></summary><pre>CREATE TABLE campaigns (
+  campaign_id INTEGER PRIMARY KEY,
+  template_id INTEGER REFERENCES campaign_templates(template_id),
+  name        TEXT,
+  segment_id  INTEGER REFERENCES segments(segment_id),
+  mode        TEXT NOT NULL,                   -- through_broker | direct
+  state       TEXT DEFAULT 'draft',
+  launched_at TEXT
+);</pre></details>
+<details class="ddl"><summary><code>campaign_sends</code><span class="pill">7 columns</span></summary><pre>CREATE TABLE campaign_sends (
+  send_id     INTEGER PRIMARY KEY,
+  campaign_id INTEGER NOT NULL REFERENCES campaigns(campaign_id),
+  client_id   INTEGER NOT NULL,
+  sb_id       INTEGER,
+  channel     TEXT,
+  sent_at     TEXT,
+  delivery_state TEXT
+);</pre></details>
+<details class="ddl"><summary><code>campaign_responses</code><span class="pill">5 columns</span></summary><pre>CREATE TABLE campaign_responses (
+  response_id   INTEGER PRIMARY KEY,
+  send_id       INTEGER NOT NULL REFERENCES campaign_sends(send_id),
+  response_type TEXT,
+  responded_at  TEXT,
+  minted_action_id INTEGER REFERENCES actions(action_id)
+);</pre></details>
+<details class="ddl"><summary><code>payout_disputes</code><span class="pill">9 columns</span></summary><pre>CREATE TABLE payout_disputes (
+  dispute_id  INTEGER PRIMARY KEY,
+  sb_id       INTEGER NOT NULL,
+  brokerage_row_refs TEXT,                     -- pg: bigint[] — bkr_id list
+  reason      TEXT,
+  state       TEXT DEFAULT 'open',
+  raised_at   TEXT,
+  resolved_at TEXT,
+  resolution_note TEXT,
+  action_id   INTEGER REFERENCES actions(action_id)
+);</pre></details>
+<details class="ddl"><summary><code>review_packs</code><span class="pill">8 columns</span></summary><pre>CREATE TABLE review_packs (
+  pack_id      INTEGER PRIMARY KEY,
+  client_id    INTEGER NOT NULL,
+  sb_id        INTEGER,
+  generated_at TEXT,
+  content_ref  TEXT,
+  sent_via     TEXT,
+  client_response TEXT,
+  action_ids   TEXT                            -- pg: bigint[]
+);</pre></details>
+<details class="ddl"><summary><code>risk_allocation_bands</code><span class="pill">6 columns</span></summary><pre>CREATE TABLE risk_allocation_bands (           -- schema now; rows pending compliance
+  band_id      INTEGER PRIMARY KEY,
+  risk_profile TEXT NOT NULL,
+  asset_class  TEXT NOT NULL,
+  min_pct NUMERIC, max_pct NUMERIC,
+  version      INTEGER DEFAULT 1,
+  approved_by  TEXT
+);</pre></details>
+<details class="ddl"><summary><code>amc_rate_card</code><span class="pill">7 columns</span></summary><pre>CREATE TABLE amc_rate_card (                   -- commercial-terms validator truth side
+  card_id          INTEGER PRIMARY KEY,
+  amc_id           INTEGER NOT NULL REFERENCES amc_master(amc_id),
+  scheme_category  TEXT,
+  agreed_trail_bps NUMERIC NOT NULL,
+  effective_from   TEXT, effective_to TEXT,
+  source_doc_ref   TEXT,
+  entered_by TEXT, approved_by TEXT
+);</pre></details>
+<details class="ddl"><summary><code>import_runs</code><span class="pill">6 columns</span></summary><pre>CREATE TABLE import_runs (
+  run_id      INTEGER PRIMARY KEY,
+  source      TEXT NOT NULL,                   -- cams | kfin | r2a
+  window_from TEXT, window_to TEXT,
+  state       TEXT DEFAULT 'fetched',          -- fetched→landed→enriched→promoted|failed
+  started_at  TEXT, finished_at TEXT,
+  row_counts  TEXT                             -- pg: jsonb — before/after per step
+);</pre></details>
+<details class="ddl"><summary><code>quarantine_rows</code><span class="pill">9 columns</span></summary><pre>CREATE TABLE quarantine_rows (
+  q_id            INTEGER PRIMARY KEY,
+  run_id          INTEGER REFERENCES import_runs(run_id),
+  file_history_id INTEGER,
+  raw_row         TEXT NOT NULL,               -- pg: jsonb
+  reason          TEXT NOT NULL,               -- unknown_scheme | unknown_client | unknown_type | dup_suspect
+  state           TEXT DEFAULT 'open',         -- open→mapped→reprocessed|ignored
+  resolved_by     TEXT,
+  action_id       INTEGER REFERENCES actions(action_id),
+  created_at      TEXT
+);</pre></details>
+<details class="ddl"><summary><code>saved_queries</code><span class="pill">8 columns</span></summary><pre>CREATE TABLE saved_queries (
+  query_id    INTEGER PRIMARY KEY,
+  name        TEXT NOT NULL,
+  question_text TEXT,
+  sql         TEXT NOT NULL,
+  params      TEXT,                            -- pg: jsonb
+  verified_by TEXT,
+  visibility  TEXT DEFAULT 'mgmt',
+  last_run_at TEXT
+);</pre></details>
+<details class="ddl"><summary><code>mv_aum_daily</code><span class="pill">6 columns</span><span class="pill mv">materialised view</span></summary><pre>CREATE TABLE mv_aum_daily (
+  aum_date     TEXT NOT NULL,
+  sb_id        INTEGER NOT NULL,
+  client_count INTEGER,
+  folio_count  INTEGER,
+  aum          NUMERIC,
+  PRIMARY KEY (aum_date, sb_id)
+);</pre></details>
+<details class="ddl"><summary><code>mv_monthly_aum</code><span class="pill">10 columns</span><span class="pill mv">materialised view</span></summary><pre>CREATE TABLE mv_monthly_aum (
+  month           TEXT NOT NULL,
+  sb_id           INTEGER NOT NULL,
+  peak_day_aum    NUMERIC,
+  peak_date       TEXT,
+  month_end_aum   NUMERIC,
+  opening_aum     NUMERIC,
+  net_flows       NUMERIC,
+  market_movement NUMERIC,
+  client_count    INTEGER,
+  PRIMARY KEY (month, sb_id)
+);</pre></details>
+<details class="ddl"><summary><code>mv_portfolio_attention</code><span class="pill">6 columns</span><span class="pill mv">materialised view</span></summary><pre>CREATE TABLE mv_portfolio_attention (
+  client_id    INTEGER NOT NULL,
+  flag_type    TEXT NOT NULL,                  -- laggard | stale | concentration | drift | bottom_percentile
+  severity     TEXT,
+  evidence     TEXT,                           -- pg: jsonb
+  rule_version INTEGER,
+  as_of        TEXT
+);</pre></details>
+<details class="ddl"><summary><code>mv_workflow_health</code><span class="pill">10 columns</span><span class="pill mv">materialised view</span></summary><pre>CREATE TABLE mv_workflow_health (
+  workflow           TEXT PRIMARY KEY,
+  goal_metric_name   TEXT,
+  goal_metric_value  NUMERIC,
+  trend_30d          NUMERIC,
+  in_flight          INTEGER,
+  sla_pct            NUMERIC,
+  brain_status       TEXT,                     -- preset | learning | learned
+  evidence_n         INTEGER,
+  last_policy_change TEXT,
+  as_of              TEXT
+);</pre></details>
+<details class="ddl"><summary><code>mv_broker_scorecard</code><span class="pill">10 columns</span><span class="pill mv">materialised view</span></summary><pre>CREATE TABLE mv_broker_scorecard (
+  sb_id          INTEGER NOT NULL,
+  month          TEXT NOT NULL,
+  net_flows      NUMERIC,
+  sip_live_count INTEGER,
+  sip_live_value NUMERIC,
+  bounce_rate    NUMERIC,
+  clients_gained INTEGER,
+  clients_lost   INTEGER,
+  action_sla_pct NUMERIC,
+  PRIMARY KEY (sb_id, month)
+);</pre></details>
+<details class="ddl"><summary><code>mv_integration_health</code><span class="pill">5 columns</span><span class="pill mv">materialised view</span></summary><pre>CREATE TABLE mv_integration_health (
+  integration     TEXT PRIMARY KEY,            -- bse | cams | kfin | digio | morningstar
+  last_success_at TEXT,
+  lag_hours       NUMERIC,
+  error_streak    INTEGER DEFAULT 0,
+  as_of           TEXT
+);</pre></details>
+<details class="ddl"><summary><code>mv_nominee_payouts</code><span class="pill">6 columns</span><span class="pill mv">materialised view</span></summary><pre>CREATE TABLE mv_nominee_payouts (
+  sb_id         INTEGER PRIMARY KEY,
+  terminated_on TEXT,
+  nominee       TEXT,
+  months_paid   INTEGER,
+  total_paid    NUMERIC,
+  as_of         TEXT
+);</pre></details>
+<h3>2.2 Materialised views — refresh contract (7)</h3>
+<div class="scroll"><table class="t"><thead><tr><th>View</th><th>Rebuilt from</th><th>Cadence</th></tr></thead><tbody>
+<tr><td><code>mv_aum_daily</code></td><td>Each folio's units carried forward through its own transactions, valued at that day's NAV, aggregated per broker per day.</td><td>Nightly, after the RTA import promotes</td></tr>
+<tr><td><code>mv_monthly_aum</code></td><td>Rollup of <code>mv_aum_daily</code>. Carries peak-day AUM (the reported definition) <em>and</em> month-end, because only month-end makes opening + net flows + market movement equal closing exactly.</td><td>Nightly</td></tr>
+<tr><td><code>mv_portfolio_attention</code></td><td>FIFO summary + transactions + <code>rules_registry</code> thresholds. Disposable projection; base tables stay truth.</td><td>Nightly</td></tr>
+<tr><td><code>mv_broker_scorecard</code>, <code>mv_workflow_health</code>, <code>mv_integration_health</code>, <code>mv_nominee_payouts</code></td><td>Aggregations over actions, events and the brokerage chain.</td><td>Nightly</td></tr>
+</tbody></table></div>
+<h3>2.3 Carried from production — unchanged (56)</h3>
+<p class="note">Exact production table names. The prototype uses the column subset shown; a vendor
+should assume the real table is wider.</p>
+<div class="tags"><code>client_master</code><code>client_master_mf_related</code><code>family_master</code><code>accounts_master</code><code>client_login_master</code><code>client_login_requests</code><code>sub_broker_category_master</code><code>territory_master</code><code>sub_broker_master</code><code>client_sub_broker_mapping</code><code>sb_hierarchy</code><code>sb_monthly_target</code><code>amc_master</code><code>main_asset_master</code><code>category_master</code><code>benchmark_master</code><code>scheme_master</code><code>mf_latest_price_master</code><code>benchmark_price_history</code><code>mf_historical_price_master</code><code>capital_gain_period_master</code><code>transaction_type_master</code><code>rta_trxn_type</code><code>trans_status_master</code><code>frequency_master</code><code>folio_master</code><code>transaction_master</code><code>sip_master</code><code>bse_sxp_list</code><code>bse_mandate_list</code><code>bse_client_master</code><code>bse_order_list</code><code>bse_order_history</code><code>pending_order_item</code><code>rejection_master</code><code>redemption_limit_alert</code><code>fifo_purchase_log</code><code>fifo_purchase_sales_log</code><code>fifo_detail_holding_latest</code><code>fifo_summary_holding</code><code>fifo_summary_holding_active</code><code>aum_master</code><code>aum_import_status</code><code>aum_reco_ignore_list</code><code>file_history</code><code>client_kyc_logs</code><code>kra_error_codes</code><code>brokerage_type_master</code><code>broker_category_payout_pct_master</code><code>brokerage_master</code><code>gst_master</code><code>invoice_master</code><code>invoice_data</code><code>brokerage_payout_queue</code><code>sb_fy_brokerage_tracker</code><code>download_history_logs</code></div></section>
+<section id="p-pages" class="panel" hidden><h2>3 · Page specification</h2>
+<p class="note">Each figure: what it means to the person reading it, then the SQL and the columns it
+resolves to. The plain-words half is what the product shows a broker; the SQL half is for you.</p>
+<h3>Campaigns</h3>
+<div class="fig">
+  <div class="fh"><b>Who actually gets it</b><code>send_set</code><span class="tag rule">rule</span></div>
+  <p><b>Means:</b> Your segment, minus everyone you may not lawfully contact on this channel.</p>
+  <p><b>How a user reads it:</b> This subtraction is the send list. Consent is per channel — agreeing on WhatsApp is not agreeing on SMS.</p>
+  <p><b>Derivation:</b> segment − never asked − withdrew = will receive.</p>
+  
+  <div class="tags"><code>consents.channel</code><code>.purpose</code><code>.state</code><code>fifo_summary_holding_active.present_market_value</code></div>
+  <details><summary>SQL as it runs</summary><pre>SELECT COUNT(*) n, COALESCE(SUM(v),0) v FROM (
+  SELECT f.client_id, SUM(f.present_market_value) v FROM fifo_summary_holding_active f
+  WHERE f.advisor_code=? AND f.client_id NOT IN (SELECT fk_acc_id FROM sip_master WHERE is_live_sip=1)
+  GROUP BY f.client_id)</pre></details>
+</div>
+<div class="fig">
+  <div class="fh"><b>Attributed ₹</b><code>attributed_rupees</code><span class="tag computed">computed</span></div>
+  <p><b>Means:</b> Money a client invested after replying, where you closed the action and named the transaction.</p>
+  <p><b>How a user reads it:</b> Deliberately conservative. Money that arrived without being linked is not claimed — that is the difference between a marketing report and a number you can defend.</p>
+  
+  <p class="cav"><b>Caveat:</b> It records that a client replied and that a human named the transaction. It does not prove the campaign caused it.</p>
+  <div class="tags"><code>actions.linked_txn_ids</code><code>campaign_responses.minted_action_id</code><code>transaction_master.tr_amount</code></div>
+  <details><summary>SQL as it runs</summary><pre>SELECT COALESCE(SUM(t.tr_amount * tt.tr_type_buy_sell_flag),0) v, COUNT(*) n
+FROM transaction_master t JOIN transaction_type_master tt ON tt.tr_type_id=t.fk_tran_type_id
+WHERE t.fk_sb_id=? AND t.tr_date &gt;= ? AND t.tr_date &lt;= ? AND tt.tr_type_buy_sell_flag != 0</pre></details>
+</div>
+<div class="fig">
+  <div class="fh"><b>Consents</b><code>client_consents</code><span class="tag rule">rule</span></div>
+  <p><b>Means:</b> What this client has agreed you may contact them about, on which channel.</p>
+  <p><b>How a user reads it:</b> Consent is per channel and per purpose. Agreeing to statements on WhatsApp is not agreeing to marketing on it.</p>
+  
+  
+  <div class="tags"><code>consents.channel</code><code>.purpose</code><code>.state</code><code>.captured_via</code></div>
+  <details><summary>SQL as it runs</summary><pre>SELECT DISTINCT c.client_id, cm.cm_full_name name, c.channel, c.state, c.captured_via, c.ts
+    FROM consents c
+    JOIN client_master cm ON cm.cm_user_id = c.client_id
+    JOIN fifo_summary_holding_active h ON h.client_id = c.client_id
+    WHERE c.purpose='marketing'
+      AND h.advisor_code = (SELECT sb_sub_broker_code FROM sub_broker_master WHERE sb_id=?)
+    ORDER BY c.state DESC, c.ts DESC</pre></details>
+</div>
+<h3>Client 360</h3>
+<div class="fig">
+  <div class="fh"><b>What they hold</b><code>client_value</code><span class="tag computed">computed</span></div>
+  <p><b>Means:</b> The market value of everything this client holds with you, against what they put in.</p>
+  <p><b>How a user reads it:</b> The gap between the two is their gain — but read it next to the return, because a large gain on money invested long ago may still be behind the market.</p>
+  
+  
+  <div class="tags"><code>fifo_summary_holding.sh_current_value</code><code>.sh_invested_value</code></div>
+  
+</div>
+<div class="fig">
+  <div class="fh"><b>Investment journey</b><code>journey</code><span class="tag computed">computed</span></div>
+  <p><b>Means:</b> What this client actually put in over time, against what it is worth now and what the benchmark would have done with the same money on the same dates.</p>
+  <p><b>How a user reads it:</b> The benchmark line uses their own contribution dates, not a lump sum on day one — so it is a fair comparison rather than a flattering one.</p>
+  
+  
+  <div class="tags"><code>transaction_master.tr_date</code><code>.tr_amount</code><code>benchmark_price_history.price</code></div>
+  <details><summary>SQL as it runs</summary><pre>SELECT COUNT(*) n FROM (
+  SELECT f.client_id, MAX(t.tr_date) lt FROM fifo_summary_holding_active f
+  JOIN transaction_master t ON t.fk_acc_id=f.client_id AND t.tr_date &lt;= '2026-08-07'
+  WHERE f.advisor_code=? GROUP BY f.client_id HAVING lt &lt; date('2026-08-07','-14 months'))</pre></details>
+</div>
+<div class="fig">
+  <div class="fh"><b>Tax position</b><code>tax_position</code><span class="tag computed">computed</span></div>
+  <p><b>Means:</b> Gains already realised this financial year, and gains still unrealised, each split into long and short term.</p>
+  <p><b>How a user reads it:</b> Short-term gains are taxed harder. Unrealised long-term gains below the annual exemption are the ones worth harvesting before March.</p>
+  <p><b>Derivation:</b> FIFO lot matching, honouring the 31-Jan-2018 grandfathered price and the exit-load window.</p>
+  <p class="cav"><b>Caveat:</b> It shows the position, not tax advice. The client's other income decides the actual rate.</p>
+  <div class="tags"><code>fifo_summary_holding.sh_realized_ltcg</code><code>.sh_realized_stcg</code><code>.sh_unrealized_ltcg</code><code>.sh_unrealized_stcg</code></div>
+  <details><summary>SQL as it runs</summary><pre>SELECT COALESCE(SUM(sh_realized_ltcg),0) real_lt, COALESCE(SUM(sh_realized_stcg),0) real_st,
+  COALESCE(SUM(sh_unrealized_ltcg),0) unreal_lt, COALESCE(SUM(sh_unrealized_stcg),0) unreal_st
+FROM fifo_summary_holding WHERE fk_acc_id=?</pre></details>
+</div>
+<div class="fig">
+  <div class="fh"><b>Fund verdict</b><code>fund_verdict</code><span class="tag rule">rule</span></div>
+  <p><b>Means:</b> Whether each fund is keeping up with the benchmark it is measured against.</p>
+  <p><b>How a user reads it:</b> "Lagging" means it is more than 10 percentage points behind over the holding period — not that it had a bad month.</p>
+  
+  
+  <div class="tags"><code>fifo_summary_holding.sh_xirr</code><code>.sh_bmxirr</code></div>
+  
+</div>
+<div class="fig">
+  <div class="fh"><b>What they actually own</b><code>lookthrough</code><span class="tag computed">computed</span></div>
+  <p><b>Means:</b> The underlying shares inside their funds, added up across every fund they hold.</p>
+  <p><b>How a user reads it:</b> Two funds with different names often hold the same companies. This shows how much of their money is really riding on a handful of stocks.</p>
+  
+  <p class="cav"><b>Caveat:</b> Equity funds only. Debt, liquid, hybrid and gold have no stock look-through, and the page says so rather than guessing.</p>
+  <div class="tags"><code>mf_scheme_holdings.weight_pct</code><code>stock_master.sector</code></div>
+  <details><summary>SQL as it runs</summary><pre>each fund's disclosed holdings × the client's rupees in that fund,
+aggregated by stock and sector; overlap = money in stocks that two or more of the client's funds both hold</pre></details>
+</div>
+<div class="fig">
+  <div class="fh"><b>Risk fit</b><code>risk_fit</code><span class="tag rule">rule</span></div>
+  <p><b>Means:</b> Where the portfolio actually sits against the risk profile the client agreed to.</p>
+  <p><b>How a user reads it:</b> A portfolio to the right of the client marker is carrying more risk than they signed up for.</p>
+  
+  <p class="cav"><b>Caveat:</b> The allocation bands behind this are pending a compliance decision, so the scale shows position, not a pass or fail.</p>
+  <div class="tags"><code>client_master_mf_related.risk_profile</code><code>scheme_master.risk_level</code></div>
+  <details><summary>SQL as it runs</summary><pre>portfolio risk = Σ(value × scheme risk grade) ÷ Σ value — grades: Low 1 … Very High 5;
+profile grade from client_master_mf_related.risk_profile (same scale)</pre></details>
+</div>
+<div class="fig">
+  <div class="fh"><b>Holdings and lots</b><code>holdings_lots</code><span class="tag computed">computed</span></div>
+  <p><b>Means:</b> Every fund they hold, and underneath it every individual purchase still open.</p>
+  <p><b>How a user reads it:</b> The lot level is what tax is actually calculated on. A fund can be in profit overall while individual lots are in loss.</p>
+  
+  
+  <div class="tags"><code>fifo_summary_holding_active.balance_units</code><code>fifo_detail_holding_latest.dhl_purchase_date</code></div>
+  <details><summary>SQL as it runs</summary><pre>SELECT c.cm_user_id client_id, c.cm_full_name name,
+      MAX(COALESCE(f.transfer_out_date, t.tr_date)) on_,
+      COALESCE(SUM(CASE WHEN tt.tr_type_buy_sell_flag=-1 THEN t.tr_amount END),0) value,
+      CASE WHEN MAX(COALESCE(f.is_transferred_out,0))=1
+           THEN 'transferred to another distributor' ELSE 'redeemed everything' END reason
+    FROM folio_master f
+    JOIN client_master c ON c.cm_user_id=f.fk_acc_id
+    JOIN sub_broker_master sb ON sb.sb_sub_broker_code=f.fm_sub_broker_code
+    LEFT JOIN transaction_master t ON t.tr_folio_no=f.fm_folio_no
+    LEFT JOIN transaction_type_master tt ON tt.tr_type_id=t.fk_tran_type_id
+    WHERE sb.sb_id=?
+      AND c.cm_user_id NOT IN (SELECT client_id FROM fifo_summary_holding_active WHERE balance_units &gt; 0.0001)
+    GROUP BY c.cm_user_id ORDER BY on_ DESC</pre></details>
+</div>
+<div class="fig">
+  <div class="fh"><b>Consents</b><code>client_consents</code><span class="tag rule">rule</span></div>
+  <p><b>Means:</b> What this client has agreed you may contact them about, on which channel.</p>
+  <p><b>How a user reads it:</b> Consent is per channel and per purpose. Agreeing to statements on WhatsApp is not agreeing to marketing on it.</p>
+  
+  
+  <div class="tags"><code>consents.channel</code><code>.purpose</code><code>.state</code><code>.captured_via</code></div>
+  <details><summary>SQL as it runs</summary><pre>SELECT DISTINCT c.client_id, cm.cm_full_name name, c.channel, c.state, c.captured_via, c.ts
+    FROM consents c
+    JOIN client_master cm ON cm.cm_user_id = c.client_id
+    JOIN fifo_summary_holding_active h ON h.client_id = c.client_id
+    WHERE c.purpose='marketing'
+      AND h.advisor_code = (SELECT sb_sub_broker_code FROM sub_broker_master WHERE sb_id=?)
+    ORDER BY c.state DESC, c.ts DESC</pre></details>
+</div>
+<div class="fig">
+  <div class="fh"><b>Household</b><code>household</code><span class="tag computed">computed</span></div>
+  <p><b>Means:</b> Everyone in this client's family group, and what the group holds together.</p>
+  <p><b>How a user reads it:</b> Families make money decisions together. The household total is often the number worth talking about, not the individual one.</p>
+  
+  
+  <div class="tags"><code>family_master</code><code>client_master.fk_family_id</code><code>.is_family_head</code></div>
+  
+</div>
+<div class="fig">
+  <div class="fh"><b>Decision trail</b><code>decision_trail</code><span class="tag computed">computed</span></div>
+  <p><b>Means:</b> What was suggested for this client, what you chose to do, and how it ended.</p>
+  <p><b>How a user reads it:</b> This is the record that shows advice was given and acted on — or declined, with the reason.</p>
+  
+  
+  <div class="tags"><code>events.event_type</code><code>actions.outcome_type</code><code>.created_from</code></div>
+  <details><summary>SQL as it runs</summary><pre>SELECT subject_id, MIN(CASE WHEN event_type='application_started' THEN occurred_at END) opened,
+  MIN(CASE WHEN event_type='ucc_allotted' THEN occurred_at END) live
+FROM events WHERE subject_type='application' GROUP BY 1 HAVING opened AND live</pre></details>
+</div>
+<div class="fig">
+  <div class="fh"><b>Client health</b><code>health_score</code><span class="tag rule">rule</span></div>
+  <p><b>Means:</b> A 0–100 score across five components, each worth 20.</p>
+  <p><b>How a user reads it:</b> The gain chip beside it is what is reachable by acting. Click any component to see the levers and their point value.</p>
+  <p><b>Derivation:</b> Deterministic: five pure functions of the client's own data. No model, no learning — every point is traceable.</p>
+  
+  <div class="tags"><code>lib/scoring.ts SCORING_RULES</code><code>fifo_summary_holding_active</code><code>sip_master</code><code>transaction_master</code></div>
+  <details><summary>SQL as it runs</summary><pre>the client's actual cashflows valued two ways: in their funds, and in those funds' benchmark indices —
+same dates, same rupees, one engine, so the headline and the chart always agree</pre></details>
+</div>
+<div class="fig">
+  <div class="fh"><b>Return (XIRR)</b><code>xirr</code><span class="tag computed">computed</span></div>
+  <p><b>Means:</b> The annualised return on the actual timing of the money, not a simple gain percentage.</p>
+  <p><b>How a user reads it:</b> Always compared against the same period's benchmark shown beside it. Ahead or behind that is what matters, not the absolute number.</p>
+  <p><b>Derivation:</b> Cash-flow XIRR over the client's own dated flows plus today's value. Never an average of per-holding XIRRs.</p>
+  <p class="cav"><b>Caveat:</b> Holdings under a year are not annualised — a short holding shows no XIRR rather than a misleading one.</p>
+  <div class="tags"><code>fifo_summary_holding.sh_xirr</code><code>.sh_bmxirr</code></div>
+  
+</div>
+<h3>Clients</h3>
+<div class="fig">
+  <div class="fh"><b>Client health</b><code>health_score</code><span class="tag rule">rule</span></div>
+  <p><b>Means:</b> A 0–100 score across five components, each worth 20.</p>
+  <p><b>How a user reads it:</b> The gain chip beside it is what is reachable by acting. Click any component to see the levers and their point value.</p>
+  <p><b>Derivation:</b> Deterministic: five pure functions of the client's own data. No model, no learning — every point is traceable.</p>
+  
+  <div class="tags"><code>lib/scoring.ts SCORING_RULES</code><code>fifo_summary_holding_active</code><code>sip_master</code><code>transaction_master</code></div>
+  <details><summary>SQL as it runs</summary><pre>the client's actual cashflows valued two ways: in their funds, and in those funds' benchmark indices —
+same dates, same rupees, one engine, so the headline and the chart always agree</pre></details>
+</div>
+<div class="fig">
+  <div class="fh"><b>Return (XIRR)</b><code>xirr</code><span class="tag computed">computed</span></div>
+  <p><b>Means:</b> The annualised return on the actual timing of the money, not a simple gain percentage.</p>
+  <p><b>How a user reads it:</b> Always compared against the same period's benchmark shown beside it. Ahead or behind that is what matters, not the absolute number.</p>
+  <p><b>Derivation:</b> Cash-flow XIRR over the client's own dated flows plus today's value. Never an average of per-holding XIRRs.</p>
+  <p class="cav"><b>Caveat:</b> Holdings under a year are not annualised — a short holding shows no XIRR rather than a misleading one.</p>
+  <div class="tags"><code>fifo_summary_holding.sh_xirr</code><code>.sh_bmxirr</code></div>
+  
+</div>
+<h3>Earnings</h3>
+<div class="fig">
+  <div class="fh"><b>Net payout</b><code>payout_net</code><span class="tag computed">computed</span></div>
+  <p><b>Means:</b> What reaches your account for the month, after GST is added and TDS deducted.</p>
+  <p><b>How a user reads it:</b> The ladder above shows every step. If you disagree with the total, you can disagree with a specific rung.</p>
+  <p><b>Derivation:</b> trail at your tier rate, + 18% GST if you are registered, − 5% TDS.</p>
+  
+  <div class="tags"><code>brokerage_master.bkr_payout_amount</code><code>.payout_gst_amount</code><code>.payout_tds</code></div>
+  <details><summary>SQL as it runs</summary><pre>SELECT
+  COALESCE(SUM(CASE WHEN b.fk_bkr_type_id=1 THEN b.bkr_payout_amount END),0) trail,
+  COALESCE(SUM(CASE WHEN b.fk_bkr_type_id=4 THEN b.bkr_payout_amount END),0) clawback,
+  COALESCE(SUM(b.bkr_payout_amount),0) gross,
+  COALESCE(SUM(b.payout_gst_amount),0) gst,
+  COALESCE(SUM(b.payout_tds),0) tds,
+  COALESCE(SUM(CASE WHEN b.fk_bkr_type_id=1 THEN b.tr_amount END),0) aum,
+  COUNT(*) lines,
+  MAX(b.has_gst) hasGst, MAX(b.bkr_payout_rate_precentage) tierPct,
+  (SELECT cat_category_name FROM sub_broker_category_master c
+     JOIN sub_broker_master s ON s.fk_cat_id=c.cat_id WHERE s.sb_id=b.fk_sb_id) tierName
+FROM brokerage_master b WHERE b.fk_sb_id=? AND b.bkr_from_date=?</pre></details>
+</div>
+<div class="fig">
+  <div class="fh"><b>Your rate</b><code>tier_rate</code><span class="tag rule">rule</span></div>
+  <p><b>Means:</b> The share of the trail your book earns that is paid to you.</p>
+  <p><b>How a user reads it:</b> The next rung is priced in what it would add to this month. Rates come from the same table the payout run uses.</p>
+  
+  
+  <div class="tags"><code>broker_category_payout_pct_master.trail_1st_yr_pct</code><code>sub_broker_category_master.cat_category_name</code></div>
+  <details><summary>SQL as it runs</summary><pre>SELECT c.cat_category_name name, p.trail_1st_yr_pct pct
+    FROM broker_category_payout_pct_master p
+    JOIN sub_broker_category_master c ON c.cat_id = p.fk_sb_category_id
+    WHERE p.is_active = 1 ORDER BY p.trail_1st_yr_pct</pre></details>
+</div>
+<div class="fig">
+  <div class="fh"><b>Short-paid by AMCs</b><code>amc_variance</code><span class="tag rule">rule</span></div>
+  <p><b>Means:</b> Where an AMC paid a lower trail rate than the empanelment letter agreed.</p>
+  <p><b>How a user reads it:</b> Priced at what it cost you, not the firm. Raising a dispute cites the exact commission rows, not a description of them.</p>
+  <p><b>Derivation:</b> For each flagged row: (paid rate − agreed rate) × the money it was charged on, then × your tier rate.</p>
+  
+  <div class="tags"><code>brokerage_master.reco_status</code><code>.reco_difference</code><code>.bkr_percentage</code><code>amc_rate_card.agreed_trail_bps</code></div>
+  <details><summary>SQL as it runs</summary><pre>SELECT a.amc_name amc,
+      CASE WHEN sm.fk_category_id &lt;= 5 THEN 'Equity' ELSE 'Non-Equity' END scheme_category,
+      ROUND(MAX(b.calc_rate) * 100) agreed_bps, ROUND(MIN(b.bkr_percentage) * 100) paid_bps,
+      COUNT(DISTINCT b.bkr_from_date) months, COUNT(*) lines,
+      ROUND(SUM(b.reco_difference) * MAX(b.bkr_payout_rate_precentage) / 100, 2) shortfall,
+      MIN(b.bkr_from_date) since, MAX(rc.source_doc_ref) doc
+    FROM brokerage_master b
+    JOIN scheme_master sm ON sm.scheme_id = b.fk_scheme_id
+    JOIN amc_master a ON a.amc_id = sm.fk_amc_id
+    LEFT JOIN amc_rate_card rc ON rc.amc_id = sm.fk_amc_id
+      AND rc.scheme_category = CASE WHEN sm.fk_category_id &lt;= 5 THEN 'Equity' ELSE 'Non-Equity' END
+    WHERE b.fk_sb_id=? AND b.reco_status=2
+    GROUP BY 1,2 ORDER BY shortfall</pre></details>
+</div>
+<div class="fig">
+  <div class="fh"><b>Clawback</b><code>clawback</code><span class="tag computed">computed</span></div>
+  <p><b>Means:</b> Trail already paid to you that came back because a client exited within a year.</p>
+  <p><b>How a user reads it:</b> Each one names the redemption that caused it. None is unexplained.</p>
+  
+  
+  <div class="tags"><code>brokerage_master.clawback_source_txn</code><code>.bkr_payout_amount</code><code>transaction_master.tr_date</code></div>
+  <details><summary>SQL as it runs</summary><pre>SELECT COUNT(*) n FROM (
+  SELECT f.client_id, MAX(t.tr_date) lt FROM fifo_summary_holding_active f
+  JOIN transaction_master t ON t.fk_acc_id=f.client_id AND t.tr_date &lt;= '2026-08-07'
+  WHERE f.advisor_code=? GROUP BY f.client_id HAVING lt &lt; date('2026-08-07','-14 months'))</pre></details>
+</div>
+<h3>Growth</h3>
+<div class="fig">
+  <div class="fh"><b>My book</b><code>my_book</code><span class="tag computed">computed</span></div>
+  <p><b>Means:</b> The market value today of every holding attributed to you.</p>
+  <p><b>How a user reads it:</b> This is the number every other money figure on the platform divides by. If it looks wrong, nothing else is trustworthy.</p>
+  <p><b>Derivation:</b> SUM(present_market_value) over holdings whose advisor_code is yours, valued at the latest NAV.</p>
+  <p class="cav"><b>Caveat:</b> Attribution is by advisor_code, not by the client-mapping table. The two disagree by design — see the one-denominator rule.</p>
+  <div class="tags"><code>fifo_summary_holding_active.present_market_value</code><code>.advisor_code</code><code>.holding_date</code></div>
+  <details><summary>SQL as it runs</summary><pre>SELECT COUNT(*) n, COALESCE(SUM(v),0) v FROM (
+  SELECT f.client_id, SUM(f.present_market_value) v FROM fifo_summary_holding_active f
+  WHERE f.advisor_code=? AND f.client_id NOT IN (SELECT fk_acc_id FROM sip_master WHERE is_live_sip=1)
+  GROUP BY f.client_id)</pre></details>
+</div>
+<div class="fig">
+  <div class="fh"><b>Net flows this month</b><code>net_flows_mtd</code><span class="tag computed">computed</span></div>
+  <p><b>Means:</b> Money in minus money out across your clients this calendar month.</p>
+  <p><b>How a user reads it:</b> Positive means you brought money in. This is the part of growth you control — the rest is the market.</p>
+  <p><b>Derivation:</b> SUM(amount × direction) where direction comes from the transaction type, bounded to this month and today.</p>
+  
+  <div class="tags"><code>transaction_master.tr_amount</code><code>.tr_date</code><code>transaction_type_master.tr_type_buy_sell_flag</code></div>
+  <details><summary>SQL as it runs</summary><pre>SELECT COALESCE(SUM(t.tr_amount * tt.tr_type_buy_sell_flag),0) v, COUNT(*) n
+FROM transaction_master t JOIN transaction_type_master tt ON tt.tr_type_id=t.fk_tran_type_id
+WHERE t.fk_sb_id=? AND t.tr_date &gt;= ? AND t.tr_date &lt;= ? AND tt.tr_type_buy_sell_flag != 0</pre></details>
+</div>
+<div class="fig">
+  <div class="fh"><b>SIPs at risk</b><code>sips_at_risk</code><span class="tag rule">rule</span></div>
+  <p><b>Means:</b> Live SIPs that have bounced twice or whose mandate expires within 45 days.</p>
+  <p><b>How a user reads it:</b> A bounced SIP is the cheapest thing on this page to save — it is already sold.</p>
+  <p><b>Derivation:</b> Annualised: monthly instalment × 12, summed across the plans at risk.</p>
+  
+  <div class="tags"><code>sip_master.tr_amount</code><code>bse_sxp_list.npayments_missed</code><code>bse_mandate_list.end_date</code></div>
+  <details><summary>SQL as it runs</summary><pre>SELECT COUNT(*) n, COALESCE(SUM(s.tr_amount*12),0) v
+FROM sip_master s
+JOIN bse_sxp_list x ON x.reg_no=s.sxp_bos_code
+LEFT JOIN bse_mandate_list ml ON ml.exch_mandate_id=x.exch_mandate_id
+WHERE s.is_live_sip=1 AND s.fk_acc_id IN (SELECT DISTINCT client_id FROM fifo_summary_holding_active WHERE advisor_code = ?)
+  AND (x.npayments_missed&gt;=2 OR (ml.end_date IS NOT NULL AND ml.end_date &lt;= date(?,'+45 days')))</pre></details>
+</div>
+<div class="fig">
+  <div class="fh"><b>Book today</b><code>book_today</code><span class="tag computed">computed</span></div>
+  <p><b>Means:</b> Your assets under management as at the most recent daily valuation.</p>
+  <p><b>How a user reads it:</b> Compare it with the month-on-month figure beside it. Level is vanity; direction is the job.</p>
+  <p><b>Derivation:</b> Daily AUM spine: each folio's units carried forward through its own transactions, valued at that day's NAV, summed per broker.</p>
+  
+  <div class="tags"><code>mv_aum_daily.aum</code><code>.client_count</code><code>.aum_date</code></div>
+  <details><summary>SQL as it runs</summary><pre>SELECT aum, client_count clients, aum_date as_of FROM mv_aum_daily
+    WHERE sb_id=? ORDER BY aum_date DESC LIMIT 1</pre></details>
+</div>
+<div class="fig">
+  <div class="fh"><b>Monthly AUM (peak-day)</b><code>aum_peak_day</code><span class="tag rule">rule</span></div>
+  <p><b>Means:</b> The highest daily AUM reached in the month — the definition the firm reports on.</p>
+  <p><b>How a user reads it:</b> Use this when comparing to anything the firm has published. Use month-end when you need the growth split to add up.</p>
+  <p><b>Derivation:</b> MAX(daily AUM) within the calendar month, with the date it occurred.</p>
+  <p class="cav"><b>Caveat:</b> Peak-day and month-end differ. Only month-end makes opening + flows + market equal closing exactly.</p>
+  <div class="tags"><code>mv_monthly_aum.peak_day_aum</code><code>.peak_date</code></div>
+  <details><summary>SQL as it runs</summary><pre>SELECT month, peak_day_aum, peak_date, month_end_aum, opening_aum,
+      net_flows, market_movement, client_count
+    FROM mv_monthly_aum WHERE sb_id=? ORDER BY month</pre></details>
+</div>
+<div class="fig">
+  <div class="fh"><b>Flows vs market</b><code>growth_split</code><span class="tag computed">computed</span></div>
+  <p><b>Means:</b> How much of your growth you brought in, and how much the market handed you.</p>
+  <p><b>How a user reads it:</b> If market is the larger share, the book grew without you. That is the number to be uncomfortable about.</p>
+  <p><b>Derivation:</b> Market movement = closing − opening − net flows. The residual, by definition — so opening + flows + market always equals closing.</p>
+  
+  <div class="tags"><code>mv_monthly_aum.opening_aum</code><code>.net_flows</code><code>.market_movement</code><code>.month_end_aum</code></div>
+  <details><summary>SQL as it runs</summary><pre>SELECT month, peak_day_aum, peak_date, month_end_aum, opening_aum,
+      net_flows, market_movement, client_count
+    FROM mv_monthly_aum WHERE sb_id=? ORDER BY month</pre></details>
+</div>
+<div class="fig">
+  <div class="fh"><b>Bounce rate</b><code>sip_bounce_rate</code><span class="tag computed">computed</span></div>
+  <p><b>Means:</b> The share of SIP instalments that failed rather than collected, over six months.</p>
+  <p><b>How a user reads it:</b> Above about 5% usually means mandate hygiene, not client intent. Below that, chase individually.</p>
+  <p><b>Derivation:</b> bounced ÷ (collected + bounced). A bounce never counted as an instalment, so it has to be added back to the denominator.</p>
+  
+  <div class="tags"><code>transaction_master.fk_tran_type_id</code></div>
+  <details><summary>SQL as it runs</summary><pre>SELECT
+    (SELECT COUNT(*) FROM sip_master WHERE fk_sb_id=? AND is_live_sip=1) live,
+    (SELECT COALESCE(SUM(tr_amount),0) FROM sip_master WHERE fk_sb_id=? AND is_live_sip=1) monthly,
+    (SELECT COUNT(*) FROM transaction_master WHERE fk_sb_id=? AND fk_tran_type_id=3
+       AND tr_date &gt;= date(?, '-6 months')) instalments,
+    (SELECT COUNT(*) FROM transaction_master WHERE fk_sb_id=? AND fk_tran_type_id=33
+       AND tr_date &gt;= date(?, '-6 months')) bounced,
+    (SELECT COUNT(*) FROM sip_master s JOIN bse_sxp_list x ON x.reg_no=s.sxp_bos_code
+       LEFT JOIN bse_mandate_list ml ON ml.exch_mandate_id=x.exch_mandate_id
+     WHERE s.fk_sb_id=? AND s.is_live_sip=1 AND ml.end_date IS NOT NULL
+       AND ml.end_date &lt;= date(?, '+45 days')) mandatesExpiring,
+    (SELECT COALESCE(SUM(s.tr_amount*12),0) FROM sip_master s JOIN bse_sxp_list x ON x.reg_no=s.sxp_bos_code
+     WHERE s.fk_sb_id=? AND s.is_live_sip=1 AND x.npayments_missed &gt;= 2) valueAtRisk</pre></details>
+</div>
+<div class="fig">
+  <div class="fh"><b>Won / lost</b><code>clients_won_lost</code><span class="tag rule">rule</span></div>
+  <p><b>Means:</b> Clients who first invested with you, and clients who left, this financial year.</p>
+  <p><b>How a user reads it:</b> Lost means they transferred to another distributor or redeemed everything. A client who has gone quiet is not counted here — they are still yours to save.</p>
+  
+  
+  <div class="tags"><code>folio_master.folio_start_date</code><code>.is_transferred_out</code><code>fifo_summary_holding_active.balance_units</code></div>
+  <details><summary>SQL as it runs</summary><pre>SELECT b.bkr_id, b.bkr_from_date month, b.bkr_payout_amount amount,
+      f.fk_acc_id client_id, c.cm_full_name client, s.scheme_full_name scheme, b.bkr_folio_no folio_no,
+      t.tr_date redeemed_on, t.tr_amount redeemed_amount,
+      CAST(julianday(t.tr_date) - julianday(f.folio_start_date) AS INTEGER) held_days
+    FROM brokerage_master b
+    JOIN folio_master f ON f.folio_id = b.fk_folio_id
+    JOIN client_master c ON c.cm_user_id = f.fk_acc_id
+    JOIN scheme_master s ON s.scheme_id = b.fk_scheme_id
+    JOIN transaction_master t ON t.tr_id = b.clawback_source_txn
+    WHERE b.fk_sb_id=? AND b.fk_bkr_type_id=4
+    ORDER BY b.bkr_from_date DESC, b.bkr_payout_amount</pre></details>
+</div>
+<div class="fig">
+  <div class="fh"><b>Target vs actual</b><code>target_attainment</code><span class="tag computed">computed</span></div>
+  <p><b>Means:</b> What you committed to this month against what has actually happened.</p>
+  <p><b>How a user reads it:</b> The faint mark on each bar is where you would be if the month landed evenly. Behind the mark matters; behind 100% on the 7th does not.</p>
+  
+  
+  <div class="tags"><code>sb_monthly_target.target_lumpsum_amount</code><code>.target_sip_count</code><code>.target_client_count</code></div>
+  <details><summary>SQL as it runs</summary><pre>SELECT t.target_month month,
+    CASE WHEN t.target_lumpsum_amount &gt; 0 THEN ROUND(100.0 * (
+      SELECT COALESCE(SUM(x.tr_amount),0) FROM transaction_master x
+        JOIN transaction_type_master tt ON tt.tr_type_id=x.fk_tran_type_id
+      WHERE x.fk_sb_id=t.fk_sb_id AND tt.tr_type_buy_sell_flag=1
+        AND substr(x.tr_date,1,7)=substr(t.target_month,1,7)) / t.target_lumpsum_amount) ELSE 0 END pct
+    FROM sb_monthly_target t WHERE t.fk_sb_id=? ORDER BY t.target_month</pre></details>
+</div>
+<h3>Pipeline</h3>
+<div class="fig">
+  <div class="fh"><b>Onboarding stuck</b><code>onboarding_stuck</code><span class="tag rule">rule</span></div>
+  <p><b>Means:</b> Applications of yours blocked past the seven-day threshold, or rejected outright.</p>
+  <p><b>How a user reads it:</b> Every day here is a day the client is not invested and may change their mind.</p>
+  <p><b>Derivation:</b> A KRA rejection counts from day one; an unsigned e-log or a pending KYC counts after seven days.</p>
+  
+  <div class="tags"><code>onboarding_applications.elog_status</code><code>.stall_since</code><code>.kyc_status</code><code>.started_at</code></div>
+  <details><summary>SQL as it runs</summary><pre>SELECT COUNT(*) n,
+  COALESCE(MAX(CAST(julianday(?) - julianday(COALESCE(oa.stall_since, oa.started_at)) AS INTEGER)), 0) days
+FROM onboarding_applications oa WHERE oa.sb_id = ? AND oa.ucc_status IS NOT 'ACTIVE' AND (
+    oa.kyc_status = 'REJECTED'
+ OR (oa.elog_status IN ('sent','stalled') AND julianday(?) - julianday(oa.stall_since) &gt; 7)
+ OR (oa.kyc_status = 'PENDING' AND julianday(?) - julianday(oa.started_at) &gt; 7))</pre></details>
+</div>
+<div class="fig">
+  <div class="fh"><b>Days lead to live</b><code>days_to_live</code><span class="tag computed">computed</span></div>
+  <p><b>Means:</b> Median days from opening an application to the exchange allotting a client code.</p>
+  <p><b>How a user reads it:</b> This is the page's goal metric. AssetPlus advertises 180 seconds for the digital path — that gap is the point.</p>
+  <p><b>Derivation:</b> Median of (ucc_allotted date − application_started date) across finished applications, measured off the event ledger.</p>
+  
+  <div class="tags"><code>events.event_type</code><code>.occurred_at</code><code>.subject_id</code></div>
+  <details><summary>SQL as it runs</summary><pre>SELECT subject_id, MIN(CASE WHEN event_type='application_started' THEN occurred_at END) opened,
+  MIN(CASE WHEN event_type='ucc_allotted' THEN occurred_at END) live
+FROM events WHERE subject_type='application' GROUP BY 1 HAVING opened AND live</pre></details>
+</div>
+<div class="fig">
+  <div class="fh"><b>Stalled</b><code>stall_days</code><span class="tag rule">rule</span></div>
+  <p><b>Means:</b> Applications waiting longer than the threshold, or rejected outright.</p>
+  <p><b>How a user reads it:</b> Two kinds, two fixes: an unsigned e-log needs the client; missing documents need the branch.</p>
+  <p><b>Derivation:</b> A rejection blocks from day one. Time-based stalls trip after seven days waiting.</p>
+  
+  <div class="tags"><code>onboarding_applications.elog_status</code><code>.stall_since</code><code>.kyc_status</code></div>
+  <details><summary>SQL as it runs</summary><pre>SELECT COUNT(*) n,
+  COALESCE(MAX(CAST(julianday(?) - julianday(COALESCE(oa.stall_since, oa.started_at)) AS INTEGER)), 0) days
+FROM onboarding_applications oa WHERE oa.sb_id = ? AND oa.ucc_status IS NOT 'ACTIVE' AND (
+    oa.kyc_status = 'REJECTED'
+ OR (oa.elog_status IN ('sent','stalled') AND julianday(?) - julianday(oa.stall_since) &gt; 7)
+ OR (oa.kyc_status = 'PENDING' AND julianday(?) - julianday(oa.started_at) &gt; 7))</pre></details>
+</div>
+<h3>Reports</h3>
+<div class="fig">
+  <div class="fh"><b>How reports are formatted</b><code>report_format</code><span class="tag rule">rule</span></div>
+  <p><b>Means:</b> One component formats every report, so a valuation and a tax pack look like they came from the same firm.</p>
+  <p><b>How a user reads it:</b> Money in lakh and crore with the rupee sign, dates as DD-MMM-YYYY, numbers right-aligned so columns line up, and the date the data is true as at on every page.</p>
+  
+  
+  <div class="tags"><code>lib/reports.ts REPORT_FORMAT</code></div>
+  
+</div>
+<h3>Reviews</h3>
+<div class="fig">
+  <div class="fh"><b>Needs a review</b><code>review_due</code><span class="tag rule">rule</span></div>
+  <p><b>Means:</b> Clients past twelve months since their last pack, or carrying a fresh attention flag.</p>
+  <p><b>How a user reads it:</b> Ranked by money at stake times how overdue. Each row says which rule fired.</p>
+  
+  
+  <div class="tags"><code>review_packs.generated_at</code><code>mv_portfolio_attention.flag_type</code></div>
+  <details><summary>SQL as it runs</summary><pre>dormant: no txn in 14 months · concentrated: mv_portfolio_attention non-stale flags · healthy: the rest of 0</pre></details>
+</div>
+<div class="fig">
+  <div class="fh"><b>Client health</b><code>health_score</code><span class="tag rule">rule</span></div>
+  <p><b>Means:</b> A 0–100 score across five components, each worth 20.</p>
+  <p><b>How a user reads it:</b> The gain chip beside it is what is reachable by acting. Click any component to see the levers and their point value.</p>
+  <p><b>Derivation:</b> Deterministic: five pure functions of the client's own data. No model, no learning — every point is traceable.</p>
+  
+  <div class="tags"><code>lib/scoring.ts SCORING_RULES</code><code>fifo_summary_holding_active</code><code>sip_master</code><code>transaction_master</code></div>
+  <details><summary>SQL as it runs</summary><pre>the client's actual cashflows valued two ways: in their funds, and in those funds' benchmark indices —
+same dates, same rupees, one engine, so the headline and the chart always agree</pre></details>
+</div>
+<div class="fig">
+  <div class="fh"><b>Return (XIRR)</b><code>xirr</code><span class="tag computed">computed</span></div>
+  <p><b>Means:</b> The annualised return on the actual timing of the money, not a simple gain percentage.</p>
+  <p><b>How a user reads it:</b> Always compared against the same period's benchmark shown beside it. Ahead or behind that is what matters, not the absolute number.</p>
+  <p><b>Derivation:</b> Cash-flow XIRR over the client's own dated flows plus today's value. Never an average of per-holding XIRRs.</p>
+  <p class="cav"><b>Caveat:</b> Holdings under a year are not annualised — a short holding shows no XIRR rather than a misleading one.</p>
+  <div class="tags"><code>fifo_summary_holding.sh_xirr</code><code>.sh_bmxirr</code></div>
+  
+</div>
+<h3>Today</h3>
+<div class="fig">
+  <div class="fh"><b>My book</b><code>my_book</code><span class="tag computed">computed</span></div>
+  <p><b>Means:</b> The market value today of every holding attributed to you.</p>
+  <p><b>How a user reads it:</b> This is the number every other money figure on the platform divides by. If it looks wrong, nothing else is trustworthy.</p>
+  <p><b>Derivation:</b> SUM(present_market_value) over holdings whose advisor_code is yours, valued at the latest NAV.</p>
+  <p class="cav"><b>Caveat:</b> Attribution is by advisor_code, not by the client-mapping table. The two disagree by design — see the one-denominator rule.</p>
+  <div class="tags"><code>fifo_summary_holding_active.present_market_value</code><code>.advisor_code</code><code>.holding_date</code></div>
+  <details><summary>SQL as it runs</summary><pre>SELECT COUNT(*) n, COALESCE(SUM(v),0) v FROM (
+  SELECT f.client_id, SUM(f.present_market_value) v FROM fifo_summary_holding_active f
+  WHERE f.advisor_code=? AND f.client_id NOT IN (SELECT fk_acc_id FROM sip_master WHERE is_live_sip=1)
+  GROUP BY f.client_id)</pre></details>
+</div>
+<div class="fig">
+  <div class="fh"><b>Net flows this month</b><code>net_flows_mtd</code><span class="tag computed">computed</span></div>
+  <p><b>Means:</b> Money in minus money out across your clients this calendar month.</p>
+  <p><b>How a user reads it:</b> Positive means you brought money in. This is the part of growth you control — the rest is the market.</p>
+  <p><b>Derivation:</b> SUM(amount × direction) where direction comes from the transaction type, bounded to this month and today.</p>
+  
+  <div class="tags"><code>transaction_master.tr_amount</code><code>.tr_date</code><code>transaction_type_master.tr_type_buy_sell_flag</code></div>
+  <details><summary>SQL as it runs</summary><pre>SELECT COALESCE(SUM(t.tr_amount * tt.tr_type_buy_sell_flag),0) v, COUNT(*) n
+FROM transaction_master t JOIN transaction_type_master tt ON tt.tr_type_id=t.fk_tran_type_id
+WHERE t.fk_sb_id=? AND t.tr_date &gt;= ? AND t.tr_date &lt;= ? AND tt.tr_type_buy_sell_flag != 0</pre></details>
+</div>
+<div class="fig">
+  <div class="fh"><b>Churn risk</b><code>churn_risk</code><span class="tag rule">rule</span></div>
+  <p><b>Means:</b> Clients the attention engine has flagged as at risk of leaving or drifting.</p>
+  <p><b>How a user reads it:</b> Work the largest first. A flag is a reason to call, not a verdict.</p>
+  <p><b>Derivation:</b> Distinct clients in your book carrying any flag on the nightly attention board.</p>
+  
+  <div class="tags"><code>mv_portfolio_attention.flag_type</code><code>.client_id</code></div>
+  <details><summary>SQL as it runs</summary><pre>dormant: no txn in 14 months · concentrated: mv_portfolio_attention non-stale flags · healthy: the rest of 0</pre></details>
+</div>
+<div class="fig">
+  <div class="fh"><b>Invested, no SIP</b><code>idle_no_sip</code><span class="tag computed">computed</span></div>
+  <p><b>Means:</b> Clients holding money with you but no live monthly commitment.</p>
+  <p><b>How a user reads it:</b> The single largest source of new SIP volume in most books — they already trust you.</p>
+  
+  
+  <div class="tags"><code>fifo_summary_holding_active.client_id</code><code>sip_master.is_live_sip</code></div>
+  <details><summary>SQL as it runs</summary><pre>SELECT COUNT(*) n, COALESCE(SUM(v),0) v FROM (
+  SELECT f.client_id, SUM(f.present_market_value) v FROM fifo_summary_holding_active f
+  WHERE f.advisor_code=? AND f.client_id NOT IN (SELECT fk_acc_id FROM sip_master WHERE is_live_sip=1)
+  GROUP BY f.client_id)</pre></details>
+</div>
+<div class="fig">
+  <div class="fh"><b>SIPs at risk</b><code>sips_at_risk</code><span class="tag rule">rule</span></div>
+  <p><b>Means:</b> Live SIPs that have bounced twice or whose mandate expires within 45 days.</p>
+  <p><b>How a user reads it:</b> A bounced SIP is the cheapest thing on this page to save — it is already sold.</p>
+  <p><b>Derivation:</b> Annualised: monthly instalment × 12, summed across the plans at risk.</p>
+  
+  <div class="tags"><code>sip_master.tr_amount</code><code>bse_sxp_list.npayments_missed</code><code>bse_mandate_list.end_date</code></div>
+  <details><summary>SQL as it runs</summary><pre>SELECT COUNT(*) n, COALESCE(SUM(s.tr_amount*12),0) v
+FROM sip_master s
+JOIN bse_sxp_list x ON x.reg_no=s.sxp_bos_code
+LEFT JOIN bse_mandate_list ml ON ml.exch_mandate_id=x.exch_mandate_id
+WHERE s.is_live_sip=1 AND s.fk_acc_id IN (SELECT DISTINCT client_id FROM fifo_summary_holding_active WHERE advisor_code = ?)
+  AND (x.npayments_missed&gt;=2 OR (ml.end_date IS NOT NULL AND ml.end_date &lt;= date(?,'+45 days')))</pre></details>
+</div>
+<div class="fig">
+  <div class="fh"><b>Onboarding stuck</b><code>onboarding_stuck</code><span class="tag rule">rule</span></div>
+  <p><b>Means:</b> Applications of yours blocked past the seven-day threshold, or rejected outright.</p>
+  <p><b>How a user reads it:</b> Every day here is a day the client is not invested and may change their mind.</p>
+  <p><b>Derivation:</b> A KRA rejection counts from day one; an unsigned e-log or a pending KYC counts after seven days.</p>
+  
+  <div class="tags"><code>onboarding_applications.elog_status</code><code>.stall_since</code><code>.kyc_status</code><code>.started_at</code></div>
+  <details><summary>SQL as it runs</summary><pre>SELECT COUNT(*) n,
+  COALESCE(MAX(CAST(julianday(?) - julianday(COALESCE(oa.stall_since, oa.started_at)) AS INTEGER)), 0) days
+FROM onboarding_applications oa WHERE oa.sb_id = ? AND oa.ucc_status IS NOT 'ACTIVE' AND (
+    oa.kyc_status = 'REJECTED'
+ OR (oa.elog_status IN ('sent','stalled') AND julianday(?) - julianday(oa.stall_since) &gt; 7)
+ OR (oa.kyc_status = 'PENDING' AND julianday(?) - julianday(oa.started_at) &gt; 7))</pre></details>
+</div>
+<div class="fig">
+  <div class="fh"><b>My scoreboard</b><code>scoreboard</code><span class="tag computed">computed</span></div>
+  <p><b>Means:</b> Actions you closed inside their deadline, out of all you closed.</p>
+  <p><b>How a user reads it:</b> Management sees this same number. It measures follow-through, not effort.</p>
+  
+  
+  <div class="tags"><code>actions.state</code><code>.sla_due</code><code>.closed_at</code></div>
+  <details><summary>SQL as it runs</summary><pre>SELECT
+    SUM(CASE WHEN state IN ('done','dismissed') THEN 1 ELSE 0 END) closed,
+    SUM(CASE WHEN state IN ('done','dismissed') AND (closed_at IS NULL OR closed_at &lt;= sla_due) THEN 1 ELSE 0 END) closedInSla,
+    SUM(CASE WHEN state NOT IN ('done','dismissed') AND sla_due &lt;= ? THEN 1 ELSE 0 END) dueToday
+  FROM actions WHERE assignee_sb_id=?</pre></details>
+</div></section>
+<section id="p-queries" class="panel" hidden><h2>Every captured query (66)</h3>
+<p class="note">The full query layer, harvested by calling it. Grouped by module.</p>
+<h4><code>lib/queries.ts</code> — 17 queries</h4>
+<details class="ddl"><summary><code>assetMix()</code><span class="tag computed">computed</span></summary><pre>SELECT asset_name label, SUM(present_market_value) v
+FROM fifo_summary_holding_active WHERE advisor_code=? GROUP BY asset_name ORDER BY v DESC</pre><div class="tags"><code>fifo_summary_holding_active.asset_name</code><code>.present_market_value</code></div></details>
+<details class="ddl"><summary><code>blendedReturn()</code><span class="tag computed">computed</span></summary><pre>SELECT ROUND(SUM(CASE WHEN xirr IS NOT NULL THEN present_market_value*xirr END)
+             / SUM(CASE WHEN xirr IS NOT NULL THEN present_market_value END),1) x, MAX(holding_date) as_of
+FROM fifo_summary_holding_active WHERE advisor_code=?</pre><div class="tags"><code>fifo_summary_holding_active.xirr</code><code>.present_market_value</code></div></details>
+<details class="ddl"><summary><code>churnRisk()</code><span class="tag rule">rule</span></summary><pre>SELECT COUNT(*) n, COALESCE(SUM(v.value_now),0) v
+FROM (SELECT DISTINCT client_id FROM mv_portfolio_attention WHERE client_id IN (SELECT DISTINCT client_id FROM fifo_summary_holding_active WHERE advisor_code = ?)) a
+JOIN v_client_value v ON v.client_id=a.client_id</pre><div class="tags"><code>mv_portfolio_attention.client_id</code><code>v_client_value.value_now</code></div></details>
+<details class="ddl"><summary><code>clientRows()</code></summary><pre>SELECT f.client_id, f.client_name name,
+  (SELECT COUNT(DISTINCT x.client_id) FROM fifo_summary_holding_active x WHERE x.client_name=f.client_name AND x.advisor_code=f.advisor_code) dup,
+  SUM(f.present_market_value) v, SUM(f.cost_amount) invested,
+  SUM(f.present_market_value) - SUM(f.cost_amount) pnl,
+  ROUND(SUM(CASE WHEN f.xirr IS NOT NULL THEN f.present_market_value*f.xirr END)
+      / SUM(CASE WHEN f.xirr IS NOT NULL THEN f.present_market_value END),1) wx,
+  (SELECT MAX(t.tr_date) FROM transaction_master t WHERE t.fk_acc_id=f.client_id AND t.tr_date &lt;= '2026-08-07') last_activity,
+  (SELECT COALESCE(SUM(s.tr_amount),0) FROM sip_master s WHERE s.fk_acc_id=f.client_id AND s.is_live_sip=1) sip_monthly,
+  (SELECT a.action_type FROM actions a WHERE a.state IN ('proposed','assigned','in_progress')
+     AND ((a.subject_type='client' AND a.subject_id=CAST(f.client_id AS TEXT))
+       OR (a.subject_type='sip' AND a.subject_id IN (SELECT CAST(sip_id AS TEXT) FROM sip_master WHERE fk_acc_id=f.client_id)))
+     ORDER BY a.impact_score DESC LIMIT 1) top_action,
+  (SELECT COUNT(*) FROM actions a WHERE a.state IN ('proposed','assigned','in_progress')
+     AND ((a.subject_type='client' AND a.subject_id=CAST(f.client_id AS TEXT))
+       OR (a.subject_type='sip' AND a.subject_id IN (SELECT CAST(sip_id AS TEXT) FROM sip_master WHERE fk_acc_id=f.client_id)))) open_actions,
+  COALESCE((SELECT GROUP_CONCAT(DISTINCT p.flag_type) FROM mv_portfolio_attention p WHERE p.client_id=f.client_id),'') flags
+FROM fifo_summary_holding_active f
+WHERE f.advisor_code=? 
+GROUP BY f.client_id 
+ORDER BY v DESC</pre><div class="tags"></div></details>
+<details class="ddl"><summary><code>dormantClients()</code><span class="tag rule">rule</span></summary><pre>SELECT COUNT(*) n FROM (
+  SELECT f.client_id, MAX(t.tr_date) lt FROM fifo_summary_holding_active f
+  JOIN transaction_master t ON t.fk_acc_id=f.client_id AND t.tr_date &lt;= '2026-08-07'
+  WHERE f.advisor_code=? GROUP BY f.client_id HAVING lt &lt; date('2026-08-07','-14 months'))</pre><div class="tags"><code>transaction_master.tr_date</code></div></details>
+<details class="ddl"><summary><code>healthSplit()</code><span class="tag rule">rule</span></summary><pre>dormant: no txn in 14 months · concentrated: mv_portfolio_attention non-stale flags · healthy: the rest of 0</pre><div class="tags"><code>transaction_master.tr_date</code><code>mv_portfolio_attention.flag_type</code></div></details>
+<details class="ddl"><summary><code>idleNoSip()</code><span class="tag computed">computed</span></summary><pre>SELECT COUNT(*) n, COALESCE(SUM(v),0) v FROM (
+  SELECT f.client_id, SUM(f.present_market_value) v FROM fifo_summary_holding_active f
+  WHERE f.advisor_code=? AND f.client_id NOT IN (SELECT fk_acc_id FROM sip_master WHERE is_live_sip=1)
+  GROUP BY f.client_id)</pre><div class="tags"><code>fifo_summary_holding_active.present_market_value</code><code>sip_master.is_live_sip</code></div></details>
+<details class="ddl"><summary><code>learning()</code><span class="tag learned">learned</span></summary><pre>SELECT workflow, policy_key, evidence_n, target_n FROM policies ORDER BY evidence_n DESC</pre><div class="tags"><code>policies.evidence_n</code><code>.target_n</code><code>.belief</code></div></details>
+<details class="ddl"><summary><code>myBook()</code><span class="tag computed">computed</span></summary><pre>SELECT COALESCE(SUM(present_market_value),0) v, MAX(holding_date) as_of
+FROM fifo_summary_holding_active WHERE advisor_code = ?</pre><div class="tags"><code>fifo_summary_holding_active.present_market_value</code><code>.advisor_code</code><code>.holding_date</code></div></details>
+<details class="ddl"><summary><code>netFlowsMtd()</code><span class="tag computed">computed</span></summary><pre>SELECT COALESCE(SUM(t.tr_amount * tt.tr_type_buy_sell_flag),0) v, COUNT(*) n
+FROM transaction_master t JOIN transaction_type_master tt ON tt.tr_type_id=t.fk_tran_type_id
+WHERE t.fk_sb_id=? AND t.tr_date &gt;= ? AND t.tr_date &lt;= ? AND tt.tr_type_buy_sell_flag != 0</pre><div class="tags"><code>transaction_master.tr_amount</code><code>.tr_date</code><code>transaction_type_master.tr_type_buy_sell_flag</code></div></details>
+<details class="ddl"><summary><code>onboardingStuck()</code><span class="tag rule">rule</span></summary><pre>SELECT COUNT(*) n,
+  COALESCE(MAX(CAST(julianday(?) - julianday(COALESCE(oa.stall_since, oa.started_at)) AS INTEGER)), 0) days
+FROM onboarding_applications oa WHERE oa.sb_id = ? AND oa.ucc_status IS NOT 'ACTIVE' AND (
+    oa.kyc_status = 'REJECTED'
+ OR (oa.elog_status IN ('sent','stalled') AND julianday(?) - julianday(oa.stall_since) &gt; 7)
+ OR (oa.kyc_status = 'PENDING' AND julianday(?) - julianday(oa.started_at) &gt; 7))</pre><div class="tags"><code>onboarding_applications.elog_status</code><code>.stall_since</code><code>.kyc_status</code><code>.started_at</code></div></details>
+<details class="ddl"><summary><code>scoreboard()</code><span class="tag computed">computed</span></summary><pre>SELECT
+    SUM(CASE WHEN state IN ('done','dismissed') THEN 1 ELSE 0 END) closed,
+    SUM(CASE WHEN state IN ('done','dismissed') AND (closed_at IS NULL OR closed_at &lt;= sla_due) THEN 1 ELSE 0 END) closedInSla,
+    SUM(CASE WHEN state NOT IN ('done','dismissed') AND sla_due &lt;= ? THEN 1 ELSE 0 END) dueToday
+  FROM actions WHERE assignee_sb_id=?</pre><div class="tags"><code>actions.state</code><code>.closed_at</code><code>.sla_due</code></div></details>
+<details class="ddl"><summary><code>sipParticipation()</code><span class="tag computed">computed</span></summary><pre>SELECT
+  (SELECT COUNT(DISTINCT fk_acc_id) FROM sip_master WHERE is_live_sip=1 AND fk_acc_id IN (SELECT DISTINCT client_id FROM fifo_summary_holding_active WHERE advisor_code = ?)) n,
+  (SELECT COUNT(*) FROM (SELECT DISTINCT client_id FROM fifo_summary_holding_active WHERE advisor_code = ?)) of</pre><div class="tags"><code>sip_master.is_live_sip</code><code>fifo_summary_holding_active.advisor_code</code></div></details>
+<details class="ddl"><summary><code>sipsAtRisk()</code><span class="tag rule">rule</span></summary><pre>SELECT COUNT(*) n, COALESCE(SUM(s.tr_amount*12),0) v
+FROM sip_master s
+JOIN bse_sxp_list x ON x.reg_no=s.sxp_bos_code
+LEFT JOIN bse_mandate_list ml ON ml.exch_mandate_id=x.exch_mandate_id
+WHERE s.is_live_sip=1 AND s.fk_acc_id IN (SELECT DISTINCT client_id FROM fifo_summary_holding_active WHERE advisor_code = ?)
+  AND (x.npayments_missed&gt;=2 OR (ml.end_date IS NOT NULL AND ml.end_date &lt;= date(?,'+45 days')))</pre><div class="tags"><code>sip_master.tr_amount</code><code>bse_sxp_list.npayments_missed</code><code>bse_mandate_list.end_date</code></div></details>
+<details class="ddl"><summary><code>streams()</code></summary><pre>SELECT a.action_id, a.action_type, a.subject_type, a.subject_id, a.trigger_evidence,
+  a.impact_score, a.sla_due, a.state, a.suggested_step, a.outcome_type, a.closed_at,
+  COALESCE(c1.cm_user_id, c2.cm_user_id, c3.cm_user_id) client_id,
+  COALESCE(c1.cm_full_name, c2.cm_full_name, c3.cm_full_name, l.name) client_name
+FROM actions a
+LEFT JOIN client_master c1 ON a.subject_type='client' AND c1.cm_user_id=CAST(a.subject_id AS INTEGER)
+LEFT JOIN sip_master s ON a.subject_type='sip' AND s.sip_id=CAST(a.subject_id AS INTEGER)
+LEFT JOIN client_master c2 ON c2.cm_user_id=s.fk_acc_id
+LEFT JOIN onboarding_applications oa ON a.subject_type='application' AND oa.application_id=CAST(a.subject_id AS INTEGER)
+LEFT JOIN client_master c3 ON c3.cm_user_id=oa.client_id
+LEFT JOIN leads l ON l.lead_id=oa.lead_id</pre><div class="tags"></div></details>
+<details class="ddl"><summary><code>taxWindowClients()</code><span class="tag rule">rule</span></summary><pre>SELECT COUNT(*) n FROM (
+  SELECT h.fk_acc_id, SUM(h.sh_unrealized_ltcg) g FROM fifo_summary_holding h
+  WHERE h.fk_acc_id IN (SELECT DISTINCT client_id FROM fifo_summary_holding_active WHERE advisor_code = ?) GROUP BY h.fk_acc_id HAVING g BETWEEN 40000 AND 120000)</pre><div class="tags"><code>fifo_summary_holding.sh_unrealized_ltcg</code></div></details>
+<details class="ddl"><summary><code>xirrBands()</code><span class="tag computed">computed</span></summary><pre>SELECT CASE WHEN wx &lt; 0 THEN '&lt; 0%' WHEN wx &lt; 8 THEN '0–8%' WHEN wx &lt; 15 THEN '8–15%' ELSE '&gt; 15%' END band, COUNT(*) n
+FROM (SELECT client_id, SUM(CASE WHEN xirr IS NOT NULL THEN present_market_value*xirr END)
+             / SUM(CASE WHEN xirr IS NOT NULL THEN present_market_value END) wx
+      FROM fifo_summary_holding_active WHERE advisor_code=? GROUP BY client_id)
+GROUP BY band</pre><div class="tags"><code>fifo_summary_holding_active.xirr</code><code>.present_market_value</code></div></details>
+<h4><code>lib/client360.ts</code> — 10 queries</h4>
+<details class="ddl"><summary><code>clientCategoryMix()</code><span class="tag computed">computed</span></summary><pre>SELECT fund_category label, SUM(present_market_value) v
+FROM fifo_summary_holding_active WHERE client_id=? GROUP BY fund_category ORDER BY v DESC</pre><div class="tags"><code>fifo_summary_holding_active.fund_category</code><code>.present_market_value</code></div></details>
+<details class="ddl"><summary><code>clientHoldings()</code></summary><pre>SELECT f.scheme_id, f.fund_name, f.fund_category, f.folio_no, f.balance_units units,
+  f.avg_cost, f.nav, f.present_market_value value, f.cost_amount invested, f.portfolio_weight weight,
+  f.xirr, sh.sh_bmxirr bmxirr, sm.scheme_exit_load exit_load
+FROM fifo_summary_holding_active f
+JOIN scheme_master sm ON sm.scheme_id=f.scheme_id
+LEFT JOIN fifo_summary_holding sh ON sh.fk_acc_id=f.client_id AND sh.fk_scheme_id=f.scheme_id
+WHERE f.client_id=? ORDER BY value DESC</pre><div class="tags"></div></details>
+<details class="ddl"><summary><code>clientKpis()</code><span class="tag computed">computed</span></summary><pre>the client's actual cashflows valued two ways: in their funds, and in those funds' benchmark indices —
+same dates, same rupees, one engine, so the headline and the chart always agree</pre><div class="tags"><code>fifo_summary_holding_active.present_market_value/.cost_amount</code><code>transaction_master</code><code>mf_historical_price_master.price</code><code>benchmark_price_history.price</code></div></details>
+<details class="ddl"><summary><code>clientMix()</code><span class="tag computed">computed</span></summary><pre>SELECT asset_name label, SUM(present_market_value) v
+FROM fifo_summary_holding_active WHERE client_id=? GROUP BY asset_name ORDER BY v DESC</pre><div class="tags"><code>fifo_summary_holding_active.asset_name</code><code>.present_market_value</code></div></details>
+<details class="ddl"><summary><code>clientSips()</code></summary><pre>SELECT s.sip_id, sm.scheme_full_name fund_name, s.tr_amount, s.day_of_sip,
+  s.start_date, s.is_live_sip, s.cease_date, x.npayments_missed missed, ml.end_date mandate_end, ml.umrn
+FROM sip_master s
+LEFT JOIN scheme_master sm ON sm.scheme_id=s.fk_from_scheme_id
+LEFT JOIN bse_sxp_list x ON x.reg_no=s.sxp_bos_code
+LEFT JOIN bse_mandate_list ml ON ml.exch_mandate_id=x.exch_mandate_id
+WHERE s.fk_acc_id=? ORDER BY s.is_live_sip DESC, s.start_date DESC</pre><div class="tags"></div></details>
+<details class="ddl"><summary><code>clientTxns()</code></summary><pre>SELECT t.tr_id, t.tr_date, tt.tr_type_name type_name, tt.tr_type_buy_sell_flag flag,
+  sm.scheme_full_name fund_name, t.tr_folio_no, t.tr_amount, t.tr_units, t.tr_price
+FROM transaction_master t
+JOIN transaction_type_master tt ON tt.tr_type_id=t.fk_tran_type_id
+JOIN scheme_master sm ON sm.scheme_id=t.fk_scheme_id
+WHERE t.fk_acc_id=? AND t.tr_date BETWEEN ? AND ?
+ORDER BY t.tr_date DESC</pre><div class="tags"></div></details>
+<details class="ddl"><summary><code>familyMembers()</code></summary><pre>SELECT c.cm_user_id client_id, c.cm_full_name name, c.is_family_head is_head,
+  COALESCE((SELECT SUM(present_market_value) FROM fifo_summary_holding_active WHERE client_id=c.cm_user_id),0) v,
+  (SELECT ROUND(SUM(CASE WHEN xirr IS NOT NULL THEN present_market_value*xirr END)
+                    / SUM(CASE WHEN xirr IS NOT NULL THEN present_market_value END),1) FROM fifo_summary_holding_active WHERE client_id=c.cm_user_id) wx,
+  (SELECT COUNT(*) FROM actions a WHERE a.subject_type='client' AND a.subject_id=CAST(c.cm_user_id AS TEXT)
+     AND a.state IN ('proposed','assigned','in_progress')) open_actions
+FROM client_master c WHERE c.fk_family_id=? ORDER BY is_head DESC, v DESC</pre><div class="tags"></div></details>
+<details class="ddl"><summary><code>journeySeries()</code><span class="tag computed">computed</span></summary><pre>SELECT substr(t.tr_date,1,7) m,
+  ROUND(SUM(SUM(t.tr_amount * tt.tr_type_buy_sell_flag)) OVER (ORDER BY substr(t.tr_date,1,7))) cum
+FROM transaction_master t JOIN transaction_type_master tt ON tt.tr_type_id=t.fk_tran_type_id
+WHERE t.fk_acc_id=? AND tt.tr_type_buy_sell_flag != 0 AND t.tr_date &lt;= '2026-08-07'
+GROUP BY m ORDER BY m</pre><div class="tags"><code>transaction_master.tr_amount</code><code>.tr_date</code><code>transaction_type_master.tr_type_buy_sell_flag</code></div></details>
+<details class="ddl"><summary><code>riskScale()</code><span class="tag rule">rule</span></summary><pre>portfolio risk = Σ(value × scheme risk grade) ÷ Σ value — grades: Low 1 … Very High 5;
+profile grade from client_master_mf_related.risk_profile (same scale)</pre><div class="tags"><code>scheme_master.risk_level</code><code>client_master_mf_related.risk_profile</code><code>fifo_summary_holding_active.present_market_value</code></div></details>
+<details class="ddl"><summary><code>taxPosition()</code><span class="tag computed">computed</span></summary><pre>SELECT COALESCE(SUM(sh_realized_ltcg),0) real_lt, COALESCE(SUM(sh_realized_stcg),0) real_st,
+  COALESCE(SUM(sh_unrealized_ltcg),0) unreal_lt, COALESCE(SUM(sh_unrealized_stcg),0) unreal_st
+FROM fifo_summary_holding WHERE fk_acc_id=?</pre><div class="tags"><code>fifo_summary_holding.sh_realized_ltcg</code><code>.sh_realized_stcg</code><code>.sh_unrealized_ltcg</code><code>.sh_unrealized_stcg</code></div></details>
+<h4><code>lib/portfolio.ts</code> — 5 queries</h4>
+<details class="ddl"><summary><code>benchmarkComparison()</code><span class="tag computed">computed</span></summary><pre>the client's actual cashflows valued two ways: in their funds, and in those funds' benchmark indices —
+same dates, same rupees, one engine, so the headline and the chart always agree</pre><div class="tags"><code>transaction_master</code><code>mf_historical_price_master.price</code><code>benchmark_price_history.price</code></div></details>
+<details class="ddl"><summary><code>categoryPerformance()</code><span class="tag computed">computed</span></summary><pre>1-year return per fund from NAV history, averaged within its category;
+the client's own fund ranked inside that category</pre><div class="tags"><code>mf_historical_price_master.price</code><code>category_master</code><code>fifo_summary_holding_active</code></div></details>
+<details class="ddl"><summary><code>equityCurve()</code><span class="tag computed">computed</span></summary><pre>units held at each month-end × NAV then, vs cumulative net cashflow,
+vs the same cashflows invested in each fund's benchmark index at that date's level</pre><div class="tags"></div></details>
+<details class="ddl"><summary><code>lookThrough()</code><span class="tag computed">computed</span></summary><pre>each fund's disclosed holdings × the client's rupees in that fund,
+aggregated by stock and sector; overlap = money in stocks that two or more of the client's funds both hold</pre><div class="tags"><code>mf_scheme_holdings.weight_pct</code><code>stock_master.sector/.cap_band</code><code>fifo_summary_holding_active.present_market_value</code></div></details>
+<details class="ddl"><summary><code>marketCapLookthrough()</code><span class="tag rule">rule</span></summary><pre>lookthrough_v0 — SEBI categorisation floors, 07-Aug-2026
+each category mapped to the market-cap split SEBI's categorisation rules require, then weighted by holding value</pre><div class="tags"><code>fifo_summary_holding_active.fund_category</code><code>.present_market_value</code><code>LOOKTHROUGH_RULES</code></div></details>
+<h4><code>lib/onboarding.ts</code> — 7 queries</h4>
+<details class="ddl"><summary><code>daysToLive()</code><span class="tag computed">computed</span></summary><pre>SELECT subject_id, MIN(CASE WHEN event_type='application_started' THEN occurred_at END) opened,
+  MIN(CASE WHEN event_type='ucc_allotted' THEN occurred_at END) live
+FROM events WHERE subject_type='application' GROUP BY 1 HAVING opened AND live</pre><div class="tags"><code>events.event_type</code><code>events.occurred_at</code></div></details>
+<details class="ddl"><summary><code>funnel()</code><span class="tag computed">computed</span></summary><pre>SELECT subject_id, event_type, MIN(occurred_at) FROM events WHERE subject_type='application' GROUP BY 1,2
+-- counts = applications reaching each stage-entry event; medians = date gaps between consecutive events</pre><div class="tags"><code>events.event_type</code><code>events.occurred_at</code><code>events.subject_id</code><code>leads.lead_id</code></div></details>
+<details class="ddl"><summary><code>linkStats()</code><span class="tag computed">computed</span></summary><pre>SELECT bl.sb_id, sb.sb_holder_name broker, bl.slug, bl.visits,
+      COUNT(oa.application_id) applications,
+      SUM(CASE WHEN oa.ucc_status='ACTIVE' THEN 1 ELSE 0 END) live
+    FROM broker_links bl
+    JOIN sub_broker_master sb ON sb.sb_id = bl.sb_id
+    LEFT JOIN onboarding_applications oa ON oa.sb_id = bl.sb_id
+    WHERE sb.is_active = 1
+    GROUP BY bl.sb_id ORDER BY applications DESC, bl.visits DESC</pre><div class="tags"><code>broker_links.slug</code><code>.visits</code><code>onboarding_applications.sb_id</code><code>.ucc_status</code></div></details>
+<details class="ddl"><summary><code>monthCounts()</code><span class="tag computed">computed</span></summary><pre>SELECT
+    (SELECT COUNT(*) FROM events WHERE subject_type='application' AND event_type='application_started'
+       AND occurred_at &gt;= ? AND occurred_at &lt;= ?) opened,
+    (SELECT COUNT(*) FROM events WHERE subject_type='application' AND event_type='ucc_allotted'
+       AND occurred_at &gt;= ? AND occurred_at &lt;= ?) live</pre><div class="tags"><code>events.event_type</code><code>events.occurred_at</code></div></details>
+<details class="ddl"><summary><code>pipeline()</code></summary><pre>WITH ev AS (
+  SELECT CAST(subject_id AS INTEGER) app, event_type, MIN(occurred_at) at
+  FROM events WHERE subject_type='application' GROUP BY 1, 2
+),
+st AS (
+  SELECT oa.application_id, oa.sb_id, oa.client_id, oa.channel, oa.holding_type,
+         oa.kyc_status, oa.elog_status, oa.ucc_status, oa.started_at, oa.stall_since,
+         CASE WHEN oa.ucc_status='ACTIVE'      THEN 'live'
+              WHEN oa.ucc_status='PENDING_UCC' THEN 'ucc'
+              WHEN oa.elog_status IN ('sent','stalled') THEN 'elog'
+              ELSE 'kyc' END stage,
+         k.name, k.kra_status_code, k.rejection_level
+  FROM onboarding_applications oa
+  JOIN client_kyc_logs k ON k.id = oa.kyc_log_id
+)
+SELECT st.*, sb.sb_holder_name broker,
+  COALESCE(CASE st.stage
+    WHEN 'live' THEN (SELECT at FROM ev WHERE app=st.application_id AND event_type='ucc_allotted')
+    WHEN 'ucc'  THEN (SELECT at FROM ev WHERE app=st.application_id AND event_type='elog_completed')
+    WHEN 'elog' THEN (SELECT at FROM ev WHERE app=st.application_id AND event_type='elog_sent')
+    ELSE (SELECT at FROM ev WHERE app=st.application_id AND event_type='application_started')
+  END, st.started_at) since,
+  (SELECT a.action_id FROM actions a WHERE a.subject_type='application'
+     AND a.subject_id = CAST(st.application_id AS TEXT)
+   ORDER BY CASE a.state WHEN 'done' THEN 2 WHEN 'dismissed' THEN 2 ELSE 1 END, a.action_id DESC LIMIT 1) action_id,
+  (SELECT a.state FROM actions a WHERE a.subject_type='application'
+     AND a.subject_id = CAST(st.application_id AS TEXT)
+   ORDER BY CASE a.state WHEN 'done' THEN 2 WHEN 'dismissed' THEN 2 ELSE 1 END, a.action_id DESC LIMIT 1) action_state
+FROM st JOIN sub_broker_master sb ON sb.sb_id = st.sb_id
+ORDER BY since</pre><div class="tags"></div></details>
+<details class="ddl"><summary><code>rejections()</code><span class="tag rule">rule</span></summary><pre>SELECT k.kra_status_code, k.rejection_level, e.error_description
+FROM onboarding_applications oa JOIN client_kyc_logs k ON k.id=oa.kyc_log_id
+JOIN kra_error_codes e ON e.error_code=k.kra_status_code
+WHERE oa.kyc_status='REJECTED'
+-- the plain-word sentence is written policy (PLAIN_WORDS in lib/onboarding.ts), not derived</pre><div class="tags"><code>client_kyc_logs.kra_status_code</code><code>.rejection_level</code><code>kra_error_codes.error_description</code></div></details>
+<details class="ddl"><summary><code>stalls()</code><span class="tag rule">rule</span></summary><pre>WITH ev AS (
+  SELECT CAST(subject_id AS INTEGER) app, event_type, MIN(occurred_at) at
+  FROM events WHERE subject_type='application' GROUP BY 1, 2
+),
+st AS (
+  SELECT oa.application_id, oa.sb_id, oa.client_id, oa.channel, oa.holding_type,
+         oa.kyc_status, oa.elog_status, oa.ucc_status, oa.started_at, oa.stall_since,
+         CASE WHEN oa.ucc_status='ACTIVE'      THEN 'live'
+              WHEN oa.ucc_status='PENDING_UCC' THEN 'ucc'
+              WHEN oa.elog_status IN ('sent','stalled') THEN 'elog'
+              ELSE 'kyc' END stage,
+         k.name, k.kra_status_code, k.rejection_level
+  FROM onboarding_applications oa
+  JOIN client_kyc_logs k ON k.id = oa.kyc_log_id
+)
+SELECT st.*, sb.sb_holder_name broker,
+  COALESCE(CASE st.stage
+    WHEN 'live' THEN (SELECT at FROM ev WHERE app=st.application_id AND event_type='ucc_allotted')
+    WHEN 'ucc'  THEN (SELECT at FROM ev WHERE app=st.application_id AND event_type='elog_completed')
+    WHEN 'elog' THEN (SELECT at FROM ev WHERE app=st.application_id AND event_type='elog_sent')
+    ELSE (SELECT at FROM ev WHERE app=st.application_id AND event_type='application_started')
+  END, st.started_at) since,
+  (SELECT a.action_id FROM actions a WHERE a.subject_type='application'
+     AND a.subject_id = CAST(st.application_id AS TEXT)
+   ORDER BY CASE a.state WHEN 'done' THEN 2 WHEN 'dismissed' THEN 2 ELSE 1 END, a.action_id DESC LIMIT 1) action_id,
+  (SELECT a.state FROM actions a WHERE a.subject_type='application'
+     AND a.subject_id = CAST(st.application_id AS TEXT)
+   ORDER BY CASE a.state WHEN 'done' THEN 2 WHEN 'dismissed' THEN 2 ELSE 1 END, a.action_id DESC LIMIT 1) action_state
+FROM st JOIN sub_broker_master sb ON sb.sb_id = st.sb_id
+ORDER BY since
+-- then: blocked = a KRA rejection (from day one), or &gt;7 days waiting at the e-log or at KYC</pre><div class="tags"><code>onboarding_applications.elog_status</code><code>.stall_since</code><code>.kyc_status</code><code>events.occurred_at</code><code>client_kyc_logs.kra_status_code</code></div></details>
+<h4><code>lib/earnings.ts</code> — 9 queries</h4>
+<details class="ddl"><summary><code>byClient()</code><span class="tag computed">computed</span></summary><pre>SELECT f.fk_acc_id client_id, c.cm_full_name name, COUNT(*) lines,
+      COALESCE(SUM(CASE WHEN b.fk_bkr_type_id=1 THEN b.tr_amount END),0) aum,
+      COALESCE(SUM(CASE WHEN b.fk_bkr_type_id=1 THEN b.bkr_payout_amount END),0) payout,
+      COALESCE(SUM(CASE WHEN b.fk_bkr_type_id=4 THEN b.bkr_payout_amount END),0) clawback
+    FROM brokerage_master b
+    JOIN folio_master f ON f.folio_id = b.fk_folio_id
+    JOIN client_master c ON c.cm_user_id = f.fk_acc_id
+    WHERE b.fk_sb_id=? AND b.bkr_from_date=?
+    GROUP BY 1 ORDER BY payout DESC</pre><div class="tags"><code>brokerage_master.fk_folio_id</code><code>.bkr_payout_amount</code><code>folio_master.fk_acc_id</code><code>client_master.cm_full_name</code></div></details>
+<details class="ddl"><summary><code>byScheme()</code><span class="tag computed">computed</span></summary><pre>SELECT s.scheme_full_name scheme, a.amc_name amc, COUNT(*) lines,
+      SUM(b.tr_amount) aum, SUM(b.bkr_payout_amount) payout
+    FROM brokerage_master b
+    JOIN scheme_master s ON s.scheme_id = b.fk_scheme_id
+    JOIN amc_master a ON a.amc_id = s.fk_amc_id
+    WHERE b.fk_sb_id=? AND b.bkr_from_date=? AND b.fk_bkr_type_id=1
+    GROUP BY 1,2 ORDER BY payout DESC</pre><div class="tags"><code>brokerage_master.fk_scheme_id</code><code>.tr_amount</code><code>.bkr_payout_amount</code><code>scheme_master.scheme_full_name</code></div></details>
+<details class="ddl"><summary><code>clawbacks()</code><span class="tag computed">computed</span></summary><pre>SELECT b.bkr_id, b.bkr_from_date month, b.bkr_payout_amount amount,
+      f.fk_acc_id client_id, c.cm_full_name client, s.scheme_full_name scheme, b.bkr_folio_no folio_no,
+      t.tr_date redeemed_on, t.tr_amount redeemed_amount,
+      CAST(julianday(t.tr_date) - julianday(f.folio_start_date) AS INTEGER) held_days
+    FROM brokerage_master b
+    JOIN folio_master f ON f.folio_id = b.fk_folio_id
+    JOIN client_master c ON c.cm_user_id = f.fk_acc_id
+    JOIN scheme_master s ON s.scheme_id = b.fk_scheme_id
+    JOIN transaction_master t ON t.tr_id = b.clawback_source_txn
+    WHERE b.fk_sb_id=? AND b.fk_bkr_type_id=4
+    ORDER BY b.bkr_from_date DESC, b.bkr_payout_amount</pre><div class="tags"><code>brokerage_master.clawback_source_txn</code><code>.bkr_payout_amount</code><code>transaction_master.tr_date</code><code>folio_master.folio_start_date</code></div></details>
+<details class="ddl"><summary><code>fyTracker()</code><span class="tag computed">computed</span></summary><pre>SELECT financial_year, cumulative_payout, threshold_crossed, crossing_month
+    FROM sb_fy_brokerage_tracker WHERE fk_sb_id=?</pre><div class="tags"><code>sb_fy_brokerage_tracker.cumulative_payout</code><code>.threshold_crossed</code></div></details>
+<details class="ddl"><summary><code>invoices()</code><span class="tag computed">computed</span></summary><pre>SELECT i.invoice_id, i.invoice_no, i.period_start_date, i.invoice_date,
+      i.sub_total, i.cgst, i.sgst, i.tds, i.total_amount, i.payment_date,
+      (SELECT COUNT(*) FROM brokerage_master b WHERE b.fk_invoice_id = i.invoice_id) lines
+    FROM invoice_master i WHERE i.fk_sb_id=? ORDER BY i.period_start_date DESC</pre><div class="tags"><code>invoice_master.sub_total</code><code>.cgst</code><code>.sgst</code><code>.tds</code><code>.total_amount</code><code>.payment_date</code></div></details>
+<details class="ddl"><summary><code>ladder()</code><span class="tag computed">computed</span></summary><pre>SELECT
+  COALESCE(SUM(CASE WHEN b.fk_bkr_type_id=1 THEN b.bkr_payout_amount END),0) trail,
+  COALESCE(SUM(CASE WHEN b.fk_bkr_type_id=4 THEN b.bkr_payout_amount END),0) clawback,
+  COALESCE(SUM(b.bkr_payout_amount),0) gross,
+  COALESCE(SUM(b.payout_gst_amount),0) gst,
+  COALESCE(SUM(b.payout_tds),0) tds,
+  COALESCE(SUM(CASE WHEN b.fk_bkr_type_id=1 THEN b.tr_amount END),0) aum,
+  COUNT(*) lines,
+  MAX(b.has_gst) hasGst, MAX(b.bkr_payout_rate_precentage) tierPct,
+  (SELECT cat_category_name FROM sub_broker_category_master c
+     JOIN sub_broker_master s ON s.fk_cat_id=c.cat_id WHERE s.sb_id=b.fk_sb_id) tierName
+FROM brokerage_master b WHERE b.fk_sb_id=? AND b.bkr_from_date=?</pre><div class="tags"><code>brokerage_master.bkr_payout_amount</code><code>.payout_gst_amount</code><code>.payout_tds</code><code>.bkr_payout_rate_precentage</code><code>.tr_amount</code></div></details>
+<details class="ddl"><summary><code>series()</code><span class="tag computed">computed</span></summary><pre>SELECT bkr_from_date month,
+      COALESCE(SUM(CASE WHEN fk_bkr_type_id=1 THEN bkr_payout_amount END),0) trail,
+      COALESCE(SUM(CASE WHEN fk_bkr_type_id=4 THEN bkr_payout_amount END),0) clawback,
+      COALESCE(SUM(bkr_payout_amount + payout_gst_amount - payout_tds),0) net
+    FROM brokerage_master WHERE fk_sb_id=? GROUP BY 1 ORDER BY 1</pre><div class="tags"><code>brokerage_master.bkr_from_date</code><code>.bkr_payout_amount</code><code>.payout_gst_amount</code><code>.payout_tds</code></div></details>
+<details class="ddl"><summary><code>tierStep()</code><span class="tag rule">rule</span></summary><pre>SELECT c.cat_category_name name, p.trail_1st_yr_pct pct
+    FROM broker_category_payout_pct_master p
+    JOIN sub_broker_category_master c ON c.cat_id = p.fk_sb_category_id
+    WHERE p.is_active = 1 ORDER BY p.trail_1st_yr_pct</pre><div class="tags"><code>broker_category_payout_pct_master.trail_1st_yr_pct</code><code>sub_broker_category_master.cat_category_name</code></div></details>
+<details class="ddl"><summary><code>variance()</code><span class="tag rule">rule</span></summary><pre>SELECT a.amc_name amc,
+      CASE WHEN sm.fk_category_id &lt;= 5 THEN 'Equity' ELSE 'Non-Equity' END scheme_category,
+      ROUND(MAX(b.calc_rate) * 100) agreed_bps, ROUND(MIN(b.bkr_percentage) * 100) paid_bps,
+      COUNT(DISTINCT b.bkr_from_date) months, COUNT(*) lines,
+      ROUND(SUM(b.reco_difference) * MAX(b.bkr_payout_rate_precentage) / 100, 2) shortfall,
+      MIN(b.bkr_from_date) since, MAX(rc.source_doc_ref) doc
+    FROM brokerage_master b
+    JOIN scheme_master sm ON sm.scheme_id = b.fk_scheme_id
+    JOIN amc_master a ON a.amc_id = sm.fk_amc_id
+    LEFT JOIN amc_rate_card rc ON rc.amc_id = sm.fk_amc_id
+      AND rc.scheme_category = CASE WHEN sm.fk_category_id &lt;= 5 THEN 'Equity' ELSE 'Non-Equity' END
+    WHERE b.fk_sb_id=? AND b.reco_status=2
+    GROUP BY 1,2 ORDER BY shortfall</pre><div class="tags"><code>brokerage_master.reco_status</code><code>.reco_difference</code><code>.bkr_percentage</code><code>.calc_rate</code><code>amc_rate_card.agreed_trail_bps</code><code>.source_doc_ref</code></div></details>
+<h4><code>lib/business.ts</code> — 8 queries</h4>
+<details class="ddl"><summary><code>aumSeries()</code><span class="tag computed">computed</span></summary><pre>SELECT month, peak_day_aum, peak_date, month_end_aum, opening_aum,
+      net_flows, market_movement, client_count
+    FROM mv_monthly_aum WHERE sb_id=? ORDER BY month</pre><div class="tags"><code>mv_monthly_aum.peak_day_aum</code><code>.month_end_aum</code><code>.net_flows</code><code>.market_movement</code></div></details>
+<details class="ddl"><summary><code>bookNow()</code><span class="tag computed">computed</span></summary><pre>SELECT aum, client_count clients, aum_date as_of FROM mv_aum_daily
+    WHERE sb_id=? ORDER BY aum_date DESC LIMIT 1</pre><div class="tags"><code>mv_aum_daily.aum</code><code>.client_count</code><code>.aum_date</code></div></details>
+<details class="ddl"><summary><code>growth()</code><span class="tag computed">computed</span></summary><pre>SELECT SUM(net_flows), SUM(market_movement) FROM mv_monthly_aum WHERE sb_id=?
+-- opening = first month's opening_aum, closing = last month's month_end_aum
+-- identity: opening + Σ net_flows + Σ market_movement == closing</pre><div class="tags"><code>mv_monthly_aum.opening_aum</code><code>.net_flows</code><code>.market_movement</code><code>.month_end_aum</code></div></details>
+<details class="ddl"><summary><code>losses()</code><span class="tag rule">rule</span></summary><pre>SELECT c.cm_user_id client_id, c.cm_full_name name,
+      MAX(COALESCE(f.transfer_out_date, t.tr_date)) on_,
+      COALESCE(SUM(CASE WHEN tt.tr_type_buy_sell_flag=-1 THEN t.tr_amount END),0) value,
+      CASE WHEN MAX(COALESCE(f.is_transferred_out,0))=1
+           THEN 'transferred to another distributor' ELSE 'redeemed everything' END reason
+    FROM folio_master f
+    JOIN client_master c ON c.cm_user_id=f.fk_acc_id
+    JOIN sub_broker_master sb ON sb.sb_sub_broker_code=f.fm_sub_broker_code
+    LEFT JOIN transaction_master t ON t.tr_folio_no=f.fm_folio_no
+    LEFT JOIN transaction_type_master tt ON tt.tr_type_id=t.fk_tran_type_id
+    WHERE sb.sb_id=?
+      AND c.cm_user_id NOT IN (SELECT client_id FROM fifo_summary_holding_active WHERE balance_units &gt; 0.0001)
+    GROUP BY c.cm_user_id ORDER BY on_ DESC</pre><div class="tags"><code>folio_master.is_transferred_out</code><code>.transfer_out_date</code><code>fifo_summary_holding_active.balance_units</code><code>transaction_master.tr_amount</code></div></details>
+<details class="ddl"><summary><code>sipBook()</code><span class="tag computed">computed</span></summary><pre>SELECT
+    (SELECT COUNT(*) FROM sip_master WHERE fk_sb_id=? AND is_live_sip=1) live,
+    (SELECT COALESCE(SUM(tr_amount),0) FROM sip_master WHERE fk_sb_id=? AND is_live_sip=1) monthly,
+    (SELECT COUNT(*) FROM transaction_master WHERE fk_sb_id=? AND fk_tran_type_id=3
+       AND tr_date &gt;= date(?, '-6 months')) instalments,
+    (SELECT COUNT(*) FROM transaction_master WHERE fk_sb_id=? AND fk_tran_type_id=33
+       AND tr_date &gt;= date(?, '-6 months')) bounced,
+    (SELECT COUNT(*) FROM sip_master s JOIN bse_sxp_list x ON x.reg_no=s.sxp_bos_code
+       LEFT JOIN bse_mandate_list ml ON ml.exch_mandate_id=x.exch_mandate_id
+     WHERE s.fk_sb_id=? AND s.is_live_sip=1 AND ml.end_date IS NOT NULL
+       AND ml.end_date &lt;= date(?, '+45 days')) mandatesExpiring,
+    (SELECT COALESCE(SUM(s.tr_amount*12),0) FROM sip_master s JOIN bse_sxp_list x ON x.reg_no=s.sxp_bos_code
+     WHERE s.fk_sb_id=? AND s.is_live_sip=1 AND x.npayments_missed &gt;= 2) valueAtRisk</pre><div class="tags"><code>sip_master.is_live_sip</code><code>.tr_amount</code><code>transaction_master.fk_tran_type_id</code><code>bse_sxp_list.npayments_missed</code><code>bse_mandate_list.end_date</code></div></details>
+<details class="ddl"><summary><code>targetHistory()</code><span class="tag computed">computed</span></summary><pre>SELECT t.target_month month,
+    CASE WHEN t.target_lumpsum_amount &gt; 0 THEN ROUND(100.0 * (
+      SELECT COALESCE(SUM(x.tr_amount),0) FROM transaction_master x
+        JOIN transaction_type_master tt ON tt.tr_type_id=x.fk_tran_type_id
+      WHERE x.fk_sb_id=t.fk_sb_id AND tt.tr_type_buy_sell_flag=1
+        AND substr(x.tr_date,1,7)=substr(t.target_month,1,7)) / t.target_lumpsum_amount) ELSE 0 END pct
+    FROM sb_monthly_target t WHERE t.fk_sb_id=? ORDER BY t.target_month</pre><div class="tags"><code>sb_monthly_target.target_lumpsum_amount</code><code>transaction_master.tr_amount</code></div></details>
+<details class="ddl"><summary><code>targets()</code><span class="tag computed">computed</span></summary><pre>SELECT t.target_lumpsum_amount, t.target_sip_count, t.target_sip_amount, t.target_client_count,
+    (SELECT COALESCE(SUM(x.tr_amount),0) FROM transaction_master x
+       JOIN transaction_type_master tt ON tt.tr_type_id=x.fk_tran_type_id
+     WHERE x.fk_sb_id=t.fk_sb_id AND tt.tr_type_buy_sell_flag=1
+       AND substr(x.tr_date,1,7)=substr(t.target_month,1,7)) act_lumpsum,
+    (SELECT COUNT(*) FROM sip_master s WHERE s.fk_sb_id=t.fk_sb_id
+       AND substr(s.start_date,1,7)=substr(t.target_month,1,7)) act_sip_count,
+    (SELECT COALESCE(SUM(s.tr_amount),0) FROM sip_master s WHERE s.fk_sb_id=t.fk_sb_id
+       AND substr(s.start_date,1,7)=substr(t.target_month,1,7)) act_sip_amount,
+    (SELECT COUNT(DISTINCT f.fk_acc_id) FROM folio_master f
+       JOIN sub_broker_master sb ON sb.sb_sub_broker_code=f.fm_sub_broker_code
+     WHERE sb.sb_id=t.fk_sb_id AND substr(f.folio_start_date,1,7)=substr(t.target_month,1,7)) act_clients
+    FROM sb_monthly_target t WHERE t.fk_sb_id=? AND t.target_month=?</pre><div class="tags"><code>sb_monthly_target.target_lumpsum_amount</code><code>.target_sip_count</code><code>.target_client_count</code><code>transaction_master.tr_amount</code><code>sip_master.start_date</code><code>folio_master.folio_start_date</code></div></details>
+<details class="ddl"><summary><code>wins()</code><span class="tag computed">computed</span></summary><pre>SELECT c.cm_user_id client_id, c.cm_full_name name, MIN(f.folio_start_date) on_,
+      COALESCE((SELECT SUM(h.present_market_value) FROM fifo_summary_holding_active h
+                WHERE h.client_id=c.cm_user_id), 0) value,
+      'first investment' reason
+    FROM folio_master f
+    JOIN client_master c ON c.cm_user_id=f.fk_acc_id
+    JOIN sub_broker_master sb ON sb.sb_sub_broker_code=f.fm_sub_broker_code
+    WHERE sb.sb_id=? GROUP BY c.cm_user_id
+    HAVING on_ &gt;= date(?, '-14 months') ORDER BY on_ DESC</pre><div class="tags"><code>folio_master.folio_start_date</code><code>.fm_sub_broker_code</code><code>client_master.cm_full_name</code></div></details>
+<h4><code>lib/marketing.ts</code> — 7 queries</h4>
+<details class="ddl"><summary><code>consentRegister()</code><span class="tag computed">computed</span></summary><pre>SELECT DISTINCT c.client_id, cm.cm_full_name name, c.channel, c.state, c.captured_via, c.ts
+    FROM consents c
+    JOIN client_master cm ON cm.cm_user_id = c.client_id
+    JOIN fifo_summary_holding_active h ON h.client_id = c.client_id
+    WHERE c.purpose='marketing'
+      AND h.advisor_code = (SELECT sb_sub_broker_code FROM sub_broker_master WHERE sb_id=?)
+    ORDER BY c.state DESC, c.ts DESC</pre><div class="tags"><code>consents.channel</code><code>.state</code><code>.captured_via</code><code>.ts</code></div></details>
+<details class="ddl"><summary><code>delivery()</code><span class="tag computed">computed</span></summary><pre>SELECT channel, COUNT(*) sent,
+      SUM(delivery_state='delivered') delivered,
+      SUM(delivery_state='failed') failed,
+      SUM(delivery_state='pending') pending
+    FROM campaign_sends WHERE sb_id=? GROUP BY channel ORDER BY sent DESC</pre><div class="tags"><code>campaign_sends.channel</code><code>.delivery_state</code></div></details>
+<details class="ddl"><summary><code>responses()</code><span class="tag computed">computed</span></summary><pre>SELECT r.response_id, s.client_id, cm.cm_full_name name, c.name campaign, s.channel,
+      r.response_type, r.responded_at,
+      a.action_id, a.state action_state, a.outcome_type,
+      (SELECT SUM(t.tr_amount) FROM json_each(a.linked_txn_ids) j
+       JOIN transaction_master t ON t.tr_id = j.value) linked_amount
+    FROM campaign_responses r
+    JOIN campaign_sends s ON s.send_id = r.send_id
+    JOIN campaigns c ON c.campaign_id = s.campaign_id
+    JOIN client_master cm ON cm.cm_user_id = s.client_id
+    LEFT JOIN actions a ON a.action_id = r.minted_action_id
+    WHERE s.sb_id = ? ORDER BY r.responded_at DESC</pre><div class="tags"><code>campaign_responses.response_type</code><code>.minted_action_id</code><code>actions.outcome_type</code><code>.linked_txn_ids</code></div></details>
+<details class="ddl"><summary><code>roi()</code><span class="tag computed">computed</span></summary><pre>SELECT c.campaign_id, c.name campaign,
+      COUNT(DISTINCT s.send_id) sends,
+      SUM(s.delivery_state='delivered') delivered,
+      COUNT(DISTINCT r.response_id) responses,
+      COUNT(DISTINCT CASE WHEN r.response_type='replied_interested' THEN r.response_id END) interested,
+      COUNT(DISTINCT CASE WHEN a.state='done' THEN a.action_id END) closed,
+      COUNT(DISTINCT CASE WHEN a.outcome_type='invested' THEN a.action_id END) invested,
+      COALESCE(SUM((SELECT SUM(t.tr_amount) FROM json_each(a.linked_txn_ids) j
+        JOIN transaction_master t ON t.tr_id = j.value)), 0) attributed
+    FROM campaigns c
+    JOIN campaign_sends s ON s.campaign_id = c.campaign_id AND s.sb_id = ?
+    LEFT JOIN campaign_responses r ON r.send_id = s.send_id
+    LEFT JOIN actions a ON a.action_id = r.minted_action_id
+    GROUP BY c.campaign_id ORDER BY attributed DESC, sends DESC</pre><div class="tags"><code>campaign_sends.delivery_state</code><code>campaign_responses.response_type</code><code>actions.linked_txn_ids</code><code>transaction_master.tr_amount</code></div></details>
+<details class="ddl"><summary><code>sendSet()</code><span class="tag rule">rule</span></summary><pre>SELECT DISTINCT h.client_id FROM fifo_summary_holding_active h
+    WHERE h.advisor_code = (SELECT sb_sub_broker_code FROM sub_broker_master WHERE sb_id=?)
+    GROUP BY h.client_id HAVING SUM(h.present_market_value) &gt; 100000
+-- then, per channel: EXISTS (SELECT 1 FROM consents c WHERE c.client_id = b.client_id
+    AND c.channel = ? AND c.purpose = 'marketing' AND c.state = 'granted')
+-- never-asked = in segment minus ever-asked; withdrawn = ever-asked minus still-granted</pre><div class="tags"><code>fifo_summary_holding_active.present_market_value</code><code>consents.channel</code><code>.purpose</code><code>.state</code></div></details>
+<details class="ddl"><summary><code>shelf()</code><span class="tag rule">rule</span></summary><pre>SELECT c.campaign_id, c.name, c.state, c.launched_at,
+      t.template_id, t.name template, t.creative_ref,
+      t.approval_artefact_ref, t.approved_by, t.approved_at,
+      s.segment_id, s.name segment,
+      (SELECT COUNT(*) FROM campaign_sends x WHERE x.campaign_id=c.campaign_id) sends,
+      (SELECT COUNT(*) FROM campaign_responses rr JOIN campaign_sends xx ON xx.send_id=rr.send_id
+        WHERE xx.campaign_id=c.campaign_id) responses,
+      CASE WHEN t.approval_artefact_ref IS NOT NULL THEN 1 ELSE 0 END runnable
+    FROM campaigns c
+    JOIN campaign_templates t ON t.template_id = c.template_id
+    JOIN segments s ON s.segment_id = c.segment_id
+    ORDER BY c.launched_at DESC</pre><div class="tags"><code>campaigns.state</code><code>campaign_templates.approval_artefact_ref</code><code>.approved_by</code><code>segments.name</code></div></details>
+<details class="ddl"><summary><code>unreachable()</code><span class="tag rule">rule</span></summary><pre>SELECT h.client_id, MAX(h.client_name) name, SUM(h.present_market_value) value,
+      CASE WHEN MAX(CASE WHEN c.state='withdrawn' THEN 1 ELSE 0 END)=1
+           THEN 'withdrew consent' ELSE 'never asked' END reason,
+      MAX(CASE WHEN c.state='withdrawn' THEN c.ts END) since
+    FROM fifo_summary_holding_active h
+    LEFT JOIN consents c ON c.client_id=h.client_id AND c.channel=? AND c.purpose='marketing'
+    WHERE h.advisor_code = (SELECT sb_sub_broker_code FROM sub_broker_master WHERE sb_id=?)
+    GROUP BY h.client_id
+    HAVING SUM(h.present_market_value) &gt; 100000
+       AND MAX(CASE WHEN c.state='granted' THEN 1 ELSE 0 END) = 0
+    ORDER BY value DESC</pre><div class="tags"><code>consents.state</code><code>.channel</code><code>.ts</code><code>fifo_summary_holding_active.present_market_value</code></div></details>
+<h4><code>lib/reviewpack.ts</code> — 3 queries</h4>
+<details class="ddl"><summary><code>coverage()</code><span class="tag computed">computed</span></summary><pre>SELECT COUNT(DISTINCT client_id) n FROM fifo_summary_holding_active
+    WHERE advisor_code = (SELECT sb_sub_broker_code FROM sub_broker_master WHERE sb_id=?)
+      AND balance_units &gt; 0.0001</pre><div class="tags"><code>review_packs.client_id</code><code>fifo_summary_holding_active.client_id</code></div></details>
+<details class="ddl"><summary><code>due()</code><span class="tag rule">rule</span></summary><pre>SELECT h.client_id, MAX(h.client_name) name, SUM(h.present_market_value) value,
+      (SELECT MAX(p.generated_at) FROM review_packs p WHERE p.client_id = h.client_id) last_pack,
+      (SELECT GROUP_CONCAT(DISTINCT a.flag_type) FROM mv_portfolio_attention a
+        WHERE a.client_id = h.client_id) flags,
+      (SELECT COUNT(DISTINCT a.flag_type) FROM mv_portfolio_attention a
+        WHERE a.client_id = h.client_id) flag_count
+    FROM fifo_summary_holding_active h
+    WHERE h.advisor_code = (SELECT sb_sub_broker_code FROM sub_broker_master WHERE sb_id = ?)
+      AND h.balance_units &gt; 0.0001
+    GROUP BY h.client_id ORDER BY value DESC
+-- then: due when no pack exists, or 12+ months since the last one,
+-- or an attention flag was raised. Ranked by value × urgency.</pre><div class="tags"><code>review_packs.generated_at</code><code>mv_portfolio_attention.flag_type</code><code>fifo_summary_holding_active.present_market_value</code></div></details>
+<details class="ddl"><summary><code>history()</code><span class="tag computed">computed</span></summary><pre>SELECT p.pack_id, p.client_id, c.cm_full_name name, p.generated_at,
+      p.content_ref, p.sent_via, p.client_response,
+      COALESCE((SELECT d.status FROM download_history_logs d
+        WHERE d.report_for = 'client:' || p.client_id AND d.pdf_type='REVIEW_PACK'
+        ORDER BY d.id DESC LIMIT 1), 'COMPLETED') status
+    FROM review_packs p
+    JOIN client_master c ON c.cm_user_id = p.client_id
+    WHERE p.sb_id = ? ORDER BY p.generated_at DESC</pre><div class="tags"><code>review_packs.generated_at</code><code>.sent_via</code><code>.client_response</code><code>download_history_logs.status</code></div></details></section>
+<section id="p-rules" class="panel" hidden><h2>4 · Every threshold in the product</h2>
+<p class="note">These migrate to <code>rules_registry</code> rows in the real build. Changing one is a
+versioned edit with an approver — never a code change.</p>
+<h4><code>SCORING_RULES</code> <span class="note">lib/scoring.ts</span></h4>
+<div class="scroll"><table class="t"><thead><tr><th>Key</th><th>Value</th></tr></thead><tbody>
+<tr><td><code>version</code></td><td><code>health_v0 · scheme_grade_v0 — 07-Aug-2026</code></td></tr><tr><td><code>components</code></td><td><code>["performance","diversification","discipline","tax","risk_fit"]</code></td></tr><tr><td><code>performance</code></td><td><code>{"zero_at_gap_pts":15}</code></td></tr><tr><td><code>diversification</code></td><td><code>{"top_sector_ok":20,"top_sector_max":35,"w_sector":0.35,"top10_ok":30,"top10_max":55,"w_top10":0.25,"overlap_ok":25,"overlap_max":60,"w_overlap":0.4,"min_coverage":50}</code></td></tr><tr><td><code>discipline</code></td><td><code>{"bounce":8,"mandate_expiring":4,"dormant":6,"no_sip_idle":4,"idle_floor":100000,"dormant_months":14,"mandate_window_days":45}</code></td></tr><tr><td><code>tax</code></td><td><code>{"harvest_open":6,"harvest_min_lt":10000,"st_heavy":4,"st_mix_cap":0.5,"fy_exemption":125000}</code></td></tr><tr><td><code>risk_fit</code></td><td><code>{"per_grade":8}</code></td></tr><tr><td><code>bands</code></td><td><code>[{"min":70,"label":"healthy","cls":"lt"},{"min":45,"label":"needs work","cls":"conc"},{"min":0,"label":"at risk","cls":"atrisk"}]</code></td></tr><tr><td><code>quick_win_single_lever</code></td><td><code>8</code></td></tr><tr><td><code>scheme_grade</code></td><td><code>{"pick_bonus_pctile":5,"expense_penalty_pctile":10}</code></td></tr>
+</tbody></table></div>
+<h4><code>ONBOARDING_RULES</code> <span class="note">lib/onboarding.ts</span></h4>
+<div class="scroll"><table class="t"><thead><tr><th>Key</th><th>Value</th></tr></thead><tbody>
+<tr><td><code>stall_days</code></td><td><code>7</code></td></tr><tr><td><code>target_days_to_live</code></td><td><code>3</code></td></tr><tr><td><code>benchmark</code></td><td><code>{"who":"AssetPlus","claim":"180-second paperless onboarding","source":"research 02 §3.3"}</code></td></tr>
+</tbody></table></div>
+<h4><code>EARNINGS_RULES</code> <span class="note">lib/earnings.ts</span></h4>
+<div class="scroll"><table class="t"><thead><tr><th>Key</th><th>Value</th></tr></thead><tbody>
+<tr><td><code>gst_pct</code></td><td><code>18</code></td></tr><tr><td><code>tds_pct</code></td><td><code>5</code></td></tr><tr><td><code>fy_threshold</code></td><td><code>2000000</code></td></tr><tr><td><code>clawback_window_days</code></td><td><code>365</code></td></tr>
+</tbody></table></div>
+<h4><code>BUSINESS_RULES</code> <span class="note">lib/business.ts</span></h4>
+<div class="scroll"><table class="t"><thead><tr><th>Key</th><th>Value</th></tr></thead><tbody>
+<tr><td><code>bounce_window_months</code></td><td><code>6</code></td></tr><tr><td><code>mandate_expiry_days</code></td><td><code>45</code></td></tr><tr><td><code>aum_definition</code></td><td><code>peak-day (highest daily AUM in the month)</code></td></tr>
+</tbody></table></div>
+<h4><code>MARKETING_RULES</code> <span class="note">lib/marketing.ts</span></h4>
+<div class="scroll"><table class="t"><thead><tr><th>Key</th><th>Value</th></tr></thead><tbody>
+<tr><td><code>purpose</code></td><td><code>marketing</code></td></tr><tr><td><code>channels</code></td><td><code>["whatsapp","email","sms"]</code></td></tr><tr><td><code>mode</code></td><td><code>through_broker</code></td></tr>
+</tbody></table></div>
+<h4><code>REVIEW_RULES</code> <span class="note">lib/reviewpack.ts</span></h4>
+<div class="scroll"><table class="t"><thead><tr><th>Key</th><th>Value</th></tr></thead><tbody>
+<tr><td><code>review_months</code></td><td><code>12</code></td></tr><tr><td><code>disclaimer</code></td><td><code>Mutual fund investments are subject to market risk. Read all scheme related documents carefully. Past performance does not indicate future returns. This review is prepared for the named investor and r…</code></td></tr><tr><td><code>branding</code></td><td><code>co-branded</code></td></tr>
+</tbody></table></div>
+<h4><code>LOOKTHROUGH_RULES</code> <span class="note">lib/portfolio.ts</span></h4>
+<div class="scroll"><table class="t"><thead><tr><th>Key</th><th>Value</th></tr></thead><tbody>
+<tr><td><code>version</code></td><td><code>lookthrough_v0 — SEBI categorisation floors, 07-Aug-2026</code></td></tr><tr><td><code>byCategory</code></td><td><code>{"Large Cap":{"large":85,"mid":12,"small":3,"other":0},"Flexi Cap":{"large":55,"mid":25,"small":20,"other":0},"Mid Cap":{"large":12,"mid":70,"small":18,"other":0},"Small Cap":{"large":10,"mid":22,"sma…</code></td></tr>
+</tbody></table></div></section>
+<section id="p-writes" class="panel" hidden><h2>5 · Write paths (15)</h2>
+<p class="note">Every user action that changes state. All of them also append to <code>events</code>.</p>
+<div class="scroll"><table class="t"><thead><tr><th>Surface</th><th>Action</th><th>Tables written</th></tr></thead><tbody>
+<tr><td><code>clients</code></td><td><code>mintForClients()</code></td><td><code>actions</code> <code>events</code></td></tr><tr><td><code>earnings</code></td><td><code>raiseDispute()</code></td><td><code>actions</code> <code>payout_disputes</code> <code>events</code></td></tr><tr><td><code>marketing</code></td><td><code>launchCampaign()</code></td><td><code>campaign_sends</code> <code>events</code></td></tr><tr><td><code>marketing</code></td><td><code>requestConsent()</code></td><td><code>actions</code> <code>events</code></td></tr><tr><td><code>onboarding</code></td><td><code>nudgeApplication()</code></td><td><code>actions</code></td></tr><tr><td><code>onboarding</code></td><td><code>escalateToOps()</code></td><td><code>actions</code></td></tr><tr><td><code>onboarding</code></td><td><code>refileRejection()</code></td><td><code>onboarding_applications</code> <code>client_kyc_logs</code> <code>actions</code></td></tr><tr><td><code>onboarding</code></td><td><code>startApplication()</code></td><td><code>leads</code> <code>client_kyc_logs</code> <code>onboarding_applications</code></td></tr><tr><td><code>reports</code></td><td><code>requestReport()</code></td><td><code>download_history_logs</code> <code>events</code></td></tr><tr><td><code>review-packs</code></td><td><code>generatePack()</code></td><td><code>review_packs</code> <code>download_history_logs</code> <code>events</code></td></tr><tr><td><code>review-packs</code></td><td><code>recordResponse()</code></td><td><code>review_packs</code> <code>events</code> <code>actions</code></td></tr><tr><td><code>today</code></td><td><code>closeAction()</code></td><td><code>actions</code></td></tr><tr><td><code>today</code></td><td><code>dismissAction()</code></td><td><code>actions</code></td></tr><tr><td><code>today</code></td><td><code>snoozeAction()</code></td><td><code>actions</code></td></tr><tr><td><code>today</code></td><td><code>addTask()</code></td><td><code>actions</code></td></tr>
+</tbody></table></div></section>
+<section id="p-accept" class="panel" hidden><h2>6 · Acceptance criteria — the contract</h2>
+<p class="note"><b>This is the definition of done.</b> 238 assertions run against a freshly
+seeded database and re-derive every figure with SQL written independently of the query layer. A build
+is complete when all of them pass. They are given verbatim.</p>
+<details class="ddl" open><summary><code>verify-360.ts</code><span class="pill">17 assertions</span></summary><ol class="checks"><li>every client's KPI value == Σ holdings (${bookIds.length} clients)</li><li>every holding == Σ its lots</li><li>unrealised tax == Σ lot-level unrealised</li><li>Meera: KPI value == Σ her holdings, and both returns computed</li><li>KPI card and growth chart agree on value and on the index comparison</li><li>Meera: asset mix total == her value</li><li>transactions bounded: none after today, range stated</li><li>Meera: family name matches surname (seed fix)</li><li>household total == Σ member values (independent)</li><li>Meera: the laggard holding is flagged-able (xirr &lt; benchmark − 10)</li><li>Meera: fund verdict rule marks the Kotak holding lagging</li><li>Meera: journey end + realized P&amp;L == invested (the books close)</li><li>journey series bounded by today</li><li>risk scale: client 5/5, portfolio within [1,5] and near profile</li><li>look-through never claims more money than the client has</li><li>sector shares sum to 100% of what was looked through</li><li>Meera: real overlap detected across her funds</li></ol></details>
+<details class="ddl" open><summary><code>verify-business.ts</code><span class="pill">28 assertions</span></summary><ol class="checks"><li>every broker-month: opening + net flows + market movement == closing</li><li>the window waterfall closes too</li><li>flows and market shares add to 100% of the growth</li><li>peak-day AUM is never below month-end AUM</li><li>every peak_date falls inside its own month</li><li>the peak-day figure is genuinely the maximum of that month's daily rows</li><li>the daily AUM spine has no missing days</li><li>the spine ends today</li><li>monthly net flows match an independent signed sum of the ledger</li><li>today's AUM equals the live holdings book (same denominator as My clients)</li><li>the AUM the trend plots is the AUM commission was billed on</li><li>client counts on the spine match the live book</li><li>bounce count matches independent SQL</li><li>bounce rate = bounced ÷ (collected + bounced), not ÷ collected</li><li>live SIP count and value match sip_master</li><li>annual SIP value is 12× the monthly commitment</li><li>no exited client still has a live SIP</li><li>targets cover every month of the window</li><li>no target is zero or negative</li><li>lump-sum actual matches an independent sum</li><li>attainment history covers the same months</li><li>the current month is treated as partial, not failed</li><li>every win is a real client with a first folio under this broker</li><li>every loss holds nothing today</li><li>losses are transfers or full redemptions — never merely dormant</li><li>dormant clients who still hold money are NOT counted as lost</li><li>every loss names a date and a reason</li><li>the exits on the ledger and the losses on the page agree</li></ol></details>
+<details class="ddl" open><summary><code>verify-clients.ts</code><span class="pill">15 assertions</span></summary><ol class="checks"><li>row count == distinct book clients</li><li>table value total == book card</li><li>asset-mix bar total == book card (one denominator)</li><li>returns-spread bands sum == client count</li><li>health split sums to client count</li><li>health dormant == dormant card</li><li>blended return matches independent recompute</li><li>SIP participation denominator == book clients</li><li>idle + participating == book clients</li><li>attention chip == filtered rows</li><li>nosip chip == filtered rows</li><li>dormant chip == filtered rows</li><li>taxwindow chip == filtered rows</li><li>no future-dated last-activity leaks</li><li>duplicate names carry disambiguation</li></ol></details>
+<details class="ddl" open><summary><code>verify-earnings.ts</code><span class="pill">37 assertions</span></summary><ol class="checks"><li>every commission row names a folio, a scheme and a month</li><li>every folio referenced actually exists</li><li>the folio on a commission row belongs to the broker being paid</li><li>no NULL in any money column</li><li>ladder rungs match independent SQL</li><li>net == gross + GST − TDS, to the paisa</li><li>trail + clawback == gross</li><li>GST is ${EARNINGS_RULES.gst_pct}% of payout on every GST-registered row</li><li>no GST is charged on rows for brokers who are not registered</li><li>TDS is ${EARNINGS_RULES.tds_pct}% of payout on every trail row</li><li>payout == AMC receipt × the tier rate on that row</li><li>the tier rate on the rows is the broker's registered tier</li><li>client breakdown sums to the month's trail</li><li>client breakdown line count sums to the month's line count</li><li>scheme breakdown sums to the same trail</li><li>a client's own lines sum to that client's row</li><li>every invoice sub-total equals the rows attached to it</li><li>no commission row is left off an invoice</li><li>invoice total == sub-total + CGST + SGST − TDS</li><li>this month's invoice total == the ladder's net</li><li>the open month is not marked paid</li><li>no invoice is dated in the future</li><li>FY cumulative == the sum of that year's invoices</li><li>the threshold flag matches the amount</li><li>the earnings series has no missing months</li><li>the page offers exactly the months that have commission</li><li>clawbacks all carry a real source transaction</li><li>every clawback is negative money</li><li>every clawback's exit is inside the ${EARNINGS_RULES.clawback_window_days}-day window</li><li>flagged rows are exactly those paid under the agreed card</li><li>every flagged row was genuinely paid less than the card says</li><li>no unflagged row is silently short-paid</li><li>the shortfall shown is what it cost the broker, not the firm</li><li>the next tier is genuinely the next rung up</li><li>the uplift is positive and smaller than the current payout</li><li>Upfront and Incentive carry no invented rows</li><li>the AUM commission was charged on is within a month's drift of the live book</li></ol></details>
+<details class="ddl" open><summary><code>verify-marketing.ts</code><span class="pill">28 assertions</span></summary><ol class="checks"><li>no send exists on a template compliance has not approved</li><li>an unapproved template genuinely exists, so the gate is doing work</li><li>every approved template names who approved it and when</li><li>the shelf marks exactly the approved campaigns as runnable</li><li>every send had consent for THAT channel, in force on the day it went out</li><li>no send is dated after the client withdrew consent on that channel</li><li>withdrawals actually exist, so the timeline rule is doing work</li><li>transactional consent never authorises a marketing send</li><li>consent is recorded per channel, not once per client</li><li>send set adds up on ${ch}</li><li>the unreachable list names exactly the clients the subtraction removed on ${ch}</li><li>reachable is never more than the segment</li><li>the unreachable list contains nobody who is reachable</li><li>every "interested" reply minted an action</li><li>a decline or an unsubscribe never manufactures work</li><li>an unsubscribe always withdrew the matching consent</li><li>no response predates the send that caused it</li><li>nothing is dated in the future</li><li>a failed or pending send never produced a response</li><li>attributed money only ever comes from a closed, linked action</li><li>every linked transaction id resolves to a real transaction</li><li>every linked transaction is a purchase, not a redemption</li><li>every linked transaction post-dates the response that claimed it</li><li>the funnel narrows at every step, per campaign</li><li>attributed rupees are zero wherever nothing was linked</li><li>delivery counts match the ledger</li><li>this month's send count is bounded by today</li><li>the consent register only shows this broker's clients</li></ol></details>
+<details class="ddl" open><summary><code>verify-onboarding.ts</code><span class="pill">29 assertions</span></summary><ol class="checks"><li>every application sits in exactly one column</li><li>Live column == UCC allotted</li><li>UCC column == e-log cleared, code not yet allotted</li><li>e-log column == e-log sent or stalled</li><li>no offline application is stuck at the BSE e-log (paper has no e-log step)</li><li>every application has its opening event</li><li>every live application has its ucc_allotted event</li><li>every e-log stall has the elog_sent event that started its clock</li><li>funnel is monotonic — no step passes more than the one before it</li><li>funnel top step == every lead in the book</li><li>funnel "UCC allotted" == the Live column</li><li>median days lead→live matches an independent SQL median</li><li>nobody goes live before they start</li><li>stall count matches independent SQL</li><li>every stalled application states why it is stuck</li><li>stalls are sorted worst-first</li><li>every stalled application owns an action in somebody's queue</li><li>cross-page: Today's "onboarding stuck" == this page's stalls for the same broker</li><li>Today's drill-down lists exactly those rows</li><li>rejection count matches independent SQL</li><li>every rejection code resolves in kra_error_codes</li><li>every rejection shows either a plain-word sentence or the official wording, never blank</li><li>unphrased codes are reported, not silently dropped</li><li>referral-link application counts equal the applications actually on file</li><li>the stored broker_links.applications counter agrees with the ledger too</li><li>month counts are bounded by today, never counting the future</li><li>story: Arjun Patel still stalled at the e-log, 11 days</li><li>story: Arjun appears on the board in the e-log column with his 11 days</li><li>the offline majority is visible, not smoothed away</li></ol></details>
+<details class="ddl" open><summary><code>verify-reviewpack.ts</code><span class="pill">23 assertions</span></summary><ol class="checks"><li>the pack exists for the top-ranked client</li><li>pack value and invested match Client 360 exactly</li><li>pack return and benchmark match Client 360 exactly</li><li>the tax section quotes the same realised long-term figure</li><li>the holdings section counts the same funds Client 360 lists</li><li>every proposal in the pack is a lever from the health engine</li><li>proposals are ordered by the gain they carry</li><li>a pack carrying proposals carries the disclaimer</li><li>every pack section names its source table</li><li>no pack section is empty</li><li>every client listed as due carries a reason</li><li>nobody inside their window and unflagged is listed as due</li><li>"never reviewed" clients genuinely have no pack</li><li>the last-pack date shown matches the ledger</li><li>the list is ranked, most at stake first</li><li>every due client belongs to this broker</li><li>every pack in history belongs to this broker</li><li>reviewed plus due never exceeds the book</li><li>never-reviewed plus overdue equals the due list</li><li>no pack is dated in the future</li><li>every pack has a render row on the async queue</li><li>a response is never recorded before the pack was generated</li><li>responses on the page match the ledger</li></ol></details>
+<details class="ddl" open><summary><code>verify-scoring.ts</code><span class="pill">16 assertions</span></summary><ol class="checks"><li>every client scored, none out of bounds</li><li>scores discriminate (not everyone identical)</li><li>Meera: components sum to total</li><li>Meera: not already excellent, with real gain still available</li><li>score↔suggestion invariant: lost points always carry a lever or a stated reason</li><li>Meera: Σ lever deltas == advertised gain</li><li>Meera: fix-SIP is her biggest lever</li><li>scheme grades: all 60 graded across full A–E range</li><li>scheme grades ordered: A-grade avg 1y return beats E-grade</li><li>quick-wins segment (one call, one big fix) is a minority, not the whole book</li><li>cross-page: book rollup score == 360 score for every client</li><li>band labels match the registered thresholds</li><li>every quick-win client shows a matching lever on their Health tab</li><li>every component shows how it was calculated</li><li>every weak component names a challenge or a lever</li><li>Meera: discipline breakdown ends at her actual score</li></ol></details>
+<details class="ddl" open><summary><code>verify-today.ts</code><span class="pill">12 assertions</span></summary><ol class="checks"><li>My book == Σ per-client values</li><li>My book card count == click-through client count</li><li>Net flows MTD matches independent signed sum</li><li>Churn card count == churn click-through total (list caps at 10, total must not)</li><li>Idle card count == idle list total</li><li>SIP-risk card count == its list rows</li><li>Stuck card count == its list rows</li><li>Red stream: Meera (SIP bounce) and Arjun (KYC) present, Meera first</li><li>Amber stream ranked by impact desc</li><li>Grey stream carries 3 birthdays + 1 auto-closed</li><li>Streams cover every open action exactly once</li><li>Scoreboard closed count matches</li></ol></details>
+<details class="ddl" open><summary><code>verify.ts</code><span class="pill">33 assertions</span></summary><ol class="checks"><li>scale: 1,200 clients / 18 brokers / &gt;2,000 folios / &gt;10,000 txns</li><li>consistency: serving table total == summary total</li><li>story: Meera Shah — SIP ₹25,000 bounced ×2, mandate expires 12-Aug</li><li>story: Meera action — assigned to Ravi, impact ₹3,00,000, due today</li><li>story: Arjun Patel — e-log stalled exactly 11 days</li><li>story: Arjun kyc_unstick action exists</li><li>story: Kapoor HUF folio appears in duplicate-folios view (2 brokers)</li><li>story: Desai head dormant &gt;14 months with real value</li><li>story: Desai dormant action minted</li><li>unowned clients with money exist (the disputed-number demo)</li><li>sanity: every XIRR within [-60%, +120%]</li><li>payout math: payout == received × tier% on every sampled row</li><li>view math: mv_brokerage_summary net == payout + GST − TDS</li><li>story: AMC paid below agreed rate (terms-validator catch)</li><li>story: terms_variance actions minted for management</li><li>discipline: every action carries evidence</li><li>discipline: every dismissed action has a reason</li><li>honesty: policy evidence_n backed by real outcome events</li><li>ops: every open quarantine row has a fix action</li><li>ops: EUIN-gap story present with remediation action</li><li>compliance: every campaign send had consent for that channel on that day</li><li>attention board: flags a minority of the book, not everyone</li><li>workflow board: 5 workflows, learning states honest</li><li>demo queue: broker 4 has a rich queue (≥12 open, ≥6 types)</li><li>demo queue: at least the 3 pinned broker-4 birthdays land in the coming week</li><li>honesty: every idle_no_sip subject truly holds value with no live SIP</li><li>honesty: every mandate_expiring mandate really ends within 45 days</li><li>demo queue: one auto-resolved closure exists for broker 4 (the Gainsight chip)</li><li>fund holdings loaded: 30 equity funds with real stocks and sectors</li><li>no fund claims more than 100% of itself</li><li>every holding resolves to a known stock</li><li>equity schemes carry real fund identities (not generated names)</li><li>benchmark index history present for every benchmark</li></ol></details></section>
+<section id="p-gaps" class="panel" hidden><h2>7 · Stated gaps</h2>
+<ul class="howto">
+  <li>35 figures carry a written plain-words explanation. The query layer computes more
+      than that; the rest expose their SQL and source columns but no user-facing sentence yet. The gap
+      is listed rather than hidden — closing it is writing, not engineering.</li>
+  <li><code>goal_summary_master</code> and its satellites exist in production but are not in this
+      schema. The review pack uses attention flags and health levers instead.</li>
+  <li>Referral-link visit counts come from web analytics, which this database does not hold. The UI
+      states that rather than presenting it as computed.</li>
+  <li>Behavioural scores are ghosted until real outcome volume exists. They are schema, not numbers.</li>
+  <li>Risk-to-allocation bands ship as schema with no rows — the values await a compliance decision.</li>
+</ul>
+<p class="foot">Provenance tags used above — <b>computed</b>: Arithmetic over the ledger. Same inputs, same answer, every time. · <b>rule</b>: A threshold or definition someone chose. Changing it changes the number — and it is versioned, not hard-coded. · <b>learned</b>: Inferred from outcomes. Shown only once enough real outcomes exist to earn it.</p></section>
+</div>
+<script>
+  const tabs = [...document.querySelectorAll('.tabs button')];
+  tabs.forEach(b => b.addEventListener('click', () => {
+    tabs.forEach(o => o.removeAttribute('aria-selected'));
+    b.setAttribute('aria-selected', 'true');
+    document.querySelectorAll('.panel').forEach(p => { p.hidden = p.id !== 'p-' + b.dataset.t; });
+    window.scrollTo({ top: 0 });
+  }));
+</script>

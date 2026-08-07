@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Provenance } from '../../../components/Provenance';
+import { Explain } from '../../../components/Explain';
 import { inr, inrCompact, dmy, dmy2 } from '../../../lib/format';
 import { clientHoldings, riskScale, type ClientHeader } from '../../../lib/client360';
 import { schemeGrades } from '../../../lib/scoring';
@@ -65,7 +65,7 @@ export function AnalysisTab({ id, head, funds, fundFocus }: { id: number; head: 
     <>
       {/* A · growth against the benchmark */}
       <div className="viz" style={{ marginBottom: 18 }}>
-        <h4>Growth against the benchmark <Provenance figure={curve} /></h4>
+        <h4>Growth against the benchmark <Explain figure={curve} /></h4>
         <div className="chips" style={{ marginBottom: 10 }}>
           <Link href={href([])} className={`chip ${chosen.length === 0 ? 'on' : ''}`}>All funds</Link>
           {details.map(f => {
@@ -87,7 +87,7 @@ export function AnalysisTab({ id, head, funds, fundFocus }: { id: number; head: 
 
       {/* B · what she actually owns */}
       <div className="viz" style={{ marginBottom: 18 }}>
-        <h4>What she actually owns — through the funds <Provenance figure={lt} /></h4>
+        <h4>What she actually owns — through the funds <Explain figure={lt} /></h4>
         {lt.value.stocks.length === 0
           ? <div className="d">None of these funds publish stock-level holdings, so there is nothing to look through.</div>
           : <>
@@ -117,7 +117,7 @@ export function AnalysisTab({ id, head, funds, fundFocus }: { id: number; head: 
       {/* C · the overlap nobody sees at fund level */}
       {overlap.length > 0 && (
         <div className="viz" style={{ marginBottom: 18 }}>
-          <h4>The same shares, bought twice <Provenance figure={lt} /></h4>
+          <h4>The same shares, bought twice <Explain figure={lt} /></h4>
           <div className="tblwrap" style={{ marginBottom: 10 }}>
             <table>
               <thead><tr><th>Fund</th><th>Fund</th><th>Shared stocks</th><th>Common weight</th></tr></thead>
@@ -142,7 +142,7 @@ export function AnalysisTab({ id, head, funds, fundFocus }: { id: number; head: 
       {/* D · largest positions and market-cap lens */}
       <div className="vizrow" style={{ gridTemplateColumns: '1.4fr 1fr', marginBottom: 18 }}>
         <div className="viz">
-          <h4>Her ten largest shareholdings <Provenance figure={lt} /></h4>
+          <h4>Her ten largest shareholdings <Explain figure={lt} /></h4>
           <div className="tblwrap">
             <table>
               <thead><tr><th>Company</th><th>Sector</th><th>Cap</th><th>Held via</th><th>Value</th><th>% of portfolio</th></tr></thead>
@@ -165,7 +165,7 @@ export function AnalysisTab({ id, head, funds, fundFocus }: { id: number; head: 
           </div>
         </div>
         <div className="viz">
-          <h4>Large, mid or small <Provenance figure={lt} /></h4>
+          <h4>Large, mid or small <Explain figure={lt} /></h4>
           <div className="stack">
             {lt.value.caps.map(c => (
               <div key={c.band} style={{ flex: c.rupees, background: CAP_COLORS[c.band] ?? '#c3c8cc' }} title={`${c.band} ${c.pct}%`} />
@@ -188,7 +188,7 @@ export function AnalysisTab({ id, head, funds, fundFocus }: { id: number; head: 
 
       {/* E · fund report cards, deep dive opens in place */}
       <div className="viz" style={{ marginBottom: 18 }}>
-        <h4>Her funds <Provenance figure={cats} /></h4>
+        <h4>Her funds <Explain figure={cats} /></h4>
         {details.map(f => {
           const g = grades.get(f.scheme_id);
           const h = holdings.find(x => x.scheme_id === f.scheme_id);
@@ -219,7 +219,7 @@ export function AnalysisTab({ id, head, funds, fundFocus }: { id: number; head: 
 
       {/* F · how her categories are doing */}
       <div className="viz" style={{ marginBottom: 18 }}>
-        <h4>How her segments are performing <Provenance figure={cats} /></h4>
+        <h4>How her segments are performing <Explain figure={cats} /></h4>
         <div className="tblwrap">
           <table>
             <thead><tr><th>Segment</th><th>Her money</th><th>Category average (1y)</th><th>Her fund</th><th>Rank</th><th>Best / worst in category</th></tr></thead>
@@ -242,7 +242,7 @@ export function AnalysisTab({ id, head, funds, fundFocus }: { id: number; head: 
 
       {/* G · risk fit */}
       <div className="viz">
-        <h4>Risk appetite against what the portfolio actually holds <Provenance figure={scale} /></h4>
+        <h4>Risk appetite against what the portfolio actually holds <Explain figure={scale} /></h4>
         <div className="riskscale">
           <div className="track" />
           <div className="pin client" style={{ left: `${(scale.value.client / 5) * 96}%` }}>Profile · {head.risk}<i /></div>
