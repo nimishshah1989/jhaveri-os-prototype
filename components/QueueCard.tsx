@@ -83,6 +83,11 @@ export function QueueCard({ item, readonly = false }: { item: QueueItem; readonl
         ) : (
           <span className={`sla ${sla.overdue ? 'overdue' : ''}`}>{sla.text}</span>
         )}
+        {(item.score_gain ?? 0) > 0 && (
+          <span className="gainchip" title="Health points this client would gain from the levers open today — see their Health tab">
+            +{item.score_gain} health
+          </span>
+        )}
         {item.impact_score > 0 && <span className="impact num">{inrCompact(item.impact_score)}</span>}
       </div>
       <div className="evidence">

@@ -11,6 +11,7 @@ const PAGES: [string, string][] = [
   ['/business', 'My business'],
   ['/marketing', 'Marketing'],
   ['/review-packs', 'Review pack'],
+  ['/admin', 'Admin'],
 ];
 
 export function TopNav() {

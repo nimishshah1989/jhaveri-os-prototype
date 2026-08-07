@@ -48,7 +48,9 @@ function exportCsv(rows: ClientRow[]): void {
   URL.revokeObjectURL(a.href);
 }
 
-export function ClientsTable({ rows, totals }: { rows: ClientRow[]; totals: { v: number; invested: number } }) {
+export interface HealthCell { score: number; gain: number; band: string; cls: string }
+
+export function ClientsTable({ rows, totals, health }: { rows: ClientRow[]; totals: { v: number; invested: number }; health?: Record<number, HealthCell> }) {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [cols, setCols] = useState<Set<OptCol>>(new Set(DEFAULT_COLS));
   useEffect(() => {
@@ -109,6 +111,7 @@ export function ClientsTable({ rows, totals }: { rows: ClientRow[]; totals: { v:
               {cols.has('invested') && <th>Invested</th>}
               {cols.has('pnl') && <th title="Green = gain, red = loss">P&amp;L</th>}
               <th title="Value-weighted across holdings, as of the latest feed">XIRR</th>
+              <th title="Portfolio health 0–100 — five rule-scored components; +N is the jump available from open levers. Full breakdown on the client's Health tab.">Health</th>
               {cols.has('activity') && <th>Last activity</th>}
               <th>SIP / month</th>
               <th title="The highest-value open action for this client">Next step</th>
@@ -132,6 +135,14 @@ export function ClientsTable({ rows, totals }: { rows: ClientRow[]; totals: { v:
                   <td className={`r num ${r.pnl >= 0 ? 'up' : 'down'}`}>{r.pnl >= 0 ? inr(r.pnl) : `−${inr(Math.abs(r.pnl))}`}</td>
                 )}
                 <td className={`r num ${r.wx != null && r.wx < 0 ? 'down' : 'up'}`}>{r.wx != null ? `${r.wx.toFixed(1)}%` : '—'}</td>
+                <td style={{ textAlign: 'center' }}>
+                  {health?.[r.client_id] ? (
+                    <>
+                      <span className={`fchip ${health[r.client_id].cls}`}>{health[r.client_id].score}</span>
+                      {health[r.client_id].gain > 0 && <span className="gainchip" style={{ marginLeft: 4 }}>+{health[r.client_id].gain}</span>}
+                    </>
+                  ) : '—'}
+                </td>
                 {cols.has('activity') && <td className="num" style={{ textAlign: 'center' }}>{r.last_activity ? dmy2(r.last_activity) : '—'}</td>}
                 <td className="r num">{r.sip_monthly > 0 ? inrCompact(r.sip_monthly) : <span className="sub" title="No live SIP — an opportunity">none</span>}</td>
                 <td style={{ textAlign: 'center' }}>
@@ -165,6 +176,7 @@ export function ClientsTable({ rows, totals }: { rows: ClientRow[]; totals: { v:
               <td className="r num">{inr(totals.v)}</td>
               {cols.has('invested') && <td className="r num">{inr(totals.invested)}</td>}
               {cols.has('pnl') && <td className={`r num ${pnlTotal >= 0 ? 'up' : 'down'}`}>{pnlTotal >= 0 ? inr(pnlTotal) : `−${inr(Math.abs(pnlTotal))}`}</td>}
+              <td></td>
               <td></td>
               {cols.has('activity') && <td></td>}
               <td className="r num">{inrCompact(rows.reduce((s, r) => s + r.sip_monthly, 0))}</td>

@@ -10,6 +10,7 @@ import {
   streams, scoreboard, learning,
 } from '../../lib/queries';
 import { addTask } from './actions';
+import { bookHealth } from '../../lib/scoring';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +22,14 @@ export default function TodayPage() {
   const idle = idleNoSip(me.code);
   const sipRisk = sipsAtRisk(me.code);
   const stuck = onboardingStuck();
+  const scores = bookHealth(me.code);
   const q = streams();
+  // Health lens on the queue: a client's available score-gain rides along, and
+  // opportunities rank by ₹ at stake × gain available (quick wins surface).
+  for (const item of [...q.red, ...q.amber, ...q.grey]) {
+    item.score_gain = item.client_id != null ? scores.get(item.client_id)?.gain ?? 0 : 0;
+  }
+  q.amber.sort((a, b) => (b.impact_score * (1 + (b.score_gain ?? 0) / 20)) - (a.impact_score * (1 + (a.score_gain ?? 0) / 20)));
   const score = scoreboard();
   const learn = learning();
   const closedPct = score.value.closed > 0 ? Math.round((score.value.closedInSla / score.value.closed) * 100) : null;

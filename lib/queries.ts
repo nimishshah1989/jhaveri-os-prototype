@@ -155,6 +155,8 @@ export interface QueueItem {
   action_type: string;
   subject_type: string;
   subject_id: string;
+  client_id?: number | null;
+  score_gain?: number;
   client_name: string | null;
   trigger_evidence: string;
   impact_score: number;
@@ -167,6 +169,7 @@ export interface QueueItem {
 
 const QUEUE_SQL = `SELECT a.action_id, a.action_type, a.subject_type, a.subject_id, a.trigger_evidence,
   a.impact_score, a.sla_due, a.state, a.suggested_step, a.outcome_type, a.closed_at,
+  COALESCE(c1.cm_user_id, c2.cm_user_id, c3.cm_user_id) client_id,
   COALESCE(c1.cm_full_name, c2.cm_full_name, c3.cm_full_name, l.name) client_name
 FROM actions a
 LEFT JOIN client_master c1 ON a.subject_type='client' AND c1.cm_user_id=CAST(a.subject_id AS INTEGER)

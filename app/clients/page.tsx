@@ -8,6 +8,7 @@ import {
   idleNoSip, taxWindowClients, assetMix, healthSplit, xirrBands, clientRows,
   worthActingOn, learning, type ClientFilters,
 } from '../../lib/queries';
+import { bookHealth, SCORING_RULES } from '../../lib/scoring';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,7 +52,16 @@ export default async function ClientsPage({ searchParams }: PageProps<'/clients'
   const health = healthSplit(me.code);
   const bands = xirrBands(me.code);
   const bandMax = Math.max(...bands.value.map(b => b.n), 1);
-  const { rows } = clientRows(me.code, f);
+  const scores = bookHealth(me.code);
+  let { rows } = clientRows(me.code, f);
+  if (f.seg === 'quickwins') {
+    rows = rows.filter(r => (scores.get(r.client_id)?.maxLever ?? 0) >= SCORING_RULES.quick_win_single_lever);
+  }
+  if (f.sort === 'health') {
+    rows = [...rows].sort((a, b) => (scores.get(a.client_id)?.score ?? 0) - (scores.get(b.client_id)?.score ?? 0));
+  }
+  const quickWinCount = [...scores.values()].filter(r => r.maxLever >= SCORING_RULES.quick_win_single_lever).length;
+  const healthObj = Object.fromEntries([...scores.entries()].map(([k, v]) => [k, { score: v.score, gain: v.gain, band: v.band, cls: v.cls }]));
   const totals = {
     v: rows.reduce((s, r) => s + r.v, 0),
     invested: rows.reduce((s, r) => s + r.invested, 0),
@@ -153,6 +163,7 @@ export default async function ClientsPage({ searchParams }: PageProps<'/clients'
             <Link className={`chip opp ${f.seg === 'nosip' ? 'on' : ''}`} href={seg(f, 'nosip')}>No SIP <b>{idle.value.n}</b></Link>
             <Link className={`chip warn ${f.seg === 'dormant' ? 'on' : ''}`} href={seg(f, 'dormant')}>Dormant &gt;14m <b>{dormant.value.n}</b></Link>
             <Link className={`chip opp ${f.seg === 'taxwindow' ? 'on' : ''}`} href={seg(f, 'taxwindow')}>Tax-harvest window <b>{taxWin.value.n}</b></Link>
+            <Link className={`chip ${f.seg === 'quickwins' ? 'on' : ''}`} href={seg(f, 'quickwins')} title="One call, one big health jump — a single fix worth 8+ points">Quick wins <b style={{ color: 'var(--pos)' }}>{quickWinCount}</b></Link>
             <span className="chip ghost">Likely to top up — needs 100 captured outcomes, has 0</span>
             <span className="chip ghost" title="Ships once segments get a save UI — the segments table already exists">+ Save current filter as segment</span>
           </div>
@@ -170,12 +181,13 @@ export default async function ClientsPage({ searchParams }: PageProps<'/clients'
               <option value="pnl">Sort: P&amp;L</option>
               <option value="xirr">Sort: XIRR</option>
               <option value="activity">Sort: least recent activity</option>
+              <option value="health">Sort: weakest health first</option>
             </select>
             <input type="search" name="q" placeholder="Search name / folio / PAN" defaultValue={f.q ?? ''} />
             <button type="submit">Apply</button>
           </form>
 
-          <ClientsTable rows={rows} totals={totals} />
+          <ClientsTable rows={rows} totals={totals} health={healthObj} />
 
           <div className="below">
             <span>Tick clients for bulk actions · CSV export</span>

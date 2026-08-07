@@ -2,6 +2,29 @@
 
 Dated evidence of pace. Every entry: what shipped, how it was verified.
 
+## 07-Aug-2026 (late night) — Scoring framework live: the platform's first cross-page lens
+- Founder approved the framework and delegated v0 weights ("suggest from the data").
+  `lib/scoring.ts` is the single home for every knob (SCORING_RULES) — the Admin page
+  reads it, the real build moves it into rules_registry.
+- **The invariant holds in code:** each health component is a pure function of inputs,
+  so a lever's point-delta IS the component recomputed with that condition fixed.
+  Score and suggestion cannot drift apart — verified, not asserted.
+- Client health 0–100 (performance · diversification · discipline · tax · risk fit),
+  scheme grades A–E (1y return percentile within category, expense- and house-view-
+  adjusted; A avg +27.0% vs E avg −2.1% — the grades order correctly), book rollup.
+- Cross-page lens: 360 gets a "Health & opportunities" tab (ring, component bars that
+  open into levers with Mint-action buttons, plus non-score opportunities — SIP step-up
+  future value with the assumption shown, and an idle-redemption question);
+  My clients gets a Health column, weakest-health sort and a Quick wins segment (14 of
+  51 — one call, one 8+ point fix); Today ranks opportunities by ₹ × gain-available and
+  shows a "+N health" chip; new Admin page displays every weight and band.
+- Honesty preserved: diversification lever ghosted pending compliance allocation bands;
+  risk-profile review marked hygiene so it can't inflate the quick-wins list.
+- Verified: verify-scoring.ts 12 checks — bounds, discrimination (31 distinct scores),
+  Σ levers == advertised gain, cross-page score identity (0 disagreements), band
+  thresholds, grade ordering, quick-win/lever agreement. All five verifiers green on
+  pristine reseed; browser QA end-to-end incl. lever → minted action.
+
 ## 07-Aug-2026 (night) — Client 360 rebuilt as the real thing: 7 tabs, research-assembled
 - Founder verdict on v1 was right — a fund list is not a 360. Rebuilt multi-tab, each
   block naming its researched source: Overview (Dezerv narrative — three rule-computed
