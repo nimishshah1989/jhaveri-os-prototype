@@ -1,59 +1,60 @@
-import type { Figure } from '../lib/queries';
-import { GLOSSARY, TAG_MEANING } from '../lib/glossary';
+import { GLOSSARY, TAG_TRUST } from '../lib/glossary';
 import { Icon } from './Icon';
 
-// The ⓘ beside every number. It answers four questions in order:
-//   what is this · how should I read it · how was it worked out · where did it come from
-// Native <details> — no JavaScript, and it works on a printed page too.
+// The ⓘ a broker clicks. It answers three questions in plain words:
+//   what is this · how do I read it · what do I do with it
 //
-// The written half comes from lib/glossary.ts; the SQL comes from the running
-// query. If a figure has no glossary entry it still shows its SQL and sources,
-// and says the plain-words version has not been written — which keeps the gap
-// visible instead of quietly absent.
+// It deliberately shows NO SQL and NO table names. Those exist — every figure
+// carries them — but they are the vendor's material and live on /backend. Putting
+// `fifo_summary_holding_active.present_market_value` in front of a broker explains
+// nothing and costs trust.
 
 interface Props {
   /** Glossary key. */
   id?: string;
-  figure?: Pick<Figure<unknown>, 'tag' | 'sql' | 'sources'>;
-  /** Use the lamp when the point is interpretation rather than derivation. */
+  /** Kept so callers can pass the figure; only its honesty tag is used here. */
+  figure?: { tag?: string };
   as?: 'info' | 'bulb';
 }
 
 export function Explain({ id, figure, as = 'info' }: Props) {
   const t = id ? GLOSSARY[id] : undefined;
-  const tag = figure?.tag ?? t?.tag;
-  const sources = figure?.sources ?? t?.sources ?? [];
+  if (!t) return null;                       // no written explanation, no empty popover
+  const tag = t.tag ?? figure?.tag;
 
   return (
     <details className="prov">
-      <summary title={t ? `${t.label} — what this means and where it comes from` : 'Where does this number come from?'}>
+      <summary title={`${t.label} — what this means and how to read it`}>
         <Icon name={as} />
       </summary>
       <div className="pop">
-        {t && <div className="ptitle">{t.label}</div>}
-        {tag && (
-          <div className="ptag">
-            <span className={`tag ${tag}`}>{tag}</span>
-            <span className="tagwhy">{TAG_MEANING[tag]}</span>
+        <div className="ptitle">{t.label}</div>
+        <p className="pmeans">{t.means}</p>
+
+        <div className="prow">
+          <Icon name="bulb" />
+          <div><b>How to read it</b><p>{t.read}</p></div>
+        </div>
+
+        {t.act && (
+          <div className="prow">
+            <Icon name="arrow" />
+            <div><b>What to do with it</b><p>{t.act}</p></div>
           </div>
         )}
 
-        {t ? (
-          <>
-            <p className="pmeans">{t.means}</p>
-            <p className="pread"><b>How to read it:</b> {t.read}</p>
-            {t.formula && <p className="pform"><b>Worked out as:</b> {t.formula}</p>}
-            {t.caveat && <p className="pcav"><Icon name="alert" /> {t.caveat}</p>}
-          </>
-        ) : (
-          <p className="pmeans ghosttxt">
-            No plain-words explanation written for this figure yet. The query and its
-            sources are shown below rather than a guess at what it means.
-          </p>
+        {t.formula && (
+          <div className="prow">
+            <Icon name="target" />
+            <div><b>How it is worked out</b><p>{t.formula}</p></div>
+          </div>
         )}
 
-        {figure?.sql && <pre>{figure.sql.trim()}</pre>}
-        {sources.length > 0 && <span className="src">{sources.join(' · ')}</span>}
+        {t.caveat && (
+          <p className="pcav"><Icon name="alert" /> {t.caveat}</p>
+        )}
+
+        {tag && <div className="ptrust">{TAG_TRUST[tag as keyof typeof TAG_TRUST]}</div>}
       </div>
     </details>
   );

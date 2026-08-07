@@ -1,6 +1,6 @@
 import { MarketStrip, NewsPanel } from '../../components/MarketStrip';
 import { StatCard } from '../../components/StatCard';
-import { QueueCard } from '../../components/QueueCard';
+import { QueueTable } from '../../components/QueueTable';
 import { Explain } from '../../components/Explain';
 import { PageHead } from '../../components/PageHead';
 import { Icon } from '../../components/Icon';
@@ -69,20 +69,17 @@ export default function TodayPage() {
 
           <section className="stream red">
             <h2><Icon name="alert" /> Act now <span className="count">· {q.red.length}</span></h2>
-            {q.red.length === 0 && <div className="empty">Nothing urgent — the queue is clear.</div>}
-            {q.red.map(item => <QueueCard key={item.action_id} item={item} />)}
+            <QueueTable items={q.red} shown={6} />
           </section>
 
           <section className="stream amber">
             <h2><Icon name="target" /> Opportunities <span className="count">· {q.amber.length} — ranked by ₹</span></h2>
-            {q.amber.length === 0 && <div className="empty">No open opportunities right now.</div>}
-            {q.amber.map(item => <QueueCard key={item.action_id} item={item} />)}
+            <QueueTable items={q.amber} shown={4} />
           </section>
 
           <section className="stream grey">
             <h2><Icon name="users" /> Relationship &amp; FYI <span className="count">· {q.grey.length}</span></h2>
-            {q.grey.length === 0 && <div className="empty">Nothing here today.</div>}
-            {q.grey.map(item => <QueueCard key={item.action_id} item={item} />)}
+            <QueueTable items={q.grey} shown={4} />
           </section>
         </div>
 

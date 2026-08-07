@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ClientsTable } from '../../components/ClientsTable';
 import { Provenance } from '../../components/Provenance';
-import { QueueCard } from '../../components/QueueCard';
+import { QueueTable } from '../../components/QueueTable';
 import { inrCompact, dmy } from '../../lib/format';
 import {
   broker, myBook, blendedReturn, sipParticipation, churnRisk, dormantClients,
@@ -198,7 +198,7 @@ export default async function ClientsPage({ searchParams }: PageProps<'/clients'
         <aside className="side">
           <div className="panel">
             <h3>Worth acting on</h3>
-            {acting.map(item => <QueueCard key={item.action_id} item={item} readonly />)}
+            <QueueTable items={acting} readonly shown={4} />
             <div className="d">Full ranked queue on <Link href="/today">Today</Link></div>
           </div>
           <div className="panel">

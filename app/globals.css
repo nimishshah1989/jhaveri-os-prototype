@@ -771,3 +771,86 @@ h2.sec .ic { color: var(--accent); opacity: .75; }
 .tag.computed { background: var(--pos-soft); color: var(--pos); }
 .tag.rule { background: var(--amber-soft); color: var(--amber); }
 .tag.learned { background: var(--grey-soft); color: var(--grey); }
+
+/* ══ The hierarchy law ════════════════════════════════════════════════════════
+   1. the subject (client, fund, campaign) is the strongest thing in a row
+   2. money is second: tabular, right-aligned
+   3. the category is a quiet chip with an icon — a filter, not a headline
+   4. context is muted, and only the numbers inside it carry weight
+   Nothing outside this list is bold. That is what makes a row scannable. */
+
+.tblwrap.queue table { min-width: 860px; }
+.tblwrap.queue td { padding: 9px 12px; vertical-align: middle; }
+
+/* 3 — category */
+.tchip {
+  display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+  font-size: var(--t-xs); font-weight: 650; letter-spacing: .02em;
+  border-radius: 20px; padding: 3px 9px 3px 7px;
+  background: var(--grey-soft); color: var(--muted);
+}
+.tchip .ic { width: .85em; height: .85em; }
+.tchip.red { background: var(--red-soft); color: var(--neg); }
+.tchip.amber { background: var(--amber-soft); color: var(--amber); }
+.tchip.green { background: var(--pos-soft); color: var(--pos); }
+.tchip.blue { background: var(--accent-soft); color: var(--accent); }
+
+/* 1 — subject */
+.qwho { font-weight: 650; }
+.qwho a { color: var(--ink); }
+.qwho a:hover { color: var(--accent); }
+
+/* 4 — context: quiet frame, weighted values */
+.qwhy { color: var(--muted); font-size: var(--t-sm); max-width: 340px; }
+.qwhy b { color: var(--ink); font-weight: 600; }
+.qwhy .lead { color: var(--muted); font-weight: 400; }
+
+/* 2 — money */
+.qmoney { font-weight: 650; white-space: nowrap; }
+.qgain { text-align: center; }
+
+.due { font-size: var(--t-xs); font-weight: 650; white-space: nowrap; padding: 2px 8px; border-radius: 20px; }
+.due.now { background: var(--red-soft); color: var(--neg); }
+.due.soon { background: var(--amber-soft); color: var(--amber); }
+.due.later { color: var(--muted); }
+.qdue { text-align: center; }
+
+/* row actions: present but quiet until the row is hovered */
+.qacts { display: flex; gap: 2px; justify-content: flex-end; }
+.qacts details { position: relative; }
+.qacts summary {
+  list-style: none; cursor: pointer; font-size: var(--t-xs); color: var(--muted);
+  border: 1px solid transparent; border-radius: 4px; padding: 2px 8px; white-space: nowrap;
+}
+.qacts summary::-webkit-details-marker { display: none; }
+.tblwrap.queue tbody tr:hover .qacts summary { border-color: var(--line); color: var(--accent); }
+.qacts summary:hover { background: var(--accent-soft); border-color: var(--accent) !important; }
+.qacts .pop {
+  position: absolute; z-index: 20; top: 26px; right: 0; width: 250px; text-align: left;
+  background: var(--ground); border: 1px solid var(--line); border-radius: var(--radius-lg);
+  box-shadow: var(--lift); padding: var(--sp-3);
+}
+.qacts .pop label { display: block; font-size: var(--t-sm); padding: 2px 0; }
+.qacts .pop .stephint { margin: 0 0 var(--sp-2); font-size: var(--t-xs); color: var(--muted); }
+.qacts .pop select, .qacts .pop input[type='text'] {
+  width: 100%; margin-top: var(--sp-1); padding: 4px 6px; font-size: var(--t-sm);
+  border: 1px solid var(--line); border-radius: 4px;
+}
+.qacts .pop button {
+  margin-top: var(--sp-2); background: var(--accent); color: #fff; border: 0;
+  border-radius: 4px; padding: 4px 12px; font-size: var(--t-sm); cursor: pointer;
+}
+
+/* stream headings carry the count and a colour, then get out of the way */
+.stream > h2 { font-size: var(--t-xs); gap: 6px; }
+.stream .ic { width: .95em; height: .95em; }
+
+/* Explain popover, broker-facing: rows of plain guidance, no code. */
+.prov .prow { display: flex; gap: var(--sp-2); align-items: flex-start; margin-bottom: var(--sp-2); }
+.prov .prow .ic { color: var(--accent); margin-top: 2px; flex: none; }
+.prov .prow b { font-size: var(--t-xs); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.prov .prow p { margin: 2px 0 0; font-size: var(--t-sm); line-height: 1.5; }
+.prov .ptrust {
+  margin-top: var(--sp-3); padding-top: var(--sp-2); border-top: 1px solid var(--line);
+  font-size: var(--t-xs); color: var(--muted); line-height: 1.45;
+}
