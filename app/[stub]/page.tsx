@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation';
 
 const STUBS: Record<string, string> = {
-  clients: 'My clients',
   onboarding: 'Onboarding',
   earnings: 'My earnings',
   business: 'My business',

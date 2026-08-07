@@ -70,7 +70,7 @@ function slaLabel(due: string): { text: string; overdue: boolean } {
   return { text: `due in ${days}d`, overdue: false };
 }
 
-export function QueueCard({ item }: { item: QueueItem }) {
+export function QueueCard({ item, readonly = false }: { item: QueueItem; readonly?: boolean }) {
   const auto = item.outcome_type === 'auto_resolved';
   const sla = slaLabel(item.sla_due);
   return (
@@ -93,7 +93,7 @@ export function QueueCard({ item }: { item: QueueItem }) {
           </span>
         ))}
       </div>
-      {!auto && (
+      {!auto && !readonly && (
         <div className="acts">
           <span className="step">{item.suggested_step}</span>
           <details>

@@ -17,9 +17,9 @@ export default function TodayPage() {
   const me = broker();
   const book = myBook(me.code);
   const flows = netFlowsMtd();
-  const churn = churnRisk();
-  const idle = idleNoSip();
-  const sipRisk = sipsAtRisk();
+  const churn = churnRisk(me.code);
+  const idle = idleNoSip(me.code);
+  const sipRisk = sipsAtRisk(me.code);
   const stuck = onboardingStuck();
   const q = streams();
   const score = scoreboard();
@@ -31,9 +31,7 @@ export default function TodayPage() {
       <MarketStrip />
       <div className="pagehead">
         <h1>Today</h1>
-        <span className="fresh">
-          {dmy(TODAY)} · Feeds as of {dmy(book.value.as_of)} · FIFO complete
-        </span>
+        <span className="fresh">{dmy(TODAY)}</span>
       </div>
 
       <div className="cols">
@@ -41,9 +39,9 @@ export default function TodayPage() {
           <div className="cards">
             <StatCard label="My book" value={inrCompact(book.value.v)} sub={`${bookList(me.code).total} clients · as of ${dmy(book.value.as_of)}`} figure={book} list={bookList(me.code)} />
             <StatCard label="Net flows · Aug" value={signedInrCompact(flows.value.v)} sub={`${flows.value.n} transactions this month`} tone={flows.value.v >= 0 ? 'pos' : 'warn'} figure={flows} list={flowsList()} />
-            <StatCard label="Churn risk" value={`${churn.value.n} clients`} sub={`${inrCompact(churn.value.v)} at risk · gone quiet / concentrated`} tone="warn" figure={churn} list={churnList()} />
-            <StatCard label="Invested, no SIP" value={`${idle.value.n} clients`} sub={`${inrCompact(idle.value.v)} held · zero monthly commitment`} tone="opp" figure={idle} list={idleList()} />
-            <StatCard label="SIPs at risk" value={`${sipRisk.value.n} plans`} sub={`${inrCompact(sipRisk.value.v)} / year on the line`} tone="warn" figure={sipRisk} list={sipRiskList()} />
+            <StatCard label="Churn risk" value={`${churn.value.n} clients`} sub={`${inrCompact(churn.value.v)} at risk · gone quiet / concentrated`} tone="warn" figure={churn} list={churnList(me.code)} />
+            <StatCard label="Invested, no SIP" value={`${idle.value.n} clients`} sub={`${inrCompact(idle.value.v)} held · zero monthly commitment`} tone="opp" figure={idle} list={idleList(me.code)} />
+            <StatCard label="SIPs at risk" value={`${sipRisk.value.n} plans`} sub={`${inrCompact(sipRisk.value.v)} / year on the line`} tone="warn" figure={sipRisk} list={sipRiskList(me.code)} />
             <StatCard label="Onboarding stuck" value={`${stuck.value.n} application${stuck.value.n === 1 ? '' : 's'}`} sub={`oldest waiting ${stuck.value.days} days`} tone="warn" figure={stuck} list={stuckList()} listAmountKind="days" />
           </div>
 

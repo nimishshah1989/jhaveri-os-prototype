@@ -39,9 +39,9 @@ const flowsIndep = one<{ v: number }>(
 check('Net flows MTD matches independent signed sum', Math.abs(netFlowsMtd().value.v - flowsIndep.v) < 0.05,
   `${netFlowsMtd().value.v} vs ${flowsIndep.v}`);
 
-check('Churn card count == churn click-through rows', churnRisk().value.n === churnList().rows.length);
-check('Idle card count == idle list total', idleNoSip().value.n === idleList().total);
-check('SIP-risk card count == its list rows', sipsAtRisk().value.n === sipRiskList().rows.length);
+check('Churn card count == churn click-through rows', churnRisk(me.code).value.n === churnList(me.code).rows.length);
+check('Idle card count == idle list total', idleNoSip(me.code).value.n === idleList(me.code).total);
+check('SIP-risk card count == its list rows', sipsAtRisk(me.code).value.n === sipRiskList(me.code).rows.length);
 check('Stuck card count == its list rows', onboardingStuck().value.n === stuckList().rows.length);
 
 const q = streams();

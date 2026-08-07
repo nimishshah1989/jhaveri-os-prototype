@@ -45,34 +45,36 @@ export function netFlowsMtd(): Figure<{ v: number; n: number }> {
   return figure(NET_FLOWS_SQL, ['transaction_master.tr_amount', '.tr_date', 'transaction_type_master.tr_type_buy_sell_flag'], 'computed', [DEMO_SB, TODAY.slice(0, 8) + '01', TODAY]);
 }
 
+// One denominator everywhere: "this broker's book" = distinct clients whose
+// holdings carry his advisor_code. Money figures never mix in mapping joins.
+const BOOK_SET = `SELECT DISTINCT client_id FROM fifo_summary_holding_active WHERE advisor_code = ?`;
+
 const CHURN_SQL = `SELECT COUNT(*) n, COALESCE(SUM(v.value_now),0) v
-FROM (SELECT DISTINCT client_id FROM mv_portfolio_attention) a
-JOIN client_sub_broker_mapping m ON m.cm_user_id=a.client_id AND m.sb_id=?
+FROM (SELECT DISTINCT client_id FROM mv_portfolio_attention WHERE client_id IN (${BOOK_SET})) a
 JOIN v_client_value v ON v.client_id=a.client_id`;
 
-export function churnRisk(): Figure<{ n: number; v: number }> {
-  return figure(CHURN_SQL, ['mv_portfolio_attention.client_id', 'v_client_value.value_now'], 'rule', [DEMO_SB]);
+export function churnRisk(code: string): Figure<{ n: number; v: number }> {
+  return figure(CHURN_SQL, ['mv_portfolio_attention.client_id', 'v_client_value.value_now'], 'rule', [code]);
 }
 
 const IDLE_SQL = `SELECT COUNT(*) n, COALESCE(SUM(v),0) v FROM (
   SELECT f.client_id, SUM(f.present_market_value) v FROM fifo_summary_holding_active f
-  JOIN client_sub_broker_mapping m ON m.cm_user_id=f.client_id AND m.sb_id=?
-  WHERE f.client_id NOT IN (SELECT fk_acc_id FROM sip_master WHERE is_live_sip=1)
+  WHERE f.advisor_code=? AND f.client_id NOT IN (SELECT fk_acc_id FROM sip_master WHERE is_live_sip=1)
   GROUP BY f.client_id)`;
 
-export function idleNoSip(): Figure<{ n: number; v: number }> {
-  return figure(IDLE_SQL, ['fifo_summary_holding_active.present_market_value', 'sip_master.is_live_sip'], 'computed', [DEMO_SB]);
+export function idleNoSip(code: string): Figure<{ n: number; v: number }> {
+  return figure(IDLE_SQL, ['fifo_summary_holding_active.present_market_value', 'sip_master.is_live_sip'], 'computed', [code]);
 }
 
 const SIP_RISK_SQL = `SELECT COUNT(*) n, COALESCE(SUM(s.tr_amount*12),0) v
 FROM sip_master s
-JOIN client_sub_broker_mapping m ON m.cm_user_id=s.fk_acc_id AND m.sb_id=?
 JOIN bse_sxp_list x ON x.reg_no=s.sxp_bos_code
 LEFT JOIN bse_mandate_list ml ON ml.exch_mandate_id=x.exch_mandate_id
-WHERE s.is_live_sip=1 AND (x.npayments_missed>=2 OR (ml.end_date IS NOT NULL AND ml.end_date <= date(?,'+45 days')))`;
+WHERE s.is_live_sip=1 AND s.fk_acc_id IN (${BOOK_SET})
+  AND (x.npayments_missed>=2 OR (ml.end_date IS NOT NULL AND ml.end_date <= date(?,'+45 days')))`;
 
-export function sipsAtRisk(): Figure<{ n: number; v: number }> {
-  return figure(SIP_RISK_SQL, ['sip_master.tr_amount', 'bse_sxp_list.npayments_missed', 'bse_mandate_list.end_date'], 'rule', [DEMO_SB, TODAY]);
+export function sipsAtRisk(code: string): Figure<{ n: number; v: number }> {
+  return figure(SIP_RISK_SQL, ['sip_master.tr_amount', 'bse_sxp_list.npayments_missed', 'bse_mandate_list.end_date'], 'rule', [code, TODAY]);
 }
 
 const STUCK_SQL = `SELECT COUNT(*) n, COALESCE(MAX(CAST(julianday(?) - julianday(stall_since) AS INTEGER)),0) days
@@ -103,37 +105,36 @@ export function flowsList(): StatList {
   return { rows, total };
 }
 
-export function churnList(): StatList {
+export function churnList(code: string): StatList {
   const rows = db().prepare(`SELECT c.cm_full_name label, GROUP_CONCAT(DISTINCT a.flag_type) detail, v.value_now amount
     FROM mv_portfolio_attention a
-    JOIN client_sub_broker_mapping m ON m.cm_user_id=a.client_id AND m.sb_id=?
     JOIN client_master c ON c.cm_user_id=a.client_id
     JOIN v_client_value v ON v.client_id=a.client_id
-    GROUP BY a.client_id ORDER BY amount DESC LIMIT 10`).all(DEMO_SB) as StatList['rows'];
+    WHERE a.client_id IN (${BOOK_SET})
+    GROUP BY a.client_id ORDER BY amount DESC LIMIT 10`).all(code) as StatList['rows'];
   return { rows, total: rows.length };
 }
 
-export function idleList(): StatList {
+export function idleList(code: string): StatList {
   const rows = db().prepare(`SELECT f.client_name label, COUNT(*) || ' holdings, no SIP' detail, SUM(f.present_market_value) amount
     FROM fifo_summary_holding_active f
-    JOIN client_sub_broker_mapping m ON m.cm_user_id=f.client_id AND m.sb_id=?
-    WHERE f.client_id NOT IN (SELECT fk_acc_id FROM sip_master WHERE is_live_sip=1)
-    GROUP BY f.client_id ORDER BY amount DESC LIMIT 10`).all(DEMO_SB) as StatList['rows'];
-  const total = idleNoSip().value.n;
+    WHERE f.advisor_code=? AND f.client_id NOT IN (SELECT fk_acc_id FROM sip_master WHERE is_live_sip=1)
+    GROUP BY f.client_id ORDER BY amount DESC LIMIT 10`).all(code) as StatList['rows'];
+  const total = idleNoSip(code).value.n;
   return { rows, total };
 }
 
-export function sipRiskList(): StatList {
+export function sipRiskList(code: string): StatList {
   const rows = db().prepare(`SELECT c.cm_full_name label,
     CASE WHEN x.npayments_missed>=2 THEN 'bounced ×' || x.npayments_missed ELSE 'mandate ends ' || ml.end_date END detail,
     s.tr_amount*12 amount
     FROM sip_master s
-    JOIN client_sub_broker_mapping m ON m.cm_user_id=s.fk_acc_id AND m.sb_id=?
     JOIN client_master c ON c.cm_user_id=s.fk_acc_id
     JOIN bse_sxp_list x ON x.reg_no=s.sxp_bos_code
     LEFT JOIN bse_mandate_list ml ON ml.exch_mandate_id=x.exch_mandate_id
-    WHERE s.is_live_sip=1 AND (x.npayments_missed>=2 OR (ml.end_date IS NOT NULL AND ml.end_date <= date(?,'+45 days')))
-    ORDER BY amount DESC`).all(DEMO_SB, TODAY) as StatList['rows'];
+    WHERE s.is_live_sip=1 AND s.fk_acc_id IN (${BOOK_SET})
+      AND (x.npayments_missed>=2 OR (ml.end_date IS NOT NULL AND ml.end_date <= date(?,'+45 days')))
+    ORDER BY amount DESC`).all(code, TODAY) as StatList['rows'];
   return { rows, total: rows.length };
 }
 
@@ -224,4 +225,129 @@ export interface PolicyRow {
 export function learning(): Figure<PolicyRow[]> {
   const sql = `SELECT workflow, policy_key, evidence_n, target_n FROM policies ORDER BY evidence_n DESC`;
   return { value: db().prepare(sql).all() as PolicyRow[], tag: 'learned', sql, sources: ['policies.evidence_n', '.target_n', '.belief'] };
+}
+
+// NULL-xirr holdings are EXCLUDED from both sides of the blend — a holding with
+// no computable return must not silently count as 0% (financial-domain rule).
+const BLEND = `SUM(CASE WHEN xirr IS NOT NULL THEN present_market_value*xirr END)
+             / SUM(CASE WHEN xirr IS NOT NULL THEN present_market_value END)`;
+
+export function blendedReturn(code: string): Figure<{ x: number; as_of: string }> {
+  const sql = `SELECT ROUND(${BLEND},1) x, MAX(holding_date) as_of
+FROM fifo_summary_holding_active WHERE advisor_code=?`;
+  return figure(sql, ['fifo_summary_holding_active.xirr', '.present_market_value'], 'computed', [code]);
+}
+
+export function sipParticipation(code: string): Figure<{ n: number; of: number }> {
+  const sql = `SELECT
+  (SELECT COUNT(DISTINCT fk_acc_id) FROM sip_master WHERE is_live_sip=1 AND fk_acc_id IN (${BOOK_SET})) n,
+  (SELECT COUNT(*) FROM (${BOOK_SET})) of`;
+  return figure(sql, ['sip_master.is_live_sip', 'fifo_summary_holding_active.advisor_code'], 'computed', [code, code]);
+}
+
+export function dormantClients(code: string): Figure<{ n: number }> {
+  const sql = `SELECT COUNT(*) n FROM (
+  SELECT f.client_id, MAX(t.tr_date) lt FROM fifo_summary_holding_active f
+  JOIN transaction_master t ON t.fk_acc_id=f.client_id AND t.tr_date <= '${TODAY}'
+  WHERE f.advisor_code=? GROUP BY f.client_id HAVING lt < date('${TODAY}','-14 months'))`;
+  return figure(sql, ['transaction_master.tr_date'], 'rule', [code]);
+}
+
+export function taxWindowClients(code: string): Figure<{ n: number }> {
+  const sql = `SELECT COUNT(*) n FROM (
+  SELECT h.fk_acc_id, SUM(h.sh_unrealized_ltcg) g FROM fifo_summary_holding h
+  WHERE h.fk_acc_id IN (${BOOK_SET}) GROUP BY h.fk_acc_id HAVING g BETWEEN 40000 AND 120000)`;
+  return figure(sql, ['fifo_summary_holding.sh_unrealized_ltcg'], 'rule', [code]);
+}
+
+export interface MixRow { label: string; v: number }
+
+export function assetMix(code: string): Figure<MixRow[]> {
+  const sql = `SELECT asset_name label, SUM(present_market_value) v
+FROM fifo_summary_holding_active WHERE advisor_code=? GROUP BY asset_name ORDER BY v DESC`;
+  return { value: db().prepare(sql).all(code) as MixRow[], tag: 'computed', sql, sources: ['fifo_summary_holding_active.asset_name', '.present_market_value'] };
+}
+
+export function healthSplit(code: string): Figure<{ healthy: number; dormant: number; concentrated: number }> {
+  const dormant = dormantClients(code).value.n;
+  const conc = (db().prepare(`SELECT COUNT(DISTINCT client_id) n FROM mv_portfolio_attention
+    WHERE flag_type != 'stale' AND client_id IN (${BOOK_SET})`).get(code) as { n: number }).n;
+  const total = (db().prepare(`SELECT COUNT(*) n FROM (${BOOK_SET})`).get(code) as { n: number }).n;
+  return {
+    value: { healthy: total - dormant - conc, dormant, concentrated: conc },
+    tag: 'rule',
+    sql: `dormant: no txn in 14 months · concentrated: mv_portfolio_attention non-stale flags · healthy: the rest of ${total}`,
+    sources: ['transaction_master.tr_date', 'mv_portfolio_attention.flag_type'],
+  };
+}
+
+export function xirrBands(code: string): Figure<{ band: string; n: number }[]> {
+  const sql = `SELECT CASE WHEN wx < 0 THEN '< 0%' WHEN wx < 8 THEN '0–8%' WHEN wx < 15 THEN '8–15%' ELSE '> 15%' END band, COUNT(*) n
+FROM (SELECT client_id, ${BLEND} wx
+      FROM fifo_summary_holding_active WHERE advisor_code=? GROUP BY client_id)
+GROUP BY band`;
+  const order = ['< 0%', '0–8%', '8–15%', '> 15%'];
+  const raw = db().prepare(sql).all(code) as { band: string; n: number }[];
+  const value = order.map(b => ({ band: b, n: raw.find(r => r.band === b)?.n ?? 0 }));
+  return { value, tag: 'computed', sql, sources: ['fifo_summary_holding_active.xirr', '.present_market_value'] };
+}
+
+export interface ClientRow {
+  client_id: number;
+  name: string;
+  dup: number;
+  v: number;
+  invested: number;
+  pnl: number;
+  wx: number | null;
+  last_activity: string | null;
+  sips: number;
+  open_actions: number;
+  flags: string;
+}
+
+export interface ClientFilters {
+  seg?: string;
+  q?: string;
+  risk?: string;
+  sort?: string;
+}
+
+const SORTS: Record<string, string> = {
+  value: 'v DESC',
+  pnl: 'pnl DESC',
+  xirr: 'wx DESC',
+  activity: 'last_activity ASC',
+};
+
+export function clientRows(code: string, f: ClientFilters): { rows: ClientRow[]; sql: string } {
+  const where: string[] = [];
+  const params: unknown[] = [code];
+  if (f.seg === 'attention') where.push(`f.client_id IN (SELECT client_id FROM mv_portfolio_attention)`);
+  if (f.seg === 'nosip') where.push(`f.client_id NOT IN (SELECT fk_acc_id FROM sip_master WHERE is_live_sip=1)`);
+  if (f.seg === 'taxwindow') where.push(`f.client_id IN (SELECT fk_acc_id FROM fifo_summary_holding GROUP BY fk_acc_id HAVING SUM(sh_unrealized_ltcg) BETWEEN 40000 AND 120000)`);
+  if (f.q) { where.push(`(f.client_name LIKE ? OR f.folio_no LIKE ? OR f.pan_no LIKE ?)`); params.push(`%${f.q}%`, `%${f.q}%`, `%${f.q}%`); }
+  if (f.risk) { where.push(`f.client_id IN (SELECT fk_cm_user_id FROM client_master_mf_related WHERE risk_profile=?)`); params.push(f.risk); }
+  const having = f.seg === 'dormant' ? `HAVING last_activity < date('${TODAY}','-14 months')` : '';
+  const sql = `SELECT f.client_id, f.client_name name,
+  (SELECT COUNT(DISTINCT x.client_id) FROM fifo_summary_holding_active x WHERE x.client_name=f.client_name AND x.advisor_code=f.advisor_code) dup,
+  SUM(f.present_market_value) v, SUM(f.cost_amount) invested,
+  SUM(f.present_market_value) - SUM(f.cost_amount) pnl,
+  ROUND(SUM(CASE WHEN f.xirr IS NOT NULL THEN f.present_market_value*f.xirr END)
+      / SUM(CASE WHEN f.xirr IS NOT NULL THEN f.present_market_value END),1) wx,
+  (SELECT MAX(t.tr_date) FROM transaction_master t WHERE t.fk_acc_id=f.client_id AND t.tr_date <= '${TODAY}') last_activity,
+  (SELECT COUNT(*) FROM sip_master s WHERE s.fk_acc_id=f.client_id AND s.is_live_sip=1) sips,
+  (SELECT COUNT(*) FROM actions a WHERE a.subject_id=CAST(f.client_id AS TEXT) AND a.subject_type='client' AND a.state IN ('proposed','assigned','in_progress')) open_actions,
+  COALESCE((SELECT GROUP_CONCAT(DISTINCT p.flag_type) FROM mv_portfolio_attention p WHERE p.client_id=f.client_id),'') flags
+FROM fifo_summary_holding_active f
+WHERE f.advisor_code=? ${where.length ? 'AND ' + where.join(' AND ') : ''}
+GROUP BY f.client_id ${having}
+ORDER BY ${SORTS[f.sort ?? 'value'] ?? SORTS.value}`;
+  return { rows: db().prepare(sql).all(...params) as ClientRow[], sql };
+}
+
+export function worthActingOn(): QueueItem[] {
+  return db().prepare(`${QUEUE_SQL}
+    WHERE a.assignee_sb_id=? AND a.state IN ('proposed','assigned','in_progress') AND a.impact_score > 0
+    ORDER BY a.impact_score DESC LIMIT 3`).all(DEMO_SB) as QueueItem[];
 }

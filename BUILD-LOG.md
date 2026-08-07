@@ -2,6 +2,27 @@
 
 Dated evidence of pace. Every entry: what shipped, how it was verified.
 
+## 07-Aug-2026 (later) — My clients live: page 2 of 23, new shell across the app
+- Founder-directed layout system shipped: navigation moved to a top bar (path-aware),
+  full-width content, consistent right insight rail; mocks and app locked light-only.
+  Today refitted onto the same shell.
+- `app/clients` — 6 provenance-backed cards (book · blended return · SIP participation ·
+  attention · dormant · idle money), 3 visuals (asset-mix stacked bar on the validated
+  chart palette · client-health bar with click-through segments · returns-spread
+  histogram), segment chips + risk/sort/search filters (all URL-driven), dense table
+  (value/invested/P&L/XIRR/activity/SIPs/actions/flags, hover row actions, sticky
+  totals), bulk select → mint-action-for-each (writes actions + events) + CSV export.
+- One-denominator rule enforced: every figure on any page derives from the same
+  advisor-attribution book (Today's churn/idle/SIP-risk cards migrated too — churn 4→3,
+  idle 39→38 were mapping-join artifacts, now consistent).
+- Honest catch: NULL-XIRR holdings were silently blending as 0% — real blended return
+  is +14.3%, not +12.1% (mock corrected; NULL-aware blend everywhere per the
+  NULL-stays-NULL rule).
+- Verified: `verify-clients.ts` 15 checks (independent SQL: card↔chip↔row-count
+  consistency, mix total == book, bands sum == clients, no future-dated activity) ALL
+  PASS; verify-today 12/12; seed 28/28; browser QA of chips/search/sort/bulk-mint/360
+  stub; pristine reseed after. Build clean, zero type errors.
+
 ## 07-Aug-2026 — Today page live: page 1 of 23, plus the foundation all pages reuse
 - Design first: mock published as an artifact with the real seeded numbers
   (https://claude.ai/code/artifact/a0a093e4-a1e2-4321-880b-c4a2a0953460), founder saw it
