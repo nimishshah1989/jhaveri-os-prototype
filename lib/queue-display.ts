@@ -64,11 +64,11 @@ export function evidence(raw: string): { lead: string; value: string }[] {
   return out;
 }
 
-export function sla(due: string): { text: string; tone: 'now' | 'soon' | 'later' } {
+export function sla(due: string): { text: string; tone: 'red' | 'amber' | 'grey' } {
   const days = Math.round((Date.parse(due) - Date.parse(TODAY)) / 86400000);
-  if (days < 0) return { text: `${-days}d over`, tone: 'now' };
-  if (days === 0) return { text: 'today', tone: 'now' };
-  if (days === 1) return { text: 'tomorrow', tone: 'soon' };
-  if (days <= 7) return { text: `${days}d`, tone: 'soon' };
-  return { text: dmy2(due), tone: 'later' };
+  if (days < 0) return { text: `${-days}d over`, tone: 'red' };
+  if (days === 0) return { text: 'today', tone: 'red' };
+  if (days === 1) return { text: 'tomorrow', tone: 'amber' };
+  if (days <= 7) return { text: `${days}d`, tone: 'amber' };
+  return { text: dmy2(due), tone: 'grey' };
 }

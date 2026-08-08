@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Explain } from '../../components/Explain';
+import { PageGuide } from '../../components/PageGuide';
 import { PageHead } from '../../components/PageHead';
 import { ClientLink } from '../../components/ClientLink';
 import { Collapse } from '../../components/Collapse';
@@ -47,12 +48,12 @@ export default function BusinessPage() {
         question="Is my book growing because of me, or because the market went up?"
         meta={`${me.name} · ${dmy(TODAY)}`}
       />
-      <div className="denom">
-        Your book grew <b>{signedInrCompact(g.value.closing - g.value.opening)}</b> over these{' '}
-        {rows.length} months. <b className={g.value.flowsPct >= 50 ? 'up' : ''}>{g.value.flowsPct}%</b> of
-        that came from money you brought in and <b>{g.value.marketPct}%</b> from the market moving.
-        That split is the only honest way to read a growing book. <Explain id="growth_split" figure={g} />
-      </div>
+      <PageGuide lines={`Book grew ${signedInrCompact(g.value.closing - g.value.opening)} over ${rows.length} months · ${g.value.flowsPct}% you brought in, ${g.value.marketPct}% the market`}>
+        <p>
+          That split is the only honest way to read a growing book: money you raised is work you
+          did, money the market added is not. A book can grow while the broker does nothing.
+        </p>
+      </PageGuide>
 
       <div className="cols">
         <div>
@@ -122,11 +123,11 @@ export default function BusinessPage() {
                 </div>
               ))}
             </div>
-            <div className="mark">
+            <Explain>
               Tall bars are <b>AUM</b>, on the {BUSINESS_RULES.aum_definition} definition the firm
               reports. Short bars underneath are <b>net flows</b> — money you actually moved that
               month. A rising line with flat flows means the market did the work.
-            </div>
+            </Explain>
           </div>
 
           <h2 className="sec">The last {rows.length} months, split honestly <Explain id="growth_split" figure={g} /></h2>
@@ -136,10 +137,10 @@ export default function BusinessPage() {
             <div className="wf"><span className="wl">Market movement<span className="wn">what the same money did on its own</span></span><span className={`wa num ${g.value.market >= 0 ? 'up' : 'down'}`}>{signedInrCompact(g.value.market)}</span></div>
             <div className="wf total"><span className="wl">Book today</span><span className="wa num">{inr(g.value.closing)}</span></div>
           </div>
-          <div className="d">
+          <Explain>
             Opening + flows + market movement equals closing, to the rupee — the check runs on every
             month, so this split can never be a rounding story.
-          </div>
+          </Explain>
 
           <h2 className="sec">
             Targets for {MONTH_LABEL(month)} <Explain id="target_attainment" figure={tgt} />
@@ -178,10 +179,10 @@ export default function BusinessPage() {
                 </div>
               ))}
             </div>
-            <div className="mark">
+            <Explain>
               Bars cap at 150%. The current month is still running, so its bar is partial by
               definition, not a miss.
-            </div>
+            </Explain>
           </div>
 
           <h2 className="sec">Clients won and lost — every one named</h2>
@@ -224,29 +225,29 @@ export default function BusinessPage() {
               </div>
             </div>
           </div>
-          <div className="d">
+          <Explain>
             Lost means they transferred to another distributor or redeemed everything. A client who
             has gone quiet is <b>not</b> counted here — they are still yours to save, and they are on{' '}
             <Link href="/today">Today</Link> as an action.
-          </div>
+          </Explain>
         </div>
 
         <aside className="side">
           <div className="panel">
             <h3>Which AUM number is this?</h3>
-            <div className="d">
+            <Explain>
               The headline monthly figure is <b>{BUSINESS_RULES.aum_definition}</b> — the definition
               the firm reports on. Month-end sits beside it in the data because only month-end makes
               opening + flows + market add up exactly.
               <br /><br />
               Peak {MONTH_LABEL(last.month)}: <b>{inrCompact(last.peak_day_aum)}</b> on{' '}
               {dmy2(last.peak_date)} · month-end <b>{inrCompact(last.month_end_aum)}</b>.
-            </div>
+            </Explain>
           </div>
 
           <div className="panel">
             <h3>SIP book <Explain id="sip_bounce_rate" figure={sip} /></h3>
-            <div className="d">
+            <Explain>
               <b>{sip.value.live}</b> live plans committing <b>{inrCompact(sip.value.monthly)}</b> a
               month. Bounce rate <b>{sip.value.bounceRate}%</b> over{' '}
               {BUSINESS_RULES.bounce_window_months} months.
@@ -258,7 +259,7 @@ export default function BusinessPage() {
                   on <Link href="/today">Today</Link>, not a number to admire here.
                 </>
               )}
-            </div>
+            </Explain>
           </div>
 
           <div className="panel learn">

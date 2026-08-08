@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { PageGuide } from '../../components/PageGuide';
 import { PageHead } from '../../components/PageHead';
 import { ClientLink } from '../../components/ClientLink';
 import { Collapse } from '../../components/Collapse';
@@ -34,11 +35,12 @@ export default async function ReviewPacksPage({ searchParams }: PageProps<'/revi
         question="Which clients are overdue a conversation, and what do I take to it?"
         meta={`${me.name} · ${dmy(TODAY)}`}
       />
-      <div className="denom">
-        You have reviewed <b>{cov.value.reviewed} of {cov.value.book}</b> clients. The pack is built
-        from the same numbers on Client 360 — nothing is retyped, so what the client reads and what
-        you see cannot disagree. <Explain figure={cov} />
-      </div>
+      <PageGuide lines={`${cov.value.reviewed} of ${cov.value.book} clients reviewed`}>
+        <p>
+          The pack is built from the same numbers as Client 360 — nothing is retyped, so what the
+          client reads and what you see cannot disagree.
+        </p>
+      </PageGuide>
 
       <div className="cols">
         <div>
@@ -124,7 +126,7 @@ export default async function ReviewPacksPage({ searchParams }: PageProps<'/revi
             </table>
           </div>
           {dueList.value.length > 25 && (
-            <div className="d">Showing the top 25 of {dueList.value.length}, ranked by money at stake × how overdue.</div>
+            <Explain>Showing the top 25 of {dueList.value.length}, ranked by money at stake × how overdue.</Explain>
           )}
 
           {preview && (
@@ -233,32 +235,32 @@ export default async function ReviewPacksPage({ searchParams }: PageProps<'/revi
               </tbody>
             </table>
           </div>
-          <div className="d">
+          <Explain>
             Logging &ldquo;meeting booked&rdquo; mints an action on <Link href="/today">Today</Link>,
             because a booked meeting is work, not a note.
-          </div>
+          </Explain>
         </div>
 
         <aside className="side">
           <div className="panel">
             <h3>When a review is due</h3>
-            <div className="d">
+            <Explain>
               <b>{REVIEW_RULES.review_months} months</b> since the last pack, <b>or</b> an attention
               flag appearing sooner — whichever comes first. The annual obligation is the floor; a
               portfolio that goes wrong in month three should not wait nine more.
-            </div>
+            </Explain>
           </div>
 
           <div className="panel">
             <h3>Whose document is this?</h3>
-            <div className="d">
+            <Explain>
               Co-branded: Jhaveri&apos;s compliance footing, your name as the client&apos;s adviser.
               The firm owns the record, you own the relationship.
               <br /><br />
               Because the pack carries <b>suggestions</b>, it is advice in writing — so the
               disclaimer rides on every copy and the pack is registered in{' '}
               <code>review_packs</code> with its version and what the client did next.
-            </div>
+            </Explain>
           </div>
 
           <div className="panel learn">

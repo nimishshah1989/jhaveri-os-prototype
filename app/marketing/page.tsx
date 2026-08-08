@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { PageGuide } from '../../components/PageGuide';
 import { PageHead } from '../../components/PageHead';
 import { ClientLink } from '../../components/ClientLink';
 import { Collapse } from '../../components/Collapse';
@@ -48,12 +49,13 @@ export default async function MarketingPage({ searchParams }: PageProps<'/market
         question="Who may I contact, and what did reaching out actually earn?"
         meta={`${me.name} · ${dmy(TODAY)}`}
       />
-      <div className="denom">
-        Marketing has put <b>{inr(attributed)}</b> into your book that can be proved — money a
-        client invested after replying, where you closed the action and named the transaction.
-        Anything that arrived without that link stays out of this number on purpose.
-        <Explain figure={money} />
-      </div>
+      <PageGuide lines={`${inr(attributed)} into your book that can be proved`}>
+        <p>
+          That is money a client invested after replying, where you closed the action and named
+          the transaction. Anything that arrived without that link stays out of the number on
+          purpose — an unprovable rupee is worse than no rupee.
+        </p>
+      </PageGuide>
 
       <div className="cols">
         <div>
@@ -160,11 +162,11 @@ export default async function MarketingPage({ searchParams }: PageProps<'/market
             <div className="sr minus"><span>Asked, then withdrew it</span><span className="num">−{set.value.withdrawn}</span></div>
             <div className="sr total"><span>Will receive this campaign</span><span className="num">{set.value.reachable}</span></div>
           </div>
-          <div className="d">
+          <Explain>
             This subtraction <i>is</i> the send list — the recipients are produced by the consent
             query itself, so there is no separate list that could drift out of step with it. Consent
             is per channel: agreeing on WhatsApp is not agreeing on SMS.
-          </div>
+          </Explain>
 
           <h2 className="sec">
             Your clients you may not contact on {channel} · {cant.value.length}
@@ -200,11 +202,11 @@ export default async function MarketingPage({ searchParams }: PageProps<'/market
               </tbody>
             </table>
           </div>
-          <div className="d">
+          <Explain>
             Named so you can see the gap, greyed so you cannot act on it. Asking becomes a task on{' '}
             <Link href="/today">Today</Link>; a client who withdrew is not re-asked, which is the
             whole point of recording a withdrawal.
-          </div>
+          </Explain>
 
           <h2 className="sec">What came back <Explain figure={resp} /></h2>
           <div className="tblwrap">
@@ -279,22 +281,22 @@ export default async function MarketingPage({ searchParams }: PageProps<'/market
               </tfoot>
             </table>
           </div>
-          <div className="d">
+          <Explain>
             Every column narrows on the one before it. <b>Attributed ₹</b> counts only transactions
             a human named when closing the action — money that came in without being linked is not
             claimed here, and that is the difference between a marketing report and a marketing
             number you can defend.
-          </div>
+          </Explain>
         </div>
 
         <aside className="side">
           <div className="panel">
             <h3>Consent register <Explain figure={consents} /></h3>
-            <div className="d">
+            <Explain>
               <b>{consents.value.length}</b> consent records across your book —{' '}
               <b>{consents.value.length - withdrawnCount}</b> in force, <b>{withdrawnCount}</b>{' '}
               withdrawn. Each carries how it was captured and when.
-            </div>
+            </Explain>
             {consents.value.slice(0, 6).map(c => (
               <div key={`${c.client_id}-${c.channel}`} className="lrow">
                 <span>{c.name.split(' ')[0]} · {c.channel}</span>
@@ -307,14 +309,14 @@ export default async function MarketingPage({ searchParams }: PageProps<'/market
 
           <div className="panel">
             <h3>The two gates</h3>
-            <div className="d">
+            <Explain>
               <b>Compliance:</b> a template without an approval artefact cannot be sent. The server
               refuses the write; the disabled button is only a courtesy.
               <br /><br />
               <b>DPDP:</b> the recipient list is the consent query. Per channel, per purpose, and
               respecting the date a consent was withdrawn — a send that was lawful in June is not
               re-judged by a July withdrawal, and a July send after it would be refused.
-            </div>
+            </Explain>
           </div>
 
           <div className="panel learn">

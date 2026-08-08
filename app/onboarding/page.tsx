@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { PageGuide } from '../../components/PageGuide';
 import { PageHead } from '../../components/PageHead';
 import { ClientLink } from '../../components/ClientLink';
 import { Collapse } from '../../components/Collapse';
@@ -45,13 +46,13 @@ export default function OnboardingPage() {
         question="Who is stuck getting in, and what is actually holding them up?"
         meta={`${dmy(TODAY)} · every application in the firm`}
       />
-      <div className="denom">
-        The clock starts when a name is captured and stops when the exchange allots a client code.
-        Median today is <b>{speed.value.median ?? '—'} days</b> across {speed.value.n} finished applications;
-        the fastest took {speed.value.best ?? '—'}. {ONBOARDING_RULES.benchmark.who} advertises a{' '}
-        {ONBOARDING_RULES.benchmark.claim} — that is the bar, and this is the distance to it.
-        <Explain figure={speed} />
-      </div>
+      <PageGuide lines={`Median ${speed.value.median ?? '—'} days to a client code, across ${speed.value.n} finished applications · fastest ${speed.value.best ?? '—'}`}>
+        <p>
+          The clock starts when a name is captured and stops when the exchange allots a client
+          code. {ONBOARDING_RULES.benchmark.who} advertises a {ONBOARDING_RULES.benchmark.claim} —
+          that is the bar, and the median above is the distance to it.
+        </p>
+      </PageGuide>
 
       <div className="cols">
         <div>
@@ -115,10 +116,10 @@ export default function OnboardingPage() {
                   </div>
                 ))}
               </div>
-              <div className="mark">
+              <Explain>
                 Bars are applications reaching each step; <b>↓ Nd</b> is the median wait to the next one.
                 Paper applications clear the e-log step instantly — they have no BSE e-log.
-              </div>
+              </Explain>
             </div>
 
             <div className="viz">
@@ -132,21 +133,21 @@ export default function OnboardingPage() {
                   </div>
                 ))}
               </div>
-              <div className="mark">
+              <Explain>
                 Waiting past <b>{ONBOARDING_RULES.stall_days} days</b> at the e-log or at KYC counts as
                 stalled. A rejection blocks from the day it lands, not after seven — which is why the
                 first band is not empty. One threshold, and it lives in <code>rules_registry</code>,
                 not in this page.
-              </div>
+              </Explain>
             </div>
           </div>
 
           <h2 className="sec">The pipeline</h2>
           <PipelineBoard columns={columns} />
-          <p className="denom">
+          <Explain>
             A card&apos;s column is read from its own record, never set by hand. The number on each card is
             days in <i>that</i> stage, measured from the event that put it there.
-          </p>
+          </Explain>
 
           <h2 className="sec">Stalled — worst first <Explain figure={stall} /></h2>
           <div className="tblwrap">
@@ -242,10 +243,10 @@ export default function OnboardingPage() {
           <h2 className="sec">Start a new client</h2>
           <div className="startgrid">
             <form action={startApplication} className="startform">
-              <p className="d">
+              <Explain>
                 Fills a lead, a KYC record and an application in one go — it appears on the board above
                 immediately, in the KYC column, at zero days.
-              </p>
+              </Explain>
               <div className="row2f">
                 <input type="text" name="name" placeholder="Full name, as on the PAN card" required />
                 <input type="text" name="mobile" placeholder="Mobile" required />
@@ -282,11 +283,11 @@ export default function OnboardingPage() {
                     <span>→</span>
                     <span><b className="num">{myLink.live}</b> live</span>
                   </div>
-                  <div className="mark">
+                  <Explain>
                     Applications and live counts are counted off the ledger. <b>Visits</b> is the one number
                     on this page this database does not hold — it comes from web analytics, and it is shown
                     as a stored figure rather than dressed up as computed.
-                  </div>
+                  </Explain>
                 </>
               ) : <div className="empty">No link issued yet.</div>}
             </div>
@@ -307,7 +308,7 @@ export default function OnboardingPage() {
 
           <div className="panel">
             <h3>The thresholds on this page</h3>
-            <div className="d">
+            <Explain>
               Stalled after <b>{ONBOARDING_RULES.stall_days} days</b> waiting, at the e-log or at KYC ·
               a rejection blocks immediately · target lead to live{' '}
               <b>{ONBOARDING_RULES.target_days_to_live} days</b>.
@@ -315,16 +316,16 @@ export default function OnboardingPage() {
               These live in one place (<code>ONBOARDING_RULES</code>) and move to{' '}
               <code>rules_registry</code> in the real build, where changing one is a versioned,
               audited edit — not a deploy. <Link href="/admin">See all rules</Link>.
-            </div>
+            </Explain>
           </div>
 
           <div className="panel">
             <h3>Plain-word coverage</h3>
-            <div className="d">
+            <Explain>
               {unphrasedCodes().length === 0
                 ? 'Every rejection code in the book has a client-facing sentence written for it.'
                 : `${unphrasedCodes().length} rejection code(s) still show only the official wording: ${unphrasedCodes().join(', ')}. Written by a human, never generated — a wrong sentence here sends a client for the wrong document.`}
-            </div>
+            </Explain>
           </div>
 
           <div className="panel learn">

@@ -26,6 +26,10 @@
 
   /* Type scale. Six steps, and nothing between them — every size on the product
      is one of these, which is most of what makes a screen feel deliberate. */
+  /* Line length. 45–75 characters is the readable range (Bringhurst; Dyson &
+     Haselgrove). Set in ch so it tracks the font rather than a pixel guess. */
+  --measure: 66ch;
+
   --t-hero: 1.9rem;
   --t-xl: 1.35rem;
   --t-lg: 1.05rem;
@@ -119,7 +123,7 @@ a:hover { text-decoration: underline; }
 .pagehead { display: flex; align-items: baseline; gap: 14px; margin: 18px 0 4px; }
 .pagehead h1 { font-size: 1.25rem; margin: 0; }
 .pagehead .fresh { color: var(--muted); font-size: 12px; margin-left: auto; }
-.denom { color: var(--muted); font-size: 12px; margin: 0 0 12px; }
+.denom { color: var(--muted); font-size: 12px; margin: 0 0 12px; max-width: var(--measure); }
 
 /* main + right insight rail */
 .cols { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 28px; align-items: start; }
@@ -628,7 +632,7 @@ a.col.on .n { color: var(--accent); }
 .panel .news { margin: 0; padding-left: 16px; }
 .panel .news .src { color: var(--muted); font-size: 11px; display: block; }
 .score .big { font-size: 1.35rem; font-weight: 650; }
-.d { color: var(--muted); font-size: 12px; }
+.d { color: var(--muted); font-size: 12px; max-width: var(--measure); }
 .learn .row, .lrow { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 7px; color: var(--muted); }
 .learn .bar, .bar2 { flex: 1; height: 4px; background: var(--panel); border-radius: 2px; overflow: hidden; }
 .learn .bar i, .bar2 i { display: block; height: 100%; background: var(--grey); opacity: .55; }
@@ -1089,3 +1093,41 @@ a.qcard .evidence b { color: var(--ink); font-weight: 600; }
   font-weight: 650; color: var(--ink); border: 1px solid var(--line);
   border-bottom-width: 2px; border-radius: 3px; padding: 0 4px; margin: 0 1px;
 }
+
+/* Any running prose that is not .d or .denom. One class, so nothing new escapes
+   the measure by accident. */
+.prosecap { max-width: var(--measure); }
+
+/* Due pills draw from the same five meanings as every other tag: a red pill and a
+   red chip say the same thing. */
+.due.red { background: var(--red-soft); color: var(--neg); }
+.due.amber { background: var(--amber-soft); color: var(--amber); }
+.due.grey { color: var(--muted); }
+
+/* The page guide. One line stays on screen carrying the live figure; the
+   explanation behind it opens on click. Same <details> idiom as everything else. */
+.guiderow { display: flex; align-items: baseline; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: 12px; }
+.guiderow .denom { margin: 0; }
+.guide > summary {
+  list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
+  font-size: var(--t-xs); font-weight: 650; color: var(--accent);
+  border: 1px solid var(--line); border-radius: 20px; padding: 2px 10px; white-space: nowrap;
+}
+.guide > summary::-webkit-details-marker { display: none; }
+.guide > summary:hover { background: var(--accent-soft); border-color: var(--accent); }
+.guide[open] > summary { background: var(--accent-soft); border-color: var(--accent); }
+.guide .ic { width: .9em; height: .9em; }
+.guidebody {
+  margin-top: var(--sp-3); background: var(--panel); border: 1px solid var(--line);
+  border-left: 3px solid var(--accent); border-radius: var(--radius);
+  padding: var(--sp-3) var(--sp-4); font-size: var(--t-sm); line-height: 1.6; color: var(--muted);
+}
+.guidebody p { margin: 0 0 var(--sp-2); }
+.guidebody p:last-child { margin-bottom: 0; }
+.guidebody b { color: var(--ink); }
+
+/* The page question is display type, but 130+ characters is long even for a
+   heading. Held wider than running prose, not unbounded. */
+.askq { max-width: 46ch; }
+/* The last two carriers: the ask box and any bare paragraph in a content column. */
+.askfor, .cols p { max-width: var(--measure); }

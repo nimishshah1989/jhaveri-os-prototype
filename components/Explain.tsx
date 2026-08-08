@@ -15,10 +15,26 @@ interface Props {
   /** Kept so callers can pass the figure; only its honesty tag is used here. */
   figure?: { tag?: string };
   as?: 'info' | 'bulb';
+  /**
+   * Section explanation that has no glossary entry — the paragraphs that used to
+   * stand permanently beside a table. Same popover, same ⓘ, one click away instead
+   * of always on screen. Nothing is lost; it stops being scenery.
+   */
+  children?: React.ReactNode;
 }
 
-export function Explain({ id, figure, as = 'info' }: Props) {
-  const t = id ? GLOSSARY[id] : undefined;
+export function Explain({ id, figure, as = 'info', children }: Props) {
+  const entry = id ? GLOSSARY[id] : undefined;
+  if (children && !entry) {
+    return (
+      <details className="prov">
+        <summary title="What this section means"><Icon name={as} /></summary>
+        <div className="pop prosecap">{children}</div>
+      </details>
+    );
+  }
+
+  const t = entry;
   if (!t) return null;                       // no written explanation, no empty popover
   const tag = t.tag ?? figure?.tag;
 
@@ -54,6 +70,7 @@ export function Explain({ id, figure, as = 'info' }: Props) {
           <p className="pcav"><Icon name="alert" /> {t.caveat}</p>
         )}
 
+        {children && <div className="pnote">{children}</div>}
         {tag && <div className="ptrust">{TAG_TRUST[tag as keyof typeof TAG_TRUST]}</div>}
       </div>
     </details>

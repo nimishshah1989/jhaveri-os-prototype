@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { PageGuide } from '../../components/PageGuide';
 import { PageHead } from '../../components/PageHead';
 import { Explain } from '../../components/Explain';
 import { Collapse } from '../../components/Collapse';
@@ -31,10 +32,13 @@ export default async function ReportsPage({ searchParams }: PageProps<'/reports'
         question="What do I need to send, and where do I get it?"
         meta={`${me.name} · ${dmy(TODAY)}`}
       />
-      <div className="denom">
-        {REPORTS.length} reports, every one an export of something already on screen — the link beside
-        each says where. Downloads stay available for {REPORT_FORMAT.expiry_days} days, then expire.
-      </div>
+      <PageGuide lines={`${REPORTS.length} reports, every one an export of something already on screen`}>
+        <p>
+          The link beside each report says where on the product that number lives, so a figure in
+          a download can always be traced back to the screen it came from. Downloads stay
+          available for {REPORT_FORMAT.expiry_days} days, then expire.
+        </p>
+      </PageGuide>
 
       <div className="cols">
         <div>
@@ -187,11 +191,11 @@ export default async function ReportsPage({ searchParams }: PageProps<'/reports'
               </tbody>
             </table>
           </div>
-          <div className="d">
+          <Explain>
             Heavy reports run asynchronously — the same queue production already uses for its PDFs.
             A download expires after {REPORT_FORMAT.expiry_days} days rather than sitting on a server
             forever with a client&apos;s holdings in it.
-          </div>
+          </Explain>
 
           <h2 className="sec"><Icon name="shield" /> Not carried forward</h2>
           {NOT_CARRIED.map(x => (
@@ -205,10 +209,10 @@ export default async function ReportsPage({ searchParams }: PageProps<'/reports'
         <aside className="side">
           <div className="panel">
             <h3>Every report looks the same <Explain id="report_format" /></h3>
-            <div className="d">
+            <Explain>
               One component formats all {REPORTS.length}, so consistency is not something anyone has
               to remember.
-            </div>
+            </Explain>
             {Object.entries(REPORT_FORMAT).filter(([k]) => k !== 'disclaimer' && k !== 'expiry_days').map(([k, v]) => (
               <div key={k} className="fmtrow">
                 <b>{k.replace(/_/g, ' ')}</b>
@@ -219,7 +223,7 @@ export default async function ReportsPage({ searchParams }: PageProps<'/reports'
 
           <div className="panel">
             <h3>Two formats, two jobs</h3>
-            <div className="d">
+            <Explain>
               <b>PDF</b> is co-branded and formatted to send to a client.
               <br />
               <b>Excel</b> is the raw rows for you to slice.
@@ -227,24 +231,24 @@ export default async function ReportsPage({ searchParams }: PageProps<'/reports'
               The current portal offers &ldquo;PDF&rdquo;, &ldquo;V2 PDF&rdquo; and Excel
               inconsistently across screens, and nobody can say what V2 changes. Two formats with a
               clear job each replaces that.
-            </div>
+            </Explain>
           </div>
 
           <div className="panel">
             <h3>Downloads expire</h3>
-            <div className="d">
+            <Explain>
               After <b>{REPORT_FORMAT.expiry_days} days</b> a generated file stops working. It holds a
               client&apos;s holdings and PAN — it should not outlive the reason it was made.
-            </div>
+            </Explain>
           </div>
 
           <div className="panel ghostpanel">
             <h3><Icon name="bulb" /> The layer behind free text</h3>
-            <div className="d">
+            <Explain>
               Not built yet, and shown so the shape is visible. A question has to land on named
               things and known measures — a model picks from these; it never writes SQL and never
               computes a number.
-            </div>
+            </Explain>
             <div className="semrow"><b>Things</b><span>{SEMANTIC_SKETCH.entities.map(e => e.name).join(' · ')}</span></div>
             <div className="semrow"><b>Measures</b><span>{SEMANTIC_SKETCH.metrics.map(m => m.name).join(' · ')}</span></div>
             <div className="semrules">

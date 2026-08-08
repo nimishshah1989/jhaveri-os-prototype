@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { PageGuide } from '../../components/PageGuide';
 import { PageHead } from '../../components/PageHead';
 import { ClientLink } from '../../components/ClientLink';
 import { Collapse } from '../../components/Collapse';
@@ -62,11 +63,12 @@ export default async function EarningsPage({ searchParams }: PageProps<'/earning
         question="What am I being paid, and can I prove every rupee of it?"
         meta={`${me.name} · ${dmy(TODAY)}`}
       />
-      <div className="denom">
-        Every rupee below is traced to the folio and month that produced it — {l.lines} separate
-        commission lines this month, not one number split up afterwards. Click any client to see
-        the lines the RTA actually sent. <Explain figure={lad} />
-      </div>
+      <PageGuide lines={`${l.lines} commission lines this month · click any client for the rows the RTA sent`}>
+        <p>
+          Every rupee here is traced to the folio and the month that produced it — separate
+          commission lines, not one number split up afterwards.
+        </p>
+      </PageGuide>
 
       <div className="cols">
         <div>
@@ -137,10 +139,10 @@ export default async function EarningsPage({ searchParams }: PageProps<'/earning
                   every month.
                 </div>
               ) : <div className="tiernext">You are on the top rung.</div>}
-              <div className="mark">
+              <Explain>
                 Rates come from <code>broker_category_payout_pct_master</code> — the same table
                 management edits, so what you see here is what the payout run uses.
-              </div>
+              </Explain>
             </div>
           </div>
 
@@ -155,7 +157,7 @@ export default async function EarningsPage({ searchParams }: PageProps<'/earning
                 </Link>
               ))}
             </div>
-            <div className="mark">Net of GST and TDS. Click a month to re-read the whole page for it.</div>
+            <Explain>Net of GST and TDS. Click a month to re-read the whole page for it.</Explain>
           </div>
 
           <h2 className="sec">
@@ -281,10 +283,10 @@ export default async function EarningsPage({ searchParams }: PageProps<'/earning
                   defaultValue={`${varr.value[0].amc} has paid ${varr.value[0].paid_bps} bps on ${varr.value[0].scheme_category.toLowerCase()} since ${MONTH_LABEL(varr.value[0].since)}, against ${varr.value[0].agreed_bps} bps in the empanelment letter.`} />
                 <button type="submit" className="primary">Raise a dispute</button>
               </form>
-              <div className="d">
+              <Explain>
                 The dispute carries the exact commission rows, not a description of them, and lands
                 in the ops queue with a five-day deadline you can watch on Today.
-              </div>
+              </Explain>
             </>
           )}
 
@@ -354,7 +356,7 @@ export default async function EarningsPage({ searchParams }: PageProps<'/earning
           <div className="panel">
             <h3>Financial year <Explain figure={fy} /></h3>
             <div className="big num">{inr(fy.value?.cumulative_payout ?? 0)}</div>
-            <div className="d">
+            <Explain>
               FY {fy.value?.financial_year ?? '26-27'} commission, before GST and TDS.
               <span className="bar2" style={{ display: 'block', margin: '8px 0' }}>
                 <i style={{ width: `${Math.min(100, ((fy.value?.cumulative_payout ?? 0) / EARNINGS_RULES.fy_threshold) * 100)}%` }} />
@@ -362,12 +364,12 @@ export default async function EarningsPage({ searchParams }: PageProps<'/earning
               {fy.value?.threshold_crossed
                 ? `Crossed the ${inrCompact(EARNINGS_RULES.fy_threshold)} mark in ${fy.value.crossing_month ? MONTH_LABEL(fy.value.crossing_month) : 'this year'}.`
                 : `${inrCompact(EARNINGS_RULES.fy_threshold - (fy.value?.cumulative_payout ?? 0))} below the ${inrCompact(EARNINGS_RULES.fy_threshold)} mark.`}
-            </div>
+            </Explain>
           </div>
 
           <div className="panel">
             <h3>Why two buckets are empty</h3>
-            <div className="d">
+            <Explain>
               {empty.length === 0 ? 'Every commission type has rows.' : (
                 <>
                   <b>{empty.join(' and ')}</b> carry no rows, and that is correct: SEBI ended
@@ -376,7 +378,7 @@ export default async function EarningsPage({ searchParams }: PageProps<'/earning
                   from still has them — they are not hidden, just empty.
                 </>
               )}
-            </div>
+            </Explain>
           </div>
 
           <div className="panel">
