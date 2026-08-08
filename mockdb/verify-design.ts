@@ -126,25 +126,32 @@ check('every tag carries a word, not just a colour',
 // not looked up: NN/g finds 20–28% of words get read, so this is what survives.
 // Approximated from JSX text nodes, with anything inside the disclosure components
 // excluded — moving prose into <Explain> or the page guide is the point, not a dodge.
-// Today is the benchmark, not a number I picked: it is the page that prompted
-// "this one is right". Every other page has to reach it, and when Today improves the
-// budget tightens with it.
-const PROSE_BUDGET = 200;
+// Back to the researched target now that the counter reads only text a broker sees.
+// NN/g: 20–28% of words on a page get read, so 50 standing words is what survives.
+const PROSE_BUDGET = 50;
 
 function standingProse(src: string): number {
   let s = src;
-  s = s.replace(/^import[\s\S]*?from\s+'[^']+';$/gm, '');   // imports carry no copy
-  s = s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');  // comments are for me
-  s = s.replace(/<Explain[\s\S]*?\/>/g, '');                 // detail behind the ⓘ
-  s = s.replace(/<PageGuide[\s\S]*?<\/PageGuide>/g, '');     // detail behind the guide
-  s = s.replace(/<PageGuide[\s\S]*?\/>/g, '');
-  s = s.replace(/\{[^{}]*\}/g, ' ');                          // expressions, not prose
-  s = s.replace(/<[^>]+>/g, '\n');                            // tags out, text left
-  return s.split('\n')
-    .map(l => l.replace(/&[a-z]+;/g, '').trim())
-    .filter(l => /[a-z]{3}/i.test(l))
+  s = s.replace(/^import[\s\S]*?from\s+'[^']+';$/gm, '');
+  s = s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  s = s.replace(/<Explain[\s\S]*?<\/Explain>/g, '');       // detail behind the ⓘ
+  s = s.replace(/<Explain[\s\S]*?\/>/g, '');
+  s = s.replace(/<PageGuide[\s\S]*?<\/PageGuide>/g, '');   // detail behind the guide
+
+  // Braces nest, so one pass leaves the outer expression behind and its CODE gets
+  // counted as if it were copy. Strip innermost-first until none are left; what
+  // survives between tags is the text a broker actually reads.
+  let before: string;
+  do { before = s; s = s.replace(/\{[^{}]*\}/g, ' '); } while (s !== before);
+
+  const text: string[] = [];
+  for (const m of s.matchAll(/>([^<>]+)</g)) text.push(m[1]);
+  return text
     .join(' ')
-    .split(/\s+/).filter(w => /[a-zA-Z]{2}/.test(w)).length;
+    .replace(/&[a-z]+;/g, ' ')
+    .split(/\s+/)
+    .filter(w => /^[A-Za-z][A-Za-z'’.,;:!?—-]*$/.test(w))
+    .length;
 }
 
 const PAGES = ['today', 'clients', 'onboarding', 'earnings', 'marketing', 'business', 'review-packs', 'reports'];
@@ -152,7 +159,7 @@ const prose: Record<string, number> = {};
 for (const p of PAGES) {
   const file = join('app', p, 'page.tsx');
   prose[p] = standingProse(read(file));
-  check(`${p} carries no more standing prose than Today (${PROSE_BUDGET})`,
+  check(`${p} keeps standing prose under ${PROSE_BUDGET} words`,
     prose[p] <= PROSE_BUDGET, `${prose[p]} words`);
 }
 

@@ -264,13 +264,10 @@ export default async function ReviewPacksPage({ searchParams }: PageProps<'/revi
           </div>
 
           <div className="panel learn">
-            <h3>What this page cannot see</h3>
-            <div className="d ghosttxt">
-              Whether the client read it. &ldquo;Opened&rdquo; here is what you logged, not a
+            <h3>What this page cannot see <Explain>Whether the client read it. &ldquo;Opened&rdquo; here is what you logged, not a
               tracking pixel — this platform does not put one in a client document. Until a portal
               exists where the client opens the pack themselves, the response column is a human
-              record, and it says so.
-            </div>
+              record, and it says so.</Explain></h3>
           </div>
         </aside>
       </div>

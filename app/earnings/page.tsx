@@ -382,12 +382,9 @@ export default async function EarningsPage({ searchParams }: PageProps<'/earning
           </div>
 
           <div className="panel">
-            <h3>What this page cannot see</h3>
-            <div className="d ghosttxt">
-              The AMC&apos;s own working. We hold what they paid and what the empanelment letter
+            <h3>What this page cannot see <Explain>The AMC&apos;s own working. We hold what they paid and what the empanelment letter
               agreed, so a gap is provable — but not <i>why</i> they paid less. That answer comes
-              from the AMC, which is what a dispute is for.
-            </div>
+              from the AMC, which is what a dispute is for.</Explain></h3>
           </div>
         </aside>
       </div>

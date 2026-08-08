@@ -18,12 +18,15 @@ import { actionDetail } from '../../lib/action-detail';
 import { ActionDrawer } from '../../components/ActionDrawer';
 import { QueueKeys } from '../../components/QueueKeys';
 import { VoiceTask } from '../../components/VoiceTask';
+import { ProgressStrip } from '../../components/ProgressStrip';
+import { QueueFilter } from '../../components/QueueFilter';
 
 export const dynamic = 'force-dynamic';
 
 export default async function TodayPage({ searchParams }: PageProps<'/today'>) {
   const sp = await searchParams;
   const openId = typeof sp.action === 'string' ? Number(sp.action) : undefined;
+  const kind = typeof sp.type === 'string' ? sp.type : undefined;
   const detail = openId ? actionDetail(openId) : null;
   const me = broker();
   const book = myBook(me.code);
@@ -43,6 +46,13 @@ export default async function TodayPage({ searchParams }: PageProps<'/today'>) {
   // "Next" has to mean the next row on his screen, so it is read off the sorted
   // streams rather than re-queried — otherwise the drawer walks a different order
   // than the list behind it.
+  const all = [...q.red, ...q.amber, ...q.grey];
+  if (kind) {
+    q.red = q.red.filter(i => i.action_type === kind);
+    q.amber = q.amber.filter(i => i.action_type === kind);
+    q.grey = q.grey.filter(i => i.action_type === kind);
+  }
+  // Walking order follows what is on screen, so j/k and "next" obey the filter too.
   const order = [...q.red, ...q.amber, ...q.grey];
   const at = openId ? order.findIndex(i => i.action_id === openId) : -1;
   const nextId = at >= 0 ? order[at + 1]?.action_id : undefined;
@@ -50,7 +60,6 @@ export default async function TodayPage({ searchParams }: PageProps<'/today'>) {
 
   const score = scoreboard();
   const learn = learning();
-  const closedPct = score.value.closed > 0 ? Math.round((score.value.closedInSla / score.value.closed) * 100) : null;
 
   return (
     <>
@@ -61,8 +70,17 @@ export default async function TodayPage({ searchParams }: PageProps<'/today'>) {
         meta={`${me.name} · ${dmy(TODAY)}`}
       />
 
+      <ProgressStrip name={me.name} p={{
+        closed: score.value.closed,
+        closedInSla: score.value.closedInSla,
+        dueToday: score.value.dueToday,
+        movedThisMonth: signedInrCompact(flows.value.v),
+        movedPositive: flows.value.v >= 0,
+      }} />
+
       <div className="cols">
         <div>
+          <QueueFilter items={all} active={kind} />
           <div className="cards">
             <StatCard hero id="my_book" icon="money" label="My book" value={inrCompact(book.value.v)} sub={`${bookList(me.code).total} clients · as of ${dmy(book.value.as_of)}`} figure={book} list={bookList(me.code)} />
             <StatCard id="net_flows_mtd" icon="up" label="Net flows · Aug" value={signedInrCompact(flows.value.v)} sub={`${flows.value.n} transactions this month`} tone={flows.value.v >= 0 ? 'pos' : 'warn'} figure={flows} list={flowsList()} />
@@ -106,17 +124,6 @@ export default async function TodayPage({ searchParams }: PageProps<'/today'>) {
 
         <aside className="side">
           <NewsPanel />
-          <div className="panel score">
-            <h3>My scoreboard <Explain id="scoreboard" figure={score} /></h3>
-            <div className="big num">
-              {score.value.closed > 0 ? `${score.value.closedInSla} of ${score.value.closed}` : '—'}
-            </div>
-            <div className="d">
-              {closedPct !== null ? `actions closed within deadline (${closedPct}%)` : 'no actions closed yet'} · {score.value.dueToday} due today
-              <br />
-              Management sees this same number.
-            </div>
-          </div>
           <div className="panel learn">
             <h3>What the system is learning <Explain figure={learn} as="bulb" /></h3>
             {learn.value.map(p => (
