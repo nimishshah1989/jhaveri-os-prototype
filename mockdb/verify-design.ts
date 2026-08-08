@@ -175,6 +175,41 @@ for (const p of PAGES) {
   check(`${p} shows at most ${GROUP_CAP} top-level groups`, groups <= GROUP_CAP, `${groups} groups`);
 }
 
+// ── 6. Density ──────────────────────────────────────────────────────────────
+// The prose budget does not catch a long list: Pipeline passes it at 46 words and
+// still renders nineteen hundred, because 31 application cards are real data, not
+// copy. Data cannot be moved behind a click the way prose can — so the rule is that
+// any long list must be RANKED and COLLAPSED, and its ranking variable drawn as
+// well as written. Length and position are preattentive (Treisman): the eye
+// resolves them across the whole column at once, however many items there are.
+const LIST_CAP = 6;
+
+// ClientsTable is deliberately absent. It carries bulk-select checkboxes and a CSV
+// export of the ticked rows, and you cannot tick a row you have collapsed — hiding
+// rows there would cost functionality to buy tidiness. Comparison across the whole
+// book IS that page's job; it gets a filter and a column picker instead.
+const boards = ['components/PipelineBoard.tsx', 'components/QueueTable.tsx'];
+for (const f of boards) {
+  const src = read(f);
+  const collapses = /<Collapse/.test(src);
+  const shown = /shown=\{?(\d+)/.exec(src);
+  check(`${f.split('/')[1]} collapses its list`, collapses);
+  if (shown) {
+    check(`${f.split('/')[1]} shows at most ${LIST_CAP} before collapsing`,
+      Number(shown[1]) <= LIST_CAP, `shows ${shown[1]}`);
+  }
+}
+
+// A list you must read to rank is a list you read entirely. The worst item has to
+// be findable without reading — sorted, and drawn as a length.
+check('the pipeline board ranks worst-first rather than by arrival',
+  /\.sort\(\(a, b\) => b\.days - a\.days\)/.test(read('components/PipelineBoard.tsx')));
+check('the pipeline draws the wait as a length, not only as digits',
+  /className=\{`wait /.test(read('components/PipelineBoard.tsx')));
+// Preattentive encoding still may not be the ONLY carrier (WCAG 1.4.1).
+check('the wait keeps its number beside the bar',
+  /className="age num"/.test(read('components/PipelineBoard.tsx')));
+
 // ── Summary ─────────────────────────────────────────────────────────────────
 const worst = Object.entries(prose).sort((a, b) => b[1] - a[1])[0];
 console.log(`\nMeasure ${measure ? measure[1] + 'ch' : 'UNSET'} · vocabulary ${distinct.length} tones · worst page ${worst[0]} at ${worst[1]} standing words`);

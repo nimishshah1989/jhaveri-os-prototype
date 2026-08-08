@@ -143,7 +143,7 @@ export default function OnboardingPage() {
           </div>
 
           <h2 className="sec">The pipeline</h2>
-          <PipelineBoard columns={columns} />
+          <PipelineBoard columns={columns} stallDays={ONBOARDING_RULES.stall_days} />
           <Explain>
             A card&apos;s column is read from its own record, never set by hand. The number on each card is
             days in <i>that</i> stage, measured from the event that put it there.

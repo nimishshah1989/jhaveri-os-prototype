@@ -1172,3 +1172,27 @@ a.qcard .evidence b { color: var(--ink); font-weight: 600; }
 /* Selected state is a filled pill, never colour alone — it also keeps its label. */
 .fpill.on { background: var(--ink); border-color: var(--ink); color: var(--ground); }
 .fpill.on .n { opacity: .8; }
+
+/* ── Wait, as length ─────────────────────────────────────────────────────────
+   The number of days was text on every card, so finding the worst one meant
+   reading all of them. Length is preattentive — the eye resolves it across the
+   whole column at once, however many cards there are — so the wait is drawn as
+   well as written. The digits stay: colour and length are never the only carrier. */
+.bcard { position: relative; }
+.wait {
+  display: block; height: 3px; border-radius: 2px; background: var(--line);
+  margin-top: 7px; overflow: hidden;
+}
+.wait i { display: block; height: 100%; border-radius: 2px; background: var(--muted); }
+.wait.red i { background: var(--neg); }
+.wait.amber i { background: var(--amber); }
+.wait.grey i { background: var(--line); }
+
+/* The column headline: the one number that decides whether to look inside. */
+.bcol h4 .oldest {
+  font-size: var(--t-xs); font-weight: 650; padding: 1px 7px; border-radius: 20px;
+  background: var(--grey-soft); color: var(--muted); white-space: nowrap;
+}
+.bcol h4 .oldest.red { background: var(--red-soft); color: var(--neg); }
+.bcol h4 .oldest.amber { background: var(--amber-soft); color: var(--amber); }
+.bcol .morebtn { width: 100%; margin-top: 6px; }
