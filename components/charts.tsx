@@ -180,7 +180,16 @@ export function ChartBars({
         if (typeof href === 'string') router.push(href);
       }
     : undefined;
-  const cat = { dataKey: xKey, tick: AXIS, stroke: GRID, type: 'category' as const };
+  // A horizontal chart puts the category names down the left, where a fund called
+  // "Parag Parikh Large Cap Reg Gr" needs real room. Sized to the longest label
+  // rather than a fixed guess, and interval 0 so Recharts renders every one
+  // instead of quietly dropping the ones that do not fit.
+  const longest = Math.max(0, ...data.map(r => String(r[xKey] ?? '').length));
+  const catWidth = Math.min(190, Math.max(112, Math.round(longest * 5.4) + 12));
+  const cat = {
+    dataKey: xKey, tick: AXIS, stroke: GRID, type: 'category' as const,
+    interval: 0 as const,
+  };
   const val = { tick: AXIS, stroke: GRID, type: 'number' as const,
     tickFormatter: axisFormat(unit, data, series.map(x => x.key)) };
   return (
@@ -190,9 +199,9 @@ export function ChartBars({
         <CartesianGrid stroke={GRID} vertical={!!horizontal} horizontal={!horizontal} />
         {horizontal
           ? <XAxis {...val} label={{ value: frame.xLabel, position: 'insideBottom', offset: -12, ...AXIS_TITLE }} />
-          : <XAxis {...cat} label={{ value: frame.xLabel, position: 'insideBottom', offset: -12, ...AXIS_TITLE }} interval={0} />}
+          : <XAxis {...cat} label={{ value: frame.xLabel, position: 'insideBottom', offset: -12, ...AXIS_TITLE }} />}
         {horizontal
-          ? <YAxis {...cat} width={128} label={{ value: frame.yLabel, angle: -90, position: 'insideLeft', offset: 12, ...AXIS_TITLE }} />
+          ? <YAxis {...cat} width={catWidth} label={{ value: frame.yLabel, angle: -90, position: 'insideLeft', offset: 12, ...AXIS_TITLE }} />
           : <YAxis {...val} width={yWidth(unit)} label={{ value: frame.yLabel, angle: -90, position: 'insideLeft', ...AXIS_TITLE }} />}
         <Tooltip {...tip(unit)} />
         {series.length > 1 && <Legend {...LEGEND} />}

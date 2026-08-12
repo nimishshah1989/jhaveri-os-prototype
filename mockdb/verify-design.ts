@@ -141,10 +141,12 @@ const PROSE_BUDGET = 50;
 // Scanned rather than pattern-matched: walk the source, and on `{` skip to its
 // matching `}`, tracking depth and stepping over quoted strings so a brace inside
 // a string cannot throw the count off.
-function stripExpressions(src: string): string {
+function stripExpressions(src: string): { text: string; longest: number } {
   let out = '';
+  let longest = 0;
   for (let i = 0; i < src.length; i++) {
     if (src[i] !== '{') { out += src[i]; continue; }
+    const from = i;
     let depth = 0;
     let quote = '';
     for (; i < src.length; i++) {
@@ -158,9 +160,10 @@ function stripExpressions(src: string): string {
       if (c === '{') depth++;
       else if (c === '}' && --depth === 0) break;
     }
+    longest = Math.max(longest, i - from);
     out += ' ';
   }
-  return out;
+  return { text: out, longest };
 }
 
 // An element and everything inside it, matched by counting its own nested opens
@@ -207,9 +210,13 @@ const FURNITURE = [
   'option', 'button', 'select', 'summary',   // controls — the thing he acts on
   'h1', 'h2', 'h3', 'h4',                    // headings — how he skips
   'th',                                      // column headers — how he reads a row
+  'nav',                                     // where he goes next
 ];
+// `nav`, not every link: prose that happens to be a link is still prose, and a
+// sentence does not stop counting because it points somewhere. Only a block whose
+// whole job is navigation comes out, and it has to say so in the markup.
 
-function standingProse(src: string): { words: number; survived: number } {
+function standingProse(src: string): { words: number; runaway: number } {
   let s = src;
   s = s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
@@ -224,11 +231,14 @@ function standingProse(src: string): { words: number; survived: number } {
   s = stripElement(s, 'PageGuide');   // detail behind the guide
   for (const tag of FURNITURE) s = stripElement(s, tag);
 
-  // The guard is on the expression strip specifically, because that is the step
-  // that failed silently — removing disclosures and furniture is meant to take a
-  // lot, and on a table-heavy page it legitimately takes most of the file.
+  // The guard is on the shape of the failure, not on how much came out. A page
+  // built mostly of chart props legitimately loses 90% of itself to the expression
+  // strip and is still measured correctly; what went wrong before was ONE `{`
+  // swallowing the rest of the file. So the test is the longest single span.
   const before = s.length;
-  s = stripExpressions(s);
+  const stripped = stripExpressions(s);
+  s = stripped.text;
+  const runaway = before > 0 ? stripped.longest / before : 0;
 
   const text: string[] = [];
   for (const m of s.matchAll(/>([^<>]+)</g)) text.push(m[1]);
@@ -238,10 +248,21 @@ function standingProse(src: string): { words: number; survived: number } {
     .split(/\s+/)
     .filter(w => /^[A-Za-z][A-Za-z'’.,;:!?—-]*$/.test(w))
     .length;
-  return { words, survived: s.length / before };
+  return { words, runaway };
 }
 
-const PAGES = ['today', 'clients', 'onboarding', 'earnings', 'marketing', 'business', 'review-packs', 'reports'];
+const PAGES = ['today', 'clients', 'onboarding', 'earnings', 'marketing', 'business', 'review-packs', 'reports',
+  'clients/book'];
+
+// A tabbed page keeps most of itself in sibling files. Reading only page.tsx would
+// let a page satisfy every measure below by moving its content one file sideways.
+function pageSource(pg: string): string {
+  const dir = join('app', pg);
+  return readdirSync(dir)
+    .filter(f => f.endsWith('.tsx'))
+    .map(f => read(join(dir, f)))
+    .join('\n');
+}
 
 // What each page actually measured the first time it was measured honestly
 // (12-Aug-2026), which is NOT the same thing as what it should be. 50 words is
@@ -250,17 +271,18 @@ const PAGES = ['today', 'clients', 'onboarding', 'earnings', 'marketing', 'busin
 const PROSE_BASELINE: Record<string, number> = {
   today: 14, clients: 115, onboarding: 87, earnings: 13,
   marketing: 129, business: 107, 'review-packs': 32, reports: 157,
+  'clients/book': 39,
 };
 
 const prose: Record<string, number> = {};
 for (const p of PAGES) {
-  const file = join('app', p, 'page.tsx');
-  const { words, survived } = standingProse(read(file));
+  const { words, runaway } = standingProse(pageSource(p));
   prose[p] = words;
-  // The guard that would have caught the old counter on the day it broke: if the
-  // stripping ate the page, the number underneath it is not a measurement.
-  check(`${p}'s prose counter still sees the page`, survived > 0.25,
-    `${(survived * 100).toFixed(0)}% of the rendered source survived stripping`);
+  // The guard that would have caught the old counter on the day it broke: no single
+  // expression may swallow half the page. That is what a runaway strip looks like,
+  // and it is what made Today measure zero standing words.
+  check(`${p}'s prose counter reads the page rather than eating it`, runaway < 0.5,
+    `longest single expression is ${(runaway * 100).toFixed(0)}% of the source`);
   const ceiling = Math.max(PROSE_BUDGET, PROSE_BASELINE[p] ?? PROSE_BUDGET);
   check(`${p} adds no standing prose`, words <= ceiling,
     words <= PROSE_BUDGET
@@ -273,7 +295,7 @@ for (const p of PAGES) {
 // a page renders in its main column.
 const GROUP_CAP = 5;
 for (const p of PAGES) {
-  const src = read(join('app', p, 'page.tsx'));
+  const src = pageSource(p);
   const groups = (src.match(/<section\b/g) ?? []).length
     + (src.match(/className="cards\b/g) ?? []).length
     + (src.match(/className="panel\b/g) ?? []).length;
@@ -373,8 +395,14 @@ check('the chart kit invents no colour of its own',
 
 // Recharts anywhere but the kit is how the vocabulary drifts apart — the same way
 // a second ACTION_LABEL map did, two checks up.
-const rogueRecharts = pageFiles.filter(f => f !== CHART_KIT && /from 'recharts'/.test(read(f)));
-check('no page imports the plotting library directly',
+//
+// Scoped to the broker lens. app/me/** is the client lens, which CLAUDE.md gives
+// its own design system in prototype/DESIGN.md and its own token set (--f-*); its
+// charts are not drawn in this vocabulary and must not be held to this kit.
+const rogueRecharts = pageFiles
+  .filter(f => !f.startsWith(join('app', 'me')))
+  .filter(f => f !== CHART_KIT && /from 'recharts'/.test(read(f)));
+check('no broker-lens page imports the plotting library directly',
   rogueRecharts.length === 0, rogueRecharts.join(', ') || `only ${CHART_KIT}`);
 
 // Two per page: one for the headline story, one for its shape. One chart on a page
@@ -382,7 +410,7 @@ check('no page imports the plotting library directly',
 const CHARTS_PER_PAGE = 2;
 const kitCharts = [...kit.matchAll(/export function (\w+)\(/g)].map(m => m[1]);
 for (const pg of PAGES) {
-  const src = read(join('app', pg, 'page.tsx'));
+  const src = pageSource(pg);
   // Counted per rendering, not per distinct component — two bar charts answering
   // two different questions is two charts, and forcing a page to vary the FORM to
   // satisfy a counter is how a chart stops matching its data.
@@ -422,7 +450,7 @@ function closingIndex(src: string, from: number, open: string, close: string): n
 }
 
 for (const pg of PAGES) {
-  let src = read(join('app', pg, 'page.tsx'));
+  let src = pageSource(pg);
   src = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
   const jsx = src.indexOf('return (');
   src = jsx >= 0 ? src.slice(jsx) : src;
@@ -431,7 +459,7 @@ for (const pg of PAGES) {
   for (const m of src.matchAll(/\.map\(/g)) {
     let body = src.slice(m.index, closingIndex(src, m.index + 4, '(', ')'));
     body = stripElement(body, 'Explain');
-    body = stripExpressions(body);
+    body = stripExpressions(body).text;
     for (const t of body.matchAll(/>([^<>]+)</g)) {
       const words = t[1].trim().split(/\s+/).filter(w => /^[A-Za-z]/.test(w));
       if (words.length >= LOOP_PROSE) preached.push(`"${words.slice(0, 6).join(' ')}…" ×${words.length}w`);
@@ -457,7 +485,7 @@ const inHeader = /<DensityToggle\s*\/>/.test(layout);
 check('one control sets the reading depth, and it sits in the header',
   inHeader, inHeader ? 'app/layout.tsx' : 'no depth control in app/layout.tsx');
 
-const perPage = PAGES.filter(p => /DensityToggle/.test(read(join('app', p, 'page.tsx'))));
+const perPage = PAGES.filter(p => /DensityToggle/.test(pageSource(p)));
 check('the depth control is not repeated per page',
   perPage.length === 0, perPage.join(', ') || 'one, in the layout');
 

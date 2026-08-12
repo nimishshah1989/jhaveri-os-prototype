@@ -110,6 +110,9 @@ export default async function ClientsPage({ searchParams }: PageProps<'/clients'
         question="Who in my book needs me, and who is quietly worth more than I think?"
       />
       <p className="denom">&quot;Holds money today&quot; definition — {allCount} clients · as of {dmy(book.value.as_of)}</p>
+      <nav className="crumb" aria-label="Book view">
+        <Link href="/clients/book">My book — the whole thing as one portfolio →</Link>
+      </nav>
 
       <div className="cols">
         <div>

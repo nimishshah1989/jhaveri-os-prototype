@@ -266,11 +266,18 @@ export interface LookThrough {
   as_of: string | null;
 }
 
-export function lookThrough(clientId: number): Figure<LookThrough> {
-  const sqlNote = `each fund's disclosed holdings × the client's rupees in that fund,
-aggregated by stock and sector; overlap = money in stocks that two or more of the client's funds both hold`;
-  const total = (db().prepare('SELECT COALESCE(SUM(present_market_value),0) v FROM fifo_summary_holding_active WHERE client_id=?')
-    .get(clientId) as { v: number }).v;
+/**
+ * One look-through, two scopes. `where` is the only difference between reading a
+ * single client's portfolio and reading the whole book: everything after it —
+ * coverage, sectors, caps, overlap — is the same arithmetic, so it lives once.
+ * A second copy keyed on advisor_code is how the client page and the book page
+ * would start disagreeing about what "19% in Banking" means.
+ */
+function lookThroughWhere(where: string, params: unknown[], scopeNote: string): Figure<LookThrough> {
+  const sqlNote = `each fund's disclosed holdings × ${scopeNote} rupees in that fund,
+aggregated by stock and sector; overlap = money in stocks that two or more funds both hold`;
+  const total = (db().prepare(`SELECT COALESCE(SUM(present_market_value),0) v
+    FROM fifo_summary_holding_active WHERE ${where}`).get(...params) as { v: number }).v;
 
   const rows = db().prepare(`
     SELECT s.stock_id, s.stock_name stock, s.sector, s.cap_band,
@@ -279,8 +286,8 @@ aggregated by stock and sector; overlap = money in stocks that two or more of th
     FROM fifo_summary_holding_active f
     JOIN mf_scheme_holdings h ON h.fk_scheme_id = f.scheme_id
     JOIN stock_master s ON s.stock_id = h.stock_id
-    WHERE f.client_id = ?
-    GROUP BY s.stock_id ORDER BY rupees DESC`).all(clientId) as
+    WHERE ${where.replace(/\b(client_id|advisor_code)\b/g, 'f.$1')}
+    GROUP BY s.stock_id ORDER BY rupees DESC`).all(...params) as
     (StockRow & { stock_id: string })[];
 
   const covered = rows.reduce((a, r) => a + r.rupees, 0);
@@ -317,6 +324,16 @@ aggregated by stock and sector; overlap = money in stocks that two or more of th
     tag: 'computed', sql: sqlNote,
     sources: ['mf_scheme_holdings.weight_pct', 'stock_master.sector/.cap_band', 'fifo_summary_holding_active.present_market_value'],
   };
+}
+
+/** What one client's money is really invested in, underneath the fund names. */
+export function lookThrough(clientId: number): Figure<LookThrough> {
+  return lookThroughWhere('client_id = ?', [clientId], "the client's");
+}
+
+/** The same, for every client the broker looks after at once. */
+export function bookLookThrough(code: string): Figure<LookThrough> {
+  return lookThroughWhere('advisor_code = ?', [code], "the book's");
 }
 
 export interface OverlapPair { a: string; b: string; shared: number; shared_pct: number }
