@@ -168,6 +168,10 @@ function stripExpressions(src: string): string {
 // the wrong place and took the rest of the page with it.
 function stripElement(src: string, name: string): string {
   const open = new RegExp(`<${name}\\b`, 'g');
+  // `<th` must not match `<thead`, in the depth counter as well as in the search —
+  // one off-by-a-tag there and the strip runs to the end of the file.
+  const at = (s: string, i: number, tag: string) =>
+    s.startsWith(tag, i) && !/[A-Za-z0-9]/.test(s[i + tag.length] ?? '');
   let s = src;
   for (;;) {
     open.lastIndex = 0;
@@ -177,8 +181,8 @@ function stripElement(src: string, name: string): string {
     let depth = 0;
     let selfClosed = false;
     for (; i < s.length; i++) {
-      if (s[i] === '<' && s.startsWith(`<${name}`, i)) { depth++; continue; }
-      if (s.startsWith(`</${name}`, i)) {
+      if (at(s, i, `<${name}`)) { depth++; continue; }
+      if (at(s, i, `</${name}`)) {
         i = s.indexOf('>', i) + 1;
         if (--depth === 0) break;
         i--;
@@ -191,9 +195,19 @@ function stripElement(src: string, name: string): string {
   }
 }
 
-// Text on a control is not standing prose: a button, an option or a disclosure
-// summary IS the thing he acts on, which is the opposite of a word he scrolls past.
-const CONTROLS = ['option', 'button', 'select', 'summary'];
+// Not every word on a screen is prose to scroll past.
+//
+// A control — button, option, select, disclosure summary — IS the thing he acts on.
+// A heading is how he skips to it. A column header is how he reads the row under
+// it. Counting those made Earnings score 69 on a page whose entire "prose" was
+// `Client · Their money · Lines · Your commission` and `Invoice · Period · CGST ·
+// SGST · TDS`, which is a table, not an essay. What is left after this is
+// sentences, which is what the budget was always about.
+const FURNITURE = [
+  'option', 'button', 'select', 'summary',   // controls — the thing he acts on
+  'h1', 'h2', 'h3', 'h4',                    // headings — how he skips
+  'th',                                      // column headers — how he reads a row
+];
 
 function standingProse(src: string): { words: number; survived: number } {
   let s = src;
@@ -205,11 +219,15 @@ function standingProse(src: string): { words: number; survived: number } {
   // swallows the page and reports what is left as the reading load.
   const jsx = s.indexOf('return (');
   s = jsx >= 0 ? s.slice(jsx) : s;
-  const before = s.length;
 
   s = stripElement(s, 'Explain');     // detail behind the ⓘ
   s = stripElement(s, 'PageGuide');   // detail behind the guide
-  for (const tag of CONTROLS) s = stripElement(s, tag);
+  for (const tag of FURNITURE) s = stripElement(s, tag);
+
+  // The guard is on the expression strip specifically, because that is the step
+  // that failed silently — removing disclosures and furniture is meant to take a
+  // lot, and on a table-heavy page it legitimately takes most of the file.
+  const before = s.length;
   s = stripExpressions(s);
 
   const text: string[] = [];
@@ -230,8 +248,8 @@ const PAGES = ['today', 'clients', 'onboarding', 'earnings', 'marketing', 'busin
 // still the target; these are the debt, frozen so it cannot grow while the pages
 // are worked through. Lower a number when a page improves; never raise one.
 const PROSE_BASELINE: Record<string, number> = {
-  today: 14, clients: 134, onboarding: 146, earnings: 65,
-  marketing: 180, business: 157, 'review-packs': 70, reports: 179,
+  today: 14, clients: 115, onboarding: 87, earnings: 13,
+  marketing: 129, business: 107, 'review-packs': 32, reports: 157,
 };
 
 const prose: Record<string, number> = {};
@@ -372,6 +390,55 @@ for (const pg of PAGES) {
   check(`${pg} plots at least ${CHARTS_PER_PAGE} of its story`,
     drawn.length >= CHARTS_PER_PAGE,
     drawn.length ? drawn.join(' · ') : 'nothing plotted — an inline bar in a table cell is not a chart');
+}
+
+// ── 8. Prose inside a loop ──────────────────────────────────────────────────
+// A sentence written inside a `.map()` is printed once per row. The clawback cards
+// carried "No clawback on this page is unexplained — each one names the redemption
+// that triggered it" on every card: true once, noise seven times, and a reader who
+// has read it once now has to check whether the eighth copy says something new.
+//
+// The standing-prose counter cannot see this — the source holds one copy — which
+// is why it needs its own check. The rule is not "no words in a list": it is that
+// a sentence which does not change per row belongs above the list, and what stays
+// in the row is what differs. Ten words is the line; a per-row phrase is shorter.
+const LOOP_PROSE = 10;
+
+function closingIndex(src: string, from: number, open: string, close: string): number {
+  let depth = 0;
+  let quote = '';
+  for (let i = from; i < src.length; i++) {
+    const c = src[i];
+    if (quote) {
+      if (c === '\\') i++;
+      else if (c === quote) quote = '';
+      continue;
+    }
+    if (c === '"' || c === "'" || c === '`') { quote = c; continue; }
+    if (c === open) depth++;
+    else if (c === close && --depth === 0) return i;
+  }
+  return src.length;
+}
+
+for (const pg of PAGES) {
+  let src = read(join('app', pg, 'page.tsx'));
+  src = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const jsx = src.indexOf('return (');
+  src = jsx >= 0 ? src.slice(jsx) : src;
+
+  const preached: string[] = [];
+  for (const m of src.matchAll(/\.map\(/g)) {
+    let body = src.slice(m.index, closingIndex(src, m.index + 4, '(', ')'));
+    body = stripElement(body, 'Explain');
+    body = stripExpressions(body);
+    for (const t of body.matchAll(/>([^<>]+)</g)) {
+      const words = t[1].trim().split(/\s+/).filter(w => /^[A-Za-z]/.test(w));
+      if (words.length >= LOOP_PROSE) preached.push(`"${words.slice(0, 6).join(' ')}…" ×${words.length}w`);
+    }
+  }
+  check(`${pg} says it once above the list, not once per row`,
+    preached.length === 0, preached.join(' · ') || 'no sentence repeated per row');
 }
 
 // Explanation must advertise itself. A bare ⓘ is hidden; a teaser is explorable.

@@ -271,28 +271,64 @@ export default async function EarningsPage({ searchParams }: PageProps<'/earning
             </table>
           </div>
 
-          <h2 className="sec">Clawbacks, and what caused each one <Explain figure={claw} /></h2>
-          {claw.value.length === 0 && <div className="empty">No clawbacks in the last 14 months.</div>}
-          {claw.value.map(c => (
-            <div key={c.bkr_id} className="rec">
-              <div className="rtop">
-                <b>{inrExact(c.amount)}</b>
-                <span className="d">{MONTH_LABEL(c.month)} · folio {c.folio_no}</span>
-                <span className="delta" style={{ color: 'var(--neg)' }}>held {c.held_days} days</span>
-              </div>
-              <p className="plain">
-                <ClientLink id={c.client_id} name={c.client} /> redeemed{' '}
-                {inrCompact(c.redeemed_amount)} from {c.scheme} on {dmy2(c.redeemed_on)} —{' '}
-                {c.held_days} days after the folio opened, inside the{' '}
-                {EARNINGS_RULES.clawback_window_days}-day window. The trail already paid on that
-                money came back.
-              </p>
-              <p className="askfor">
-                <b>Traced to:</b> transaction on {dmy2(c.redeemed_on)}. No clawback on this page is
-                unexplained — each one names the redemption that triggered it.
-              </p>
+          {/* Said once, not once per card. It used to be printed on all seven, which
+              made a reader check each copy for a difference that was never there.
+              What actually differs per clawback is now the row. */}
+          <h2 className="sec">
+            Clawbacks — every one traced to the redemption that caused it
+            <Explain figure={claw} teaser="What a clawback is">
+              A client who exits a folio inside {EARNINGS_RULES.clawback_window_days} days takes
+              back the trail already paid on that money. Nothing here is an adjustment or a
+              deduction the firm chose to make: each row names the redemption, its date and the
+              folio, so the amount can be argued with the AMC rather than accepted.
+            </Explain>
+          </h2>
+          {claw.value.length === 0 ? (
+            <div className="empty">No clawbacks in the last 14 months.</div>
+          ) : (
+            <div className="tblwrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th className="r">Clawed back</th>
+                    <th style={{ textAlign: 'left' }}>Client</th>
+                    <th style={{ textAlign: 'left' }}>Fund</th>
+                    <th className="r">Redeemed</th>
+                    <th>On</th><th className="r">Held of {EARNINGS_RULES.clawback_window_days}d</th>
+                    <th>Folio</th><th>Month</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {claw.value.map(c => (
+                    <tr key={c.bkr_id}>
+                      <td className="r num down">{inrExact(c.amount)}</td>
+                      <td><ClientLink id={c.client_id} name={c.client} /></td>
+                      <td>{c.scheme}</td>
+                      <td className="r num">{inrCompact(c.redeemed_amount)}</td>
+                      <td style={{ textAlign: 'center' }}>{dmy2(c.redeemed_on)}</td>
+                      <td className="r num valbar"
+                        style={{ '--w': (c.held_days / EARNINGS_RULES.clawback_window_days) * 100 } as React.CSSProperties}>
+                        {c.held_days}d
+                      </td>
+                      <td style={{ textAlign: 'center' }} className="num">{c.folio_no}</td>
+                      <td style={{ textAlign: 'center' }}>{MONTH_LABEL(c.month)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td className="r num down">{inrExact(claw.value.reduce((s, c) => s + c.amount, 0))}</td>
+                    <td colSpan={2}>{claw.value.length} early exits</td>
+                    <td className="r num">{inrCompact(claw.value.reduce((s, c) => s + c.redeemed_amount, 0))}</td>
+                    <td colSpan={4} />
+                  </tr>
+                </tfoot>
+              </table>
             </div>
-          ))}
+          )}
+          {/* The bar in "Held" is how far into the window the exit fell — the same
+              length encoding the commission column uses, so a short bar reads as an
+              exit that happened early and cost the most trail. */}
 
           <h2 className="sec">What the AMC paid vs what was agreed <Explain figure={varr} /></h2>
           {varr.value.length === 0 ? (
