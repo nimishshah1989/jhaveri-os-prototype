@@ -1154,6 +1154,102 @@ CREATE TABLE client_goals (
 );
 CREATE INDEX idx_goal_client ON client_goals(fk_cm_user_id, is_active);
 
+-- ── Fund intelligence (Morningstar seam) ────────────────────────────────────
+-- Everything here would arrive from Morningstar in the live build. It does not
+-- exist yet, so it is seeded — but the seed is split honestly by `source`:
+--   computed — derived from NAV history and holdings already in this database,
+--              and therefore true. Swapping in the vendor feed should not move it.
+--   seeded   — vendor content we cannot derive (a manager's name, a philosophy,
+--              a commentary). A stand-in, and every screen that shows it says so.
+-- No row is allowed to be silent about which it is.
+
+CREATE TABLE fund_manager (
+  manager_id     INTEGER PRIMARY KEY,
+  full_name      TEXT NOT NULL,
+  managing_since TEXT,                        -- first year they ran money anywhere
+  qualification  TEXT,
+  philosophy     TEXT NOT NULL,               -- how they say they invest
+  source         TEXT NOT NULL DEFAULT 'seeded'
+);
+
+-- Who has run a fund, and when. A history rather than a column, because "the
+-- manager changed eleven months ago" is the single most useful fact about a
+-- three-year record and a current-manager column cannot hold it.
+CREATE TABLE scheme_manager (
+  sm_id         INTEGER PRIMARY KEY,
+  fk_scheme_id  INTEGER NOT NULL REFERENCES scheme_master(scheme_id),
+  fk_manager_id INTEGER NOT NULL REFERENCES fund_manager(manager_id),
+  from_date     TEXT NOT NULL,
+  to_date       TEXT,                         -- NULL = still running it
+  role          TEXT NOT NULL DEFAULT 'lead', -- lead | co
+  source        TEXT NOT NULL DEFAULT 'seeded'
+);
+CREATE INDEX idx_sm_scheme ON scheme_manager(fk_scheme_id, from_date);
+
+CREATE TABLE manager_commentary (
+  commentary_id INTEGER PRIMARY KEY,
+  fk_manager_id INTEGER NOT NULL REFERENCES fund_manager(manager_id),
+  fk_scheme_id  INTEGER REFERENCES scheme_master(scheme_id),
+  as_of         TEXT NOT NULL,
+  headline      TEXT NOT NULL,
+  body          TEXT NOT NULL,
+  source        TEXT NOT NULL DEFAULT 'seeded'
+);
+CREATE INDEX idx_mc_scheme ON manager_commentary(fk_scheme_id, as_of);
+
+-- The value/growth tilt of a single company. Not derivable from anything this
+-- database holds — there are no fundamentals here — so it is seeded per stock
+-- and the fund-level score is computed from it against real holding weights.
+CREATE TABLE stock_style (
+  stock_id     TEXT PRIMARY KEY REFERENCES stock_master(stock_id),
+  growth_score NUMERIC NOT NULL,              -- 1 deep value … 3 high growth
+  source       TEXT NOT NULL DEFAULT 'seeded'
+);
+
+-- The style box, dated, so drift is a line rather than a label.
+CREATE TABLE scheme_style (
+  ss_id        INTEGER PRIMARY KEY,
+  fk_scheme_id INTEGER NOT NULL REFERENCES scheme_master(scheme_id),
+  as_of        TEXT NOT NULL,
+  size_score   NUMERIC NOT NULL,              -- 1 small … 3 large
+  value_score  NUMERIC NOT NULL,              -- 1 value … 3 growth
+  box          TEXT NOT NULL,                 -- 'Large Growth', 'Mid Blend', …
+  avg_mcap_cr  NUMERIC,
+  source       TEXT NOT NULL,
+  UNIQUE (fk_scheme_id, as_of)
+);
+
+-- What the fund did when the market fell, which is the only half of a record
+-- most clients have never been shown.
+CREATE TABLE scheme_risk_stats (
+  rs_id            INTEGER PRIMARY KEY,
+  fk_scheme_id     INTEGER NOT NULL REFERENCES scheme_master(scheme_id),
+  as_of            TEXT NOT NULL,
+  period_months    INTEGER NOT NULL,
+  months_up        INTEGER,
+  months_down      INTEGER,
+  upside_capture   NUMERIC,
+  downside_capture NUMERIC,
+  std_dev          NUMERIC,
+  sharpe           NUMERIC,
+  max_drawdown     NUMERIC,
+  source           TEXT NOT NULL,
+  UNIQUE (fk_scheme_id, period_months, as_of)
+);
+
+-- Ratings are stored and DELIBERATELY NOT RENDERED client-side. Redistributing a
+-- Morningstar star rating to an investor is a licensing question the founder has
+-- not answered yet, and DESIGN.md refuses star ratings on the client lens anyway.
+-- The table exists so the answer, when it comes, is a rendering decision.
+CREATE TABLE scheme_rating (
+  fk_scheme_id INTEGER PRIMARY KEY REFERENCES scheme_master(scheme_id),
+  as_of        TEXT NOT NULL,
+  star         INTEGER,
+  analyst      TEXT,
+  provider     TEXT NOT NULL,
+  client_visible INTEGER NOT NULL DEFAULT 0
+);
+
 -- ── The household ───────────────────────────────────────────────────────────
 -- `client_master.fk_family_id` already says who is in a family. It cannot say
 -- how they are related, and it cannot hold someone who has no account yet —

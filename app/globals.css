@@ -1256,3 +1256,33 @@ a.qcard .evidence b { color: var(--ink); font-weight: 600; }
 .plbars { display: flex; gap: 3px; }
 .plbar { display: block; width: 26px; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
 .plbar i { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
+
+/* ── The rail, retired everywhere ────────────────────────────────────────────
+   Every page spent 300px of a 1364px screen on a right column, against 1064px
+   for the content people came for. Most of those panels were explanation with a
+   question for a title and a single ⓘ inside — reference, not workspace.
+   The column becomes a row beneath the content: same panels, same words, at the
+   width they actually deserve, and the core content gains a third more room. */
+.cols { display: block; }
+.cols > div { min-width: 0; }
+.side {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+  gap: var(--sp-3); margin-top: var(--sp-6);
+  padding-top: var(--sp-4); border-top: 1px solid var(--line);
+}
+.side::before {
+  content: "Reference"; grid-column: 1 / -1;
+  font-size: var(--t-xs); text-transform: uppercase; letter-spacing: .07em;
+  color: var(--muted); font-weight: 650;
+}
+.side .panel { margin: 0; }
+
+/* 2. A disclosure has to advertise itself. A bare 12px ⓘ is hidden, not explorable —
+   management said so and they were right. The summary now carries a word. */
+.prov.labelled > summary {
+  display: inline-flex; align-items: center; gap: 4px;
+  border: 1px solid var(--line); border-radius: 20px; padding: 1px 8px;
+  font-size: var(--t-xs); font-weight: 650; color: var(--accent); opacity: 1;
+}
+.prov.labelled > summary:hover { background: var(--accent-soft); border-color: var(--accent); }
+.prov.labelled[open] > summary { background: var(--accent-soft); border-color: var(--accent); }

@@ -236,9 +236,11 @@ for (const pg of PAGES) {
 check('moved prose shows a teaser rather than only an icon',
   /teaser/.test(read('components/Explain.tsx')), 'Explain renders an icon with no preview of what is behind it');
 
-// Family is how the money is actually held in India; the product may not be blind to it.
+// Family is how the money is actually held in India; the product may not be blind
+// to it. The two names below were the broker-lens guesses when this check was
+// written; `household()` is the surface that actually shipped, in the client lens.
 check('a family lens exists',
-  pageFiles.some(f => /Family360|familyRollup/.test(read(f))), 'no family entity anywhere');
+  pageFiles.some(f => /Family360|familyRollup|household\(/.test(read(f))), 'no family entity anywhere');
 
 // ── Summary ─────────────────────────────────────────────────────────────────
 const worst = Object.entries(prose).sort((a, b) => b[1] - a[1])[0];

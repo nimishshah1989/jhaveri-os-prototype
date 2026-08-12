@@ -21,14 +21,19 @@ interface Props {
    * of always on screen. Nothing is lost; it stops being scenery.
    */
   children?: React.ReactNode;
+  /**
+   * The teaser on the summary. A bare icon advertises nothing, so prose moved behind
+   * a click never gets read — visible enough to invite, small enough to ignore.
+   */
+  teaser?: string;
 }
 
-export function Explain({ id, figure, as = 'info', children }: Props) {
+export function Explain({ id, figure, as = 'info', children, teaser = 'Why' }: Props) {
   const entry = id ? GLOSSARY[id] : undefined;
   if (children && !entry) {
     return (
-      <details className="prov">
-        <summary title="What this section means"><Icon name={as} /></summary>
+      <details className="prov labelled">
+        <summary title="What this section means"><Icon name={as} /> {teaser}</summary>
         <div className="pop prosecap">{children}</div>
       </details>
     );
