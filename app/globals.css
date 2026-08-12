@@ -429,14 +429,6 @@ a.hcard:hover { text-decoration: none; border-color: var(--accent); box-shadow: 
 .bcard .blk { font-size: 11px; color: var(--neg); margin-top: 4px; }
 .bcard .age { position: absolute; top: 7px; right: 9px; font-size: 11.5px; color: var(--muted); font-weight: 650; }
 
-/* onboarding — funnel */
-.vizrow.two { grid-template-columns: 1.35fr 1fr; }
-.funnel .frow { display: grid; grid-template-columns: 128px 1fr 30px 42px; gap: 9px; align-items: center; margin-bottom: 7px; font-size: 12px; }
-.funnel .lab { color: var(--muted); }
-.funnel .fbar { height: 15px; background: var(--panel); border-radius: 3px; overflow: hidden; }
-.funnel .fbar i { display: block; height: 100%; background: var(--s1); opacity: .82; }
-.funnel .n { text-align: right; font-weight: 650; }
-.funnel .gap { color: var(--muted); font-size: 11px; text-align: right; }
 
 /* onboarding — rejections + start form */
 .rec .official { font-size: 12px; color: var(--muted); margin: 9px 0 6px; font-family: ui-monospace, 'SF Mono', Menlo, monospace; }
@@ -471,9 +463,6 @@ a.hcard:hover { text-decoration: none; border-color: var(--accent); box-shadow: 
 .tiernext b.up { color: var(--pos); }
 
 /* earnings — 14-month bars, clickable */
-.hist.wide { grid-template-columns: repeat(14, 1fr); height: 96px; gap: 4px; }
-.hist.wide .b { font-size: 9.5px; }
-.hist.wide .n { font-size: 10px; }
 a.col { color: var(--ink); }
 a.col:hover { text-decoration: none; }
 a.col:hover .bar { opacity: .75; }
@@ -485,18 +474,6 @@ a.col.on .n { color: var(--accent); }
 .disputeform button { background: var(--accent); color: #fff; border: 0; border-radius: var(--radius); padding: 7px 16px; font-size: 13px; cursor: pointer; }
 .tblwrap tr.openrow { background: var(--accent-soft); }
 
-/* my business — AUM bars over net-flow bars */
-.axis { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
-.aumchart { display: grid; grid-template-columns: repeat(14, 1fr); gap: 4px; height: 120px; align-items: end; }
-.aumchart .acol { height: 100%; display: flex; align-items: flex-end; }
-.aumchart .abar { width: 100%; background: #7ba7de; border-radius: 3px 3px 0 0; }
-.flowrow { display: grid; grid-template-columns: repeat(14, 1fr); gap: 4px; height: 74px; align-items: start;
-  border-top: 1px solid var(--line); margin-top: 2px; padding-top: 5px; }
-.flowrow .fcol { display: flex; flex-direction: column; align-items: center; height: 100%; }
-.flowrow .fbar2 { width: 62%; border-radius: 0 0 3px 3px; min-height: 3px; max-height: 52px; }
-.flowrow .fbar2.pos { background: var(--pos); opacity: .65; }
-.flowrow .fbar2.neg { background: var(--neg); opacity: .7; }
-.flowrow .fl { font-size: 9.5px; color: var(--muted); margin-top: auto; }
 
 /* my business — growth waterfall */
 .waterfall { border: 1px solid var(--line); border-radius: var(--radius); background: var(--ground); margin-bottom: 8px; }
@@ -685,10 +662,8 @@ a.col.on .n { color: var(--accent); }
 @media (max-width: 1000px) {
   .cols { grid-template-columns: 1fr; }
   .cards, .cards.six { grid-template-columns: repeat(2, 1fr); }
-  .vizrow, .vizrow.two, .startgrid, .ladderrow, .winlose { grid-template-columns: 1fr; }
+  .vizrow, .startgrid, .ladderrow, .winlose { grid-template-columns: 1fr; }
   .charts, .charts.three { grid-template-columns: 1fr; }
-  .hist.wide { grid-template-columns: repeat(7, 1fr); height: auto; }
-  .aumchart, .flowrow { grid-template-columns: repeat(7, 1fr); }
   .tgt { grid-template-columns: 1fr auto; }
   .tgt .tb { grid-column: 1 / -1; }
   .board { grid-template-columns: repeat(2, 1fr); }
