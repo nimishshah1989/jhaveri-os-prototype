@@ -9,8 +9,9 @@
     "seed": "tsx mockdb/seed.ts",
     "verify:db": "tsx mockdb/verify.ts",
     "vendor:pack": "tsx mockdb/gen-vendor-pack.ts",
-    "verify:all": "tsx mockdb/verify.ts && tsx mockdb/verify-today.ts && tsx mockdb/verify-clients.ts && tsx mockdb/verify-360.ts && tsx mockdb/verify-scoring.ts && tsx mockdb/verify-onboarding.ts && tsx mockdb/verify-earnings.ts && tsx mockdb/verify-business.ts && tsx mockdb/verify-marketing.ts && tsx mockdb/verify-reviewpack.ts && tsx mockdb/verify-design.ts",
-    "verify:design": "tsx mockdb/verify-design.ts"
+    "verify:all": "tsx mockdb/verify.ts && tsx mockdb/verify-today.ts && tsx mockdb/verify-clients.ts && tsx mockdb/verify-360.ts && tsx mockdb/verify-scoring.ts && tsx mockdb/verify-onboarding.ts && tsx mockdb/verify-earnings.ts && tsx mockdb/verify-business.ts && tsx mockdb/verify-marketing.ts && tsx mockdb/verify-reviewpack.ts && tsx mockdb/verify-design.ts && tsx mockdb/verify-me.ts",
+    "verify:design": "tsx mockdb/verify-design.ts",
+    "verify:me": "tsx mockdb/verify-me.ts"
   },
   "dependencies": {
     "next": "16.3.0",

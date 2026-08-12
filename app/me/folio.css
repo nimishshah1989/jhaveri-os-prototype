@@ -1,0 +1,359 @@
+/* The Folio — client lens. Tokens and vocabulary per DESIGN.md.
+   Everything here is scoped under .folio so the broker lens is untouched. */
+
+.folio {
+  /* light — "private bank" */
+  --f-ground: #F7F5F0;
+  --f-card: #FFFFFF;
+  --f-ink: #1A1B1E;
+  --f-muted: #6B6862;
+  --f-faint: #747066;          /* 4.94 on card, 4.53 on ground — was 3.42, failing */
+  --f-line: #E6E2D8;
+  --f-gold: #B08D3E;           /* the brand: fills, borders, marks */
+  --f-gold-ink: #886D30;       /* the same gold as TEXT: 4.91 / 4.51 */
+  --f-gold-soft: #F1EDE3;
+  --f-pos: #2C6B41;
+  --f-neg: #AB4425;
+  --f-track: #EDEAE1;
+  --f-lift: 0 1px 2px rgba(26, 27, 30, .05), 0 4px 14px rgba(26, 27, 30, .05);
+  --f-cardline: transparent;
+  --f-onGold: #FFFFFF;
+}
+
+/* dark — "instrument". Same system, ground inverted; shadow gives way to a hairline
+   because a shadow does not read on a dark ground. */
+.folio[data-theme='dark'] {
+  --f-ground: #14161A;
+  --f-card: #1E2126;
+  --f-ink: #ECE7DC;
+  --f-muted: #9A958A;
+  --f-faint: #8B877C;          /* 4.50 on card, 5.05 on ground — was 3.42 */
+  --f-line: #2A2E35;
+  --f-gold: #C39B45;
+  --f-gold-ink: #C39B45;       /* already 6.22 on the dark card */
+  --f-gold-soft: #23272E;
+  --f-pos: #4E9468;
+  --f-neg: #C4674A;
+  --f-track: #2A2E35;
+  --f-lift: none;
+  --f-cardline: #2A2E35;
+  --f-onGold: #14161A;
+}
+
+/* The client lens owns the whole window — the broker chrome steps aside. */
+body:has(.folio) .topbar { display: none; }
+body:has(.folio) .main { padding: 0; max-width: none; }
+body:has(.folio) { background: #2A2C30; }
+
+.folio {
+  min-height: 100dvh;
+  background: var(--f-ground);
+  color: var(--f-ink);
+  font-size: 14px;
+  line-height: 1.45;
+  display: flex;
+  flex-direction: column;
+  max-width: 460px;
+  margin: 0 auto;
+  position: relative;
+}
+.folio a { color: inherit; text-decoration: none; }
+.folio .num { font-variant-numeric: tabular-nums; }
+.folio .serif { font-family: var(--display); }
+.folio .pos { color: var(--f-pos); }
+.folio .neg { color: var(--f-neg); }
+.folio .ic { width: 1em; height: 1em; vertical-align: -.12em; fill: currentColor; }
+
+/* ── shell ───────────────────────────────────────────────────────────────── */
+.f-top {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px 10px; position: sticky; top: 0; z-index: 30;
+  background: var(--f-ground);
+}
+.f-top .house { font-size: 11px; letter-spacing: .26em; font-weight: 700; color: var(--f-faint); }
+.f-top .rt { display: flex; align-items: center; gap: 10px; }
+.f-lamp {
+  width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--f-line);
+  background: none; color: var(--f-muted); cursor: pointer; display: grid; place-items: center;
+  font: inherit; font-size: 14px; padding: 0;
+}
+.f-lamp:hover { color: var(--f-gold); border-color: var(--f-gold); }
+.f-av {
+  width: 30px; height: 30px; border-radius: 50%; background: var(--f-gold); color: var(--f-onGold);
+  display: grid; place-items: center; font-size: 11px; font-weight: 700;
+}
+.f-scroll { flex: 1; padding: 0 16px 24px; }
+
+/* ── the card, the one object ────────────────────────────────────────────── */
+.f-card {
+  background: var(--f-card); border: 1px solid var(--f-cardline); border-radius: 10px;
+  box-shadow: var(--f-lift); padding: 15px 16px; margin-bottom: 12px;
+}
+.f-card.tap { cursor: pointer; display: block; width: 100%; text-align: left; font: inherit; color: inherit; }
+.f-card.tap:hover { border-color: var(--f-gold); }
+.f-k {
+  font-size: 11px; letter-spacing: .13em; text-transform: uppercase; font-weight: 600;
+  color: var(--f-muted); display: flex; align-items: center; gap: 6px;
+}
+.f-k .rt { margin-left: auto; color: var(--f-gold-ink); letter-spacing: .02em; text-transform: none; font-size: 11px; }
+.f-sect {
+  font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-weight: 600;
+  color: var(--f-faint); margin: 20px 2px 8px; display: flex; align-items: baseline; gap: 8px;
+}
+.f-sect .rt { margin-left: auto; color: var(--f-gold-ink); letter-spacing: .02em; text-transform: none; font-size: 11.5px; font-weight: 700; }
+
+/* ── the headline figure ─────────────────────────────────────────────────── */
+.f-big { font-family: var(--display); font-size: 34px; font-weight: 600; letter-spacing: -.02em; margin-top: 7px; }
+.f-trio { display: flex; gap: 14px; margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--f-line); }
+.f-trio > div { flex: 1; min-width: 0; }
+.f-trio .l { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--f-faint); }
+.f-trio .v { font-size: 15px; font-weight: 600; margin-top: 3px; }
+
+/* ── the action card ─────────────────────────────────────────────────────── */
+.f-act { border-left: 2px solid var(--f-gold); }
+.f-act.urgent { border-left-color: var(--f-neg); }
+.f-act .t { font-size: 15px; font-weight: 650; line-height: 1.35; margin-top: 8px; }
+.f-act .s { font-size: 12.5px; line-height: 1.5; color: var(--f-muted); margin-top: 5px; }
+.f-btn {
+  border: 0; font: inherit; font-size: 13.5px; font-weight: 650; padding: 12px;
+  background: var(--f-gold); color: var(--f-onGold); border-radius: 6px;
+  width: 100%; cursor: pointer; margin-top: 12px;
+}
+.f-btn.ghost { background: none; color: var(--f-ink); border: 1px solid var(--f-line); }
+.f-btn.ghost:hover { border-color: var(--f-gold); color: var(--f-gold); }
+.f-btnrow { display: flex; gap: 8px; margin-top: 12px; }
+.f-btnrow .f-btn { margin-top: 0; }
+
+/* ── the score ───────────────────────────────────────────────────────────── */
+.f-score { display: flex; align-items: center; gap: 14px; margin-top: 12px; }
+.f-score .n { font-family: var(--display); font-size: 30px; font-weight: 650; letter-spacing: -.02em; }
+.f-score .n em { font-size: 13px; font-style: normal; font-weight: 500; color: var(--f-faint); }
+.f-bars { flex: 1; display: flex; flex-direction: column; gap: 7px; }
+.f-bar .bl { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--f-muted); margin-bottom: 3px; }
+.f-bar .bt { height: 4px; border-radius: 2px; background: var(--f-track); overflow: hidden; }
+.f-bar .bt i { display: block; height: 100%; border-radius: 2px; animation: f-fill .5s cubic-bezier(.3,.7,.3,1) both; }
+@keyframes f-fill { from { width: 0 } }
+
+/* ── a holding, a company, any drillable row ─────────────────────────────── */
+.f-row {
+  display: flex; align-items: center; gap: 11px; padding: 12px 2px;
+  border-bottom: 1px solid var(--f-line); width: 100%; text-align: left;
+  background: none; border-left: 0; border-right: 0; border-top: 0; font: inherit; color: inherit; cursor: pointer;
+}
+.f-row:last-child { border-bottom: 0; }
+.f-row .mk {
+  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center;
+  font-size: 9.5px; font-weight: 700; background: var(--f-gold-soft); color: var(--f-gold-ink);
+}
+.f-row .nm { flex: 1; min-width: 0; }
+.f-row .nm b { display: block; font-size: 13.5px; font-weight: 600; }
+.f-row .nm span { display: block; font-size: 11.5px; color: var(--f-faint); margin-top: 2px; }
+.f-row .fg { text-align: right; flex-shrink: 0; }
+.f-row .fg b { display: block; font-size: 13.5px; font-weight: 650; }
+.f-row .fg span { display: block; font-size: 11.5px; font-weight: 600; margin-top: 2px; }
+
+/* ── the bottom tabs ─────────────────────────────────────────────────────── */
+.f-tabs {
+  position: sticky; bottom: 0; display: flex; flex-shrink: 0; z-index: 30;
+  background: var(--f-card); border-top: 1px solid var(--f-line);
+  padding: 8px 6px calc(10px + env(safe-area-inset-bottom));
+}
+.f-tabs a {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px;
+  min-height: 48px; justify-content: center; font-size: 10.5px; letter-spacing: .06em; font-weight: 600; text-transform: uppercase; color: var(--f-faint);
+}
+.f-tabs a.on { color: var(--f-gold-ink); }
+.f-tabs .ic { width: 17px; height: 17px; }
+
+/* ── the section tab strip (inside a page, not the bottom nav) ───────────── */
+.f-tabbar {
+  display: flex; gap: 4px; overflow-x: auto; margin: 2px -16px 14px; padding: 0 16px 2px;
+  scrollbar-width: none;
+}
+.f-tabbar::-webkit-scrollbar { display: none; }
+.f-tabbar a {
+  flex-shrink: 0; font-size: 12px; font-weight: 600; padding: 7px 13px; border-radius: 999px;
+  color: var(--f-muted); border: 1px solid var(--f-line); white-space: nowrap;
+}
+.f-tabbar a.on { background: var(--f-ink); color: var(--f-ground); border-color: var(--f-ink); }
+
+/* ── filter chips ────────────────────────────────────────────────────────── */
+.f-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.f-chip {
+  font-size: 11.5px; font-weight: 600; padding: 6px 11px; border-radius: 999px;
+  border: 1px solid var(--f-line); color: var(--f-muted); background: none; cursor: pointer;
+}
+.f-chip.on { border-color: var(--f-gold); color: var(--f-gold-ink); background: var(--f-gold-soft); }
+
+/* ── a proportion, as one bar ────────────────────────────────────────────── */
+.f-seg { display: flex; height: 10px; border-radius: 3px; overflow: hidden; margin: 10px 0 9px; background: var(--f-track); }
+.f-seg i { display: block; height: 100%; }
+.f-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 11.5px; color: var(--f-muted); margin-bottom: 4px; }
+.f-legend b { font-weight: 700; margin-right: 4px; }
+
+/* ── the accordion: depth one tap down, and it says what it holds ────────── */
+.f-acc { border-bottom: 1px solid var(--f-line); }
+.f-acc:last-of-type { border-bottom: 0; }
+.f-acc > summary {
+  list-style: none; cursor: pointer; padding: 13px 2px; display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 600;
+}
+.f-acc > summary::-webkit-details-marker { display: none; }
+.f-acc > summary .rt { margin-left: auto; font-size: 12px; font-weight: 650; color: var(--f-muted); }
+.f-acc > summary .ic { color: var(--f-faint); transition: transform .18s ease; }
+.f-acc[open] > summary .ic { transform: rotate(90deg); }
+.f-acc .body { padding: 0 2px 14px; }
+
+/* ── an insight the page wrote about itself ──────────────────────────────── */
+.f-ins { display: flex; gap: 11px; padding: 12px 0; border-bottom: 1px solid var(--f-line); }
+.f-ins:last-child { border-bottom: 0; }
+.f-ins .g {
+  width: 26px; height: 26px; border-radius: 7px; flex-shrink: 0; display: grid; place-items: center;
+  background: var(--f-gold-soft); color: var(--f-gold-ink);
+}
+.f-ins .tx { flex: 1; font-size: 12.5px; line-height: 1.5; color: var(--f-muted); }
+.f-ins .tx b { color: var(--f-ink); font-weight: 650; }
+.f-ins .tx .d { display: block; font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--f-faint); margin-bottom: 3px; }
+
+/* ── a lever: what it is worth, and the button that does it ──────────────── */
+.f-lever { border: 1px solid var(--f-line); border-radius: 8px; padding: 12px 14px; margin-bottom: 9px; }
+.f-lever .lh { display: flex; align-items: baseline; gap: 10px; }
+.f-lever .lh b { flex: 1; font-size: 13px; font-weight: 650; line-height: 1.35; }
+.f-lever .lh .pts {
+  font-size: 11px; font-weight: 700; color: var(--f-gold); white-space: nowrap;
+  background: var(--f-gold-soft); border-radius: 999px; padding: 3px 8px;
+}
+.f-lever .ld { font-size: 12px; color: var(--f-faint); line-height: 1.5; margin-top: 5px; }
+.f-lever .gh { font-size: 11px; color: var(--f-faint); font-style: italic; margin-top: 5px; }
+
+/* ── the working: how a score was reached ────────────────────────────────── */
+.f-step { display: flex; justify-content: space-between; gap: 12px; font-size: 12.5px; padding: 6px 0; color: var(--f-muted); }
+.f-step b { font-variant-numeric: tabular-nums; color: var(--f-ink); font-weight: 650; white-space: nowrap; }
+
+/* ── a settings row: what it is on the left, the control on the right ────── */
+.setrow {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 14px 1px; border-bottom: 1px solid var(--f-line); min-height: 56px;
+}
+.setrow:last-child { border-bottom: 0; }
+.setrow .st2 { font-size: 13.5px; font-weight: 650; flex: 1; min-width: 0; }
+.setrow .st2 span {
+  display: block; font-size: 11.5px; color: var(--f-faint);
+  font-weight: 400; margin-top: 3px; line-height: 1.5;
+}
+.sw {
+  width: 48px; height: 28px; border-radius: 14px; flex-shrink: 0; cursor: pointer;
+  border: 1px solid var(--f-line); background: var(--f-track); position: relative;
+  transition: background .16s ease, border-color .16s ease;
+}
+.sw i {
+  position: absolute; top: 2px; left: 2px; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--f-card); border: 1px solid var(--f-line); display: block;
+  transition: left .16s cubic-bezier(.3,.7,.3,1);
+}
+.sw.on { background: var(--f-gold); border-color: var(--f-gold); }
+.sw.on i { left: 22px; border-color: var(--f-gold); }
+.seg {
+  display: flex; flex-shrink: 0; border: 1px solid var(--f-line);
+  border-radius: 6px; overflow: hidden;
+}
+.seg button {
+  font: inherit; font-size: 12px; font-weight: 650; min-height: 40px; padding: 8px 13px;
+  border: 0; background: none; color: var(--f-muted); cursor: pointer;
+}
+.seg button + button { border-left: 1px solid var(--f-line); }
+.seg button.on { background: var(--f-ink); color: var(--f-ground); }
+.seg button:disabled { color: var(--f-faint); cursor: not-allowed; }
+
+/* ── honest states ───────────────────────────────────────────────────────── */
+.f-note {
+  font-size: 12px; line-height: 1.6; color: var(--f-faint);
+  border-left: 2px solid var(--f-line); padding: 2px 0 2px 11px; margin: 10px 0;
+}
+.f-dash { color: var(--f-faint); font-weight: 400; }
+.f-stamp { font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; font-weight: 700; color: var(--f-gold-ink); }
+
+@media (prefers-reduced-motion: reduce) {
+  .folio *, .folio *::before, .folio *::after { animation: none !important; transition: none !important; }
+}
+
+/* Blur the figures — one class, set from preferences, never a separate layout. */
+.folio.hide-money .num,
+.folio.hide-money .f-big { filter: blur(6px); }
+
+/* ── motion: only ever "this is arriving" or "this is where you are" ─────── */
+.f-card { animation: f-rise .32s cubic-bezier(.22,.7,.3,1) both; }
+.f-card:nth-child(2) { animation-delay: .04s }
+.f-card:nth-child(3) { animation-delay: .08s }
+.f-card:nth-child(n+4) { animation-delay: .12s }
+@keyframes f-rise { from { opacity: 0; transform: translateY(6px) } }
+
+/* the skeleton, while the server is still counting */
+.f-skel { background: var(--f-card); border: 1px solid var(--f-cardline); border-radius: 10px;
+  box-shadow: var(--f-lift); padding: 15px 16px; margin-bottom: 12px; }
+.f-skel i { display: block; height: 10px; border-radius: 3px; margin-bottom: 9px;
+  background: linear-gradient(90deg, var(--f-track) 25%, var(--f-line) 37%, var(--f-track) 63%);
+  background-size: 400% 100%; animation: f-shim 1.3s ease infinite; }
+.f-skel i:last-child { margin-bottom: 0 }
+@keyframes f-shim { from { background-position: 100% 0 } to { background-position: -100% 0 } }
+
+/* the accordion chevron turns rather than jumping */
+.f-acc > summary { transition: color .15s ease }
+.f-acc > summary:hover { color: var(--f-gold) }
+.f-btn { transition: filter .15s ease, border-color .15s ease, color .15s ease }
+.f-btn:active { filter: brightness(.94) }
+.f-row { transition: background .15s ease }
+.f-row:hover { background: var(--f-gold-soft) }
+
+/* focus is always visible — a keyboard is not a second-class input */
+.folio a:focus-visible, .folio button:focus-visible, .folio summary:focus-visible,
+.folio input:focus-visible, .folio [role='switch']:focus-visible {
+  outline: 2px solid var(--f-gold); outline-offset: 2px; border-radius: 4px;
+}
+
+/* ── touch: nothing you can press is smaller than a fingertip ─────────────
+   44px is the Apple/WCAG floor. Small inline links get the area with padding
+   rather than growing the type, so the layout keeps its rhythm. */
+.f-lamp, .f-av { width: 40px; height: 40px; }
+.f-top { padding: 10px 16px 8px; }
+.f-k .rt, .f-sect .rt { padding: 12px 2px 12px 12px; margin: -12px -2px -12px 0; }
+.f-sect .rt { margin-left: auto; }
+.f-acc > summary { padding: 15px 2px; min-height: 48px; box-sizing: border-box; }
+.f-row { min-height: 52px; }
+.f-btn { min-height: 46px; }
+.f-chip { min-height: 40px; display: inline-flex; align-items: center; padding: 8px 14px; }
+.f-tabbar a { min-height: 42px; display: inline-flex; align-items: center; }
+
+/* ── the bottom tabs carry more weight — they are the app's spine ──────── */
+.f-tabs {
+  border-top: 1px solid var(--f-line);
+  box-shadow: 0 -1px 0 var(--f-line), 0 -8px 20px rgba(26, 27, 30, .04);
+}
+.folio[data-theme='dark'] .f-tabs { box-shadow: 0 -1px 0 var(--f-line); }
+.f-tabs a { color: var(--f-muted); font-weight: 650; }
+.f-tabs a.on { color: var(--f-gold-ink); }
+.f-tabs a.on .ic { transform: scale(1.06); }
+
+/* Tab labels sit at 11px like every other label; the bar grows to hold them. */
+.f-tabs a { font-size: 11px; letter-spacing: .04em; }
+.f-lamp, .f-av { width: 44px; height: 44px; }
+.f-k .rt, .f-sect .rt { padding: 14px 2px 14px 12px; margin: -14px -2px -14px 0; }
+
+/* ── a greeting is a sentence, not a label ───────────────────────────────── */
+.f-hello {
+  font-family: var(--display); font-size: 19px; font-weight: 600; letter-spacing: -.01em;
+  color: var(--f-ink); margin: 10px 2px 14px;
+}
+
+/* ── one link at the foot of a card, never competing with its label ─────── */
+.f-cardlink {
+  display: flex; align-items: center; gap: 5px; min-height: 44px;
+  margin: 10px -16px -15px; padding: 0 16px;
+  border-top: 1px solid var(--f-line);
+  font-size: 12px; font-weight: 650; color: var(--f-gold-ink);
+}
+.f-cardlink .ic { margin-left: auto; }
+
+/* the urgency stripe carries the weight, so the second card can stay quiet */
+.f-act { border-left-width: 3px; }
+.f-act .t { font-size: 16px; }
