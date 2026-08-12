@@ -183,6 +183,31 @@ a:hover { text-decoration: underline; }
 .viz .mark { font-size: 11px; color: var(--muted); margin-top: 6px; }
 .viz .mark b { color: var(--accent); }
 
+/* plotted figures — components/charts.tsx. Same frame as .viz so a chart and a
+   hand-drawn encoding sit in one row without a seam. Two per row by default; the
+   retired right rail is what pays for the width. */
+.charts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.charts.three { grid-template-columns: repeat(3, 1fr); }
+.chartfig {
+  margin: 0; min-width: 0; border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 10px 12px; background: var(--ground);
+}
+.chartfig h4 {
+  margin: 0 0 8px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--muted); display: flex; gap: 6px; align-items: center;
+}
+/* The container is sized to include the x-axis band, so the axis labels are never
+   the thing that gets cropped or spawns a nested scrollbar. */
+.chartbody { width: 100%; }
+.chartfig .mark { font-size: 11px; color: var(--muted); margin-top: 6px; max-width: var(--measure); }
+.chartfig .mark b { color: var(--ink); font-weight: 650; }
+.chartfig figcaption { font-size: 10.5px; color: var(--muted); margin-top: 6px; }
+.chartfig .recharts-cartesian-axis-tick text { font-variant-numeric: tabular-nums; }
+/* Recharts sets no gap between a legend swatch and the label before it, so the
+   last entry's square lands on the previous entry's last letter. */
+.chartfig .recharts-legend-item { margin-right: 12px !important; }
+.chartfig .recharts-legend-item-text { color: var(--muted) !important; padding-left: 2px; }
+
 /* segment chips + filters */
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 10px; align-items: center; }
 .chip { border: 1px solid var(--line); border-radius: 20px; padding: 3px 12px; font-size: 12.5px; background: var(--ground); color: var(--ink); }
@@ -661,6 +686,7 @@ a.col.on .n { color: var(--accent); }
   .cols { grid-template-columns: 1fr; }
   .cards, .cards.six { grid-template-columns: repeat(2, 1fr); }
   .vizrow, .vizrow.two, .startgrid, .ladderrow, .winlose { grid-template-columns: 1fr; }
+  .charts, .charts.three { grid-template-columns: 1fr; }
   .hist.wide { grid-template-columns: repeat(7, 1fr); height: auto; }
   .aumchart, .flowrow { grid-template-columns: repeat(7, 1fr); }
   .tgt { grid-template-columns: 1fr auto; }

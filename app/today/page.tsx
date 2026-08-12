@@ -20,6 +20,8 @@ import { QueueKeys } from '../../components/QueueKeys';
 import { VoiceTask } from '../../components/VoiceTask';
 import { ProgressStrip } from '../../components/ProgressStrip';
 import { QueueFilter } from '../../components/QueueFilter';
+import { ChartBars } from '../../components/charts';
+import { typeOf } from '../../lib/queue-display';
 
 export const dynamic = 'force-dynamic';
 
@@ -61,6 +63,37 @@ export default async function TodayPage({ searchParams }: PageProps<'/today'>) {
   const score = scoreboard();
   const learn = learning();
 
+  // Two pictures of the same queue: when it lands, and what it is worth. Both are
+  // folded out of the streams already in hand — no second query, and no number in
+  // either that the table below does not also carry. Both follow the filter, so
+  // the charts and the rows under them can never describe different work.
+  const band = (due: string) => {
+    const d = Math.round((Date.parse(due) - Date.parse(TODAY)) / 86400000);
+    return d < 0 ? 0 : d === 0 ? 1 : d === 1 ? 2 : d <= 7 ? 3 : d <= 14 ? 4 : 5;
+  };
+  const BANDS = ['Overdue', 'Today', 'Tomorrow', 'This week', 'Next 2 wks', 'Later'];
+  const week = BANDS.map((label, i) => ({
+    band: label,
+    now: q.red.filter(a => band(a.sla_due) === i).length,
+    opp: q.amber.filter(a => band(a.sla_due) === i).length,
+    fyi: q.grey.filter(a => band(a.sla_due) === i).length,
+  }));
+  const overdue = week[0].now + week[0].opp + week[0].fyi;
+
+  // impact_score is rupees — the same figure the Opportunities stream is already
+  // ranked by. Grouped by kind of work, and each bar keeps the colour that kind
+  // wears in the table, so the chart and the row are the same vocabulary.
+  const kinds = new Map<string, { kind: string; v: number; n: number; tone: string }>();
+  for (const a of order) {
+    const t = typeOf(a.action_type);
+    const row = kinds.get(t.label) ?? { kind: t.label, v: 0, n: 0, tone: t.tone };
+    row.v += a.impact_score;
+    row.n += 1;
+    kinds.set(t.label, row);
+  }
+  const worth = [...kinds.values()].sort((a, b) => a.v - b.v);
+  const atStake = worth.reduce((s, k) => s + k.v, 0);
+
   return (
     <>
       <MarketStrip />
@@ -100,6 +133,38 @@ export default async function TodayPage({ searchParams }: PageProps<'/today'>) {
             <VoiceTask targetName="note" />
             <button type="submit">Add</button>
           </form>
+
+          <div className="charts">
+            <ChartBars
+              title="When the queue lands" height={210}
+              xLabel="due" yLabel="items"
+              source="actions.sla_due · open items assigned to you"
+              data={week} xKey="band"
+              series={[
+                { key: 'now', name: 'Act now', tone: 'red', stack: 'q' },
+                { key: 'opp', name: 'Opportunities', tone: 'amber', stack: 'q' },
+                { key: 'fyi', name: 'Relationship & FYI', tone: 'grey', stack: 'q' },
+              ]}
+              mark={overdue > 0
+                ? <><b>{overdue}</b> of {order.length} are already past their date — the week starts behind.</>
+                : <>Nothing overdue. <b>{week[1].now + week[1].opp + week[1].fyi}</b> due today.</>}
+              aside={<Explain teaser="How the bands are set">
+                Bands are cut off the SLA date each item was minted with, not off when you
+                opened the page. &ldquo;Act now&rdquo; is money work due by tomorrow;
+                relationship items never escalate into it, however old they get.
+              </Explain>}
+            />
+            <ChartBars
+              horizontal unit="inr" height={210}
+              title="What it is worth, by kind of work"
+              xLabel="₹ at stake" yLabel="kind"
+              source="actions.impact_score — the figure the Opportunities stream is ranked by"
+              data={worth} xKey="kind"
+              series={[{ key: 'v', name: '₹ at stake', tone: 'blue' }]}
+              toneKey="tone"
+              mark={<><b>{inrCompact(atStake)}</b> across {order.length} open items{kind ? ` · filtered to ${typeOf(kind).label}` : ''}. Birthdays carry no rupee figure and sit at zero on purpose.</>}
+            />
+          </div>
 
           {/* One table, three sections. Three tables meant three column templates and
               the eye stepped sideways twice on the way down the page. */}
