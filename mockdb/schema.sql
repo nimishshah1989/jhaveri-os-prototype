@@ -1154,6 +1154,41 @@ CREATE TABLE client_goals (
 );
 CREATE INDEX idx_goal_client ON client_goals(fk_cm_user_id, is_active);
 
+-- ── Held away (MF Central / CAS seam) ───────────────────────────────────────
+-- Folios the client holds somewhere else, fetched against their PAN. This is
+-- what turns the app from "your Jhaveri folios" into "your money".
+--
+-- Note what this table does NOT have: a value column. Units and a scheme id are
+-- stored; the rupee figure is units × the same `mf_latest_price_master` price
+-- every Jhaveri holding is priced from, computed at read time. A held-away fund
+-- and an advised fund can therefore never disagree about a price, which is the
+-- single most likely way a consolidated net worth goes quietly wrong.
+--
+-- `fk_scheme_id` is nullable on purpose. An RTA sends schemes from houses we do
+-- not distribute, and a row we cannot price must render a dash and be counted as
+-- unpriced — never silently valued at zero, which would understate a net worth
+-- while every total still added up.
+CREATE TABLE heldaway_folios (
+  ha_id        INTEGER PRIMARY KEY,
+  pan_no       TEXT NOT NULL,
+  client_id    INTEGER REFERENCES client_master(cm_user_id),
+  folio_no     TEXT NOT NULL,
+  fk_scheme_id INTEGER REFERENCES scheme_master(scheme_id),
+  scheme_name  TEXT NOT NULL,                 -- as the RTA spells it, not as we do
+  amc_name     TEXT NOT NULL,
+  amfi_code    TEXT,                          -- what we match on
+  units        NUMERIC NOT NULL,
+  cost_amount  NUMERIC,
+  rta          TEXT,                          -- CAMS | KFintech
+  first_seen   TEXT NOT NULL,
+  as_of        TEXT NOT NULL,
+  source       TEXT NOT NULL DEFAULT 'mfcentral',
+  -- The natural key. A CAS is re-fetched every month and would otherwise double
+  -- a client's net worth on the second import.
+  UNIQUE (pan_no, folio_no, scheme_name)
+);
+CREATE INDEX idx_ha_client ON heldaway_folios(client_id);
+
 -- ── Fund intelligence (Morningstar seam) ────────────────────────────────────
 -- Everything here would arrive from Morningstar in the live build. It does not
 -- exist yet, so it is seeded — but the seed is split honestly by `source`:
@@ -1233,6 +1268,9 @@ CREATE TABLE scheme_risk_stats (
   std_dev          NUMERIC,
   sharpe           NUMERIC,
   max_drawdown     NUMERIC,
+  -- How closely the fund's monthly moves actually track its index in this data.
+  -- Stored because it is the evidence for which figures on this row are real.
+  correlation      NUMERIC,
   source           TEXT NOT NULL,
   UNIQUE (fk_scheme_id, period_months, as_of)
 );

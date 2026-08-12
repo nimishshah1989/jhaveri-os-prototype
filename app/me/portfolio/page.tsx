@@ -7,6 +7,8 @@ import { Nothing } from '../empty';
 import { ME } from '../layout';
 import { HoldingsTab, CompositionTab, MirrorTab } from './tabs';
 import { HealthTab } from './health-tab';
+import { ElsewhereTab } from './elsewhere-tab';
+import { netWorth } from '../../../lib/import';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +16,7 @@ const TABS: [string, string][] = [
   ['holdings', 'What you own'],
   ['composition', 'What it holds'],
   ['health', 'How it is doing'],
+  ['elsewhere', 'Held elsewhere'],
   ['mirror', 'Your decisions'],
 ];
 
@@ -30,6 +33,10 @@ export default async function Portfolio({ searchParams }: PageProps<'/me/portfol
   }
   const k = clientKpis(ME).value;
   const earned = k.v - k.invested;
+  // The advised book is the headline, as it is on every other page. The rest of
+  // their money gets one labelled line under it and its own tab — never blended
+  // into the figure the health score and the goals are computed from.
+  const nw = netWorth(ME);
 
   return (
     <>
@@ -50,6 +57,11 @@ export default async function Portfolio({ searchParams }: PageProps<'/me/portfol
             <div className="v num">{k.wx != null ? `${k.wx}%` : <span className="f-dash">—</span>}</div>
           </div>
         </div>
+        {nw.elsewhere > 0 && (
+          <Link href="/me/portfolio?tab=elsewhere" className="f-cardlink">
+            {inr(nw.elsewhere)} more sits elsewhere · {inr(nw.everything)} altogether <Icon name="chev" />
+          </Link>
+        )}
       </div>
 
       <nav className="f-tabbar">
@@ -63,6 +75,7 @@ export default async function Portfolio({ searchParams }: PageProps<'/me/portfol
       {tab === 'holdings' && <HoldingsTab />}
       {tab === 'composition' && <CompositionTab />}
       {tab === 'health' && <HealthTab />}
+      {tab === 'elsewhere' && <ElsewhereTab />}
       {tab === 'mirror' && <MirrorTab />}
 
       <p className="f-note">

@@ -4,6 +4,7 @@ import {
   ResponsiveContainer, ComposedChart, ScatterChart, Bar, Line, Area, Scatter,
   XAxis, YAxis, ZAxis, CartesianGrid, Tooltip, Legend, Cell, ReferenceLine, ReferenceArea,
 } from 'recharts';
+import { useRouter } from 'next/navigation';
 import { inrCompact, inrExact } from '../lib/format';
 
 // The only file in the product allowed to import a plotting library, and the only
@@ -65,11 +66,19 @@ interface Frame {
   mark?: React.ReactNode;
   /** The ⓘ, when the figure has a glossary entry behind it. */
   aside?: React.ReactNode;
+  /** What the colours mean, when a single series is coloured per row. Without it
+   *  the legend shows the series swatch — one colour that no mark on the plot is
+   *  actually painted in, which is worse than no legend. */
+  keyItems?: { name: string; tone: Tone }[];
 }
 
 const AXIS = { fill: 'var(--muted)', fontSize: 10.5 };
 const GRID = 'var(--line)';
 const AXIS_TITLE = { fill: 'var(--muted)', fontSize: 10.5 };
+
+// Rupee ticks read "₹15,000"; at the default axis width the rotated axis title
+// lands on top of them. Width follows the unit rather than a single guess.
+const yWidth = (u: Unit) => (u === 'inr' ? 78 : 58);
 
 // The legend sits above the plot. At the bottom it lands on the x-axis title,
 // and one of the two always loses.
@@ -85,7 +94,7 @@ const LEGEND = {
 // of the right shape rather than a spinner, and no layout jump.
 const INITIAL = { width: 640, height: 200 };
 
-function Figure({ title, source, mark, aside, height = 200, children }: Frame & { children: React.ReactElement }) {
+function Figure({ title, source, mark, aside, keyItems, height = 200, children }: Frame & { children: React.ReactElement }) {
   return (
     <figure className="chartfig">
       <h4>{title}{aside}</h4>
@@ -94,6 +103,15 @@ function Figure({ title, source, mark, aside, height = 200, children }: Frame & 
           {children}
         </ResponsiveContainer>
       </div>
+      {/* Colours-per-row get the product's own legend rather than the library's:
+          Recharts paints one swatch for the whole series, and on a per-row chart
+          that swatch is a colour nothing on the plot is drawn in. `.lg` is the
+          legend the asset mix and health split already use. */}
+      {keyItems && (
+        <div className="lg">
+          {keyItems.map(i => <span key={i.name} style={{ ['--c' as string]: TONE[i.tone] }}><b>{i.name}</b></span>)}
+        </div>
+      )}
       {mark && <div className="mark">{mark}</div>}
       <figcaption>Source: {source}</figcaption>
     </figure>
@@ -124,7 +142,7 @@ export interface Series {
 }
 
 export function ChartBars({
-  data, xKey, series, unit = 'count', horizontal, toneKey, ...frame
+  data, xKey, series, unit = 'count', horizontal, toneKey, hrefKey, ...frame
 }: Frame & {
   data: Row[];
   xKey: string;
@@ -136,7 +154,18 @@ export function ChartBars({
    *  different things. A field rather than a callback: this is a client
    *  component and a server page cannot hand it a function. */
   toneKey?: string;
+  /** Field on each row holding where that bar navigates to. A bar that replaced a
+   *  clickable strip has to stay clickable; pages that use it keep the same links
+   *  in text beneath the plot, because an SVG rect takes no keyboard focus. */
+  hrefKey?: string;
 }) {
+  const router = useRouter();
+  const go = hrefKey
+    ? (d: { payload?: Row }) => {
+        const href = d?.payload?.[hrefKey];
+        if (typeof href === 'string') router.push(href);
+      }
+    : undefined;
   const cat = { dataKey: xKey, tick: AXIS, stroke: GRID, type: 'category' as const };
   const val = { tick: AXIS, stroke: GRID, type: 'number' as const, tickFormatter: UNIT[unit].axis };
   return (
@@ -149,12 +178,13 @@ export function ChartBars({
           : <XAxis {...cat} label={{ value: frame.xLabel, position: 'insideBottom', offset: -12, ...AXIS_TITLE }} interval={0} />}
         {horizontal
           ? <YAxis {...cat} width={128} label={{ value: frame.yLabel, angle: -90, position: 'insideLeft', offset: 12, ...AXIS_TITLE }} />
-          : <YAxis {...val} width={56} label={{ value: frame.yLabel, angle: -90, position: 'insideLeft', ...AXIS_TITLE }} />}
+          : <YAxis {...val} width={yWidth(unit)} label={{ value: frame.yLabel, angle: -90, position: 'insideLeft', ...AXIS_TITLE }} />}
         <Tooltip {...tip(unit)} />
         {series.length > 1 && <Legend {...LEGEND} />}
         {series.map(s => (
           <Bar key={s.key} dataKey={s.key} name={s.name} stackId={s.stack} fill={TONE[s.tone]}
-            radius={s.stack ? 0 : 3} maxBarSize={34} isAnimationActive={false}>
+            radius={s.stack ? 0 : 3} maxBarSize={34} isAnimationActive={false}
+            onClick={go} cursor={go ? 'pointer' : undefined}>
             {toneKey && data.map((row, i) => <Cell key={i} fill={TONE[row[toneKey] as Tone]} />)}
           </Bar>
         ))}
@@ -185,7 +215,7 @@ export function ChartLines({
         <CartesianGrid stroke={GRID} vertical={false} />
         <XAxis dataKey={xKey} tick={AXIS} stroke={GRID} interval="preserveStartEnd"
           label={{ value: frame.xLabel, position: 'insideBottom', offset: -12, ...AXIS_TITLE }} />
-        <YAxis tick={AXIS} stroke={GRID} width={56} tickFormatter={UNIT[unit].axis}
+        <YAxis tick={AXIS} stroke={GRID} width={yWidth(unit)} tickFormatter={UNIT[unit].axis}
           label={{ value: frame.yLabel, angle: -90, position: 'insideLeft', ...AXIS_TITLE }} />
         <Tooltip {...tip(unit)} />
         {series.length + (bars?.length ?? 0) > 1 && <Legend {...LEGEND} />}
@@ -209,11 +239,13 @@ export function ChartLines({
 // Two measures at once, for finding the client who is off the pattern — the one
 // question a ranked table cannot answer, because it can only rank on one column.
 export function ChartScatter({
-  data, xKey, yKey, xUnit = 'count', yUnit = 'inr', tone = 'blue', toneKey, quadrant, ...frame
+  data, xKey, yKey, nameKey, xUnit = 'count', yUnit = 'inr', tone = 'blue', toneKey, quadrant, ...frame
 }: Frame & {
   data: Row[];
   xKey: string;
   yKey: string;
+  /** Field naming the dot. A dot with no identity is a shape, not a client. */
+  nameKey: string;
   xUnit?: Unit;
   yUnit?: Unit;
   tone?: Tone;
@@ -228,7 +260,7 @@ export function ChartScatter({
         <CartesianGrid stroke={GRID} />
         <XAxis type="number" dataKey={xKey} tick={AXIS} stroke={GRID} tickFormatter={UNIT[xUnit].axis}
           label={{ value: frame.xLabel, position: 'insideBottom', offset: -12, ...AXIS_TITLE }} />
-        <YAxis type="number" dataKey={yKey} tick={AXIS} stroke={GRID} width={56} tickFormatter={UNIT[yUnit].axis}
+        <YAxis type="number" dataKey={yKey} tick={AXIS} stroke={GRID} width={yWidth(yUnit)} tickFormatter={UNIT[yUnit].axis}
           label={{ value: frame.yLabel, angle: -90, position: 'insideLeft', ...AXIS_TITLE }} />
         <ZAxis range={[26, 26]} />
         <Tooltip
@@ -238,11 +270,10 @@ export function ChartScatter({
             String(name) === String(xKey) ? UNIT[xUnit].exact(Number(v)) : UNIT[yUnit].exact(Number(v)),
             String(name) === String(xKey) ? frame.xLabel : frame.yLabel,
           ] as [string, string]}
-          labelFormatter={() => ''}
-          // The dot is 8px; the row it stands for is a client. Name it.
-          itemSorter={() => 0}
+          // The dot is 8px across; the row behind it is a person. Name them.
+          labelFormatter={(_: unknown, payload: readonly { payload?: Row }[]) =>
+            String(payload?.[0]?.payload?.[nameKey] ?? '')}
         />
-        <Legend {...LEGEND} iconType="circle" />
         {quadrant && (
           <ReferenceArea x1={quadrant.x1} x2={quadrant.x2} fill={TONE.amber} fillOpacity={0.07}
             label={{ value: quadrant.label, position: 'insideTopLeft', fill: 'var(--muted)', fontSize: 10.5 }} />

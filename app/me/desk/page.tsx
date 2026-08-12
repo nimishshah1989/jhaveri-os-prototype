@@ -2,9 +2,10 @@ import Link from 'next/link';
 import { Icon } from '../../../components/Icon';
 import { inr, inrCompact, dmy } from '../../../lib/format';
 import { clientHeader, clientTxns } from '../../../lib/client360';
-import { manager, raisedByMe } from '../../../lib/me';
+import { manager } from '../../../lib/me';
 import { taxAhead, feeOnMe, consents } from '../../../lib/desk';
 import { household } from '../../../lib/household';
+import { tickets, clockSummary } from '../../../lib/clock';
 import { ME } from '../layout';
 import { raise } from '../acts';
 import { Prefs } from '../prefs';
@@ -29,7 +30,10 @@ export default async function Desk() {
   if (!me) {
     return (<><div className="f-sect" style={{ margin: '4px 2px 8px' }}>Your desk</div><Nothing clientId={ME} page="desk" /></>);
   }
-  const raised = raisedByMe(ME);
+  const all = tickets(ME);
+  const open = all.filter(x => !x.closed);
+  const done = all.filter(x => x.closed);
+  const clock = clockSummary(ME);
   const tax = taxAhead(ME);
   const fee = feeOnMe(ME);
   const perms = consents(ME);
@@ -62,27 +66,74 @@ export default async function Desk() {
         </form>
       </div>
 
-      {/* ── what you have asked for, and where it got to ── */}
-      <div className="f-sect">What you have asked for</div>
-      {raised.length === 0 ? (
+      {/* ── what you have asked for, on a clock ──────────────────────────────
+          research/22 ranks support at 24% of what makes a house trustworthy —
+          35% among the youngest investors, ahead of brand familiarity — and
+          research/15 records that our predecessor app died of unanswered
+          support. So this is a clock, not a status list: raised, who holds it,
+          promised by, and how far past that it has gone. */}
+      <div className="f-sect">
+        What you have asked for
+        {clock.open > 0 && <span className="rt" style={{ color: clock.overdue > 0 ? 'var(--f-neg)' : 'var(--f-gold-ink)' }}>
+          {clock.open} open{clock.overdue > 0 ? ` · ${clock.overdue} late` : ''}
+        </span>}
+      </div>
+      {open.length === 0 && done.length === 0 ? (
         <p className="f-note">
           Nothing open. Anything you press anywhere in this app arrives here with the date you asked and the date
           it is due — nothing you ask for disappears into a queue you cannot see.
         </p>
       ) : (
-        <div className="f-card" style={{ paddingTop: 4, paddingBottom: 4 }}>
-          {raised.map(r => (
-            <div key={r.action_id} className="f-row" style={{ cursor: 'default' }}>
-              <span className="nm">
-                <b>{r.label || r.action_type.replace(/_/g, ' ')}</b>
-                <span>asked {dmy(r.created_at)} · due {dmy(r.sla_due)} · with {rm?.first ?? 'your manager'}</span>
-              </span>
-              <span className="f-stamp" style={{ color: STATE_TONE[r.state] ?? 'var(--f-gold)' }}>
-                {r.state.replace(/_/g, ' ')}
-              </span>
+        <>
+          <div className="f-card">
+            {open.length === 0 ? (
+              <p className="f-note" style={{ margin: 0 }}>Nothing outstanding. Everything you asked for has been closed.</p>
+            ) : open.map(t2 => (
+              <div key={t2.action_id} className="f-lever" style={{ borderColor: t2.overdue ? 'var(--f-neg)' : 'var(--f-line)' }}>
+                <div className="lh">
+                  <b>{t2.label.replace(/_/g, ' ')}</b>
+                  <span className="pts" style={{
+                    color: t2.overdue ? 'var(--f-neg)' : 'var(--f-gold)',
+                    background: t2.overdue ? 'transparent' : 'var(--f-gold-soft)',
+                  }}>
+                    {t2.overdue ? `${Math.abs(t2.days_left)}d late` : t2.days_left === 0 ? 'due today' : `${t2.days_left}d left`}
+                  </span>
+                </div>
+                {/* raised → who holds it → promised by. Three dates, no jargon. */}
+                <div className="f-step"><span>You asked</span><b>{dmy(t2.raised)}</b></div>
+                <div className="f-step"><span>Held by</span><b>{t2.with_whom}</b></div>
+                <div className="f-step"><span>Promised by</span>
+                  <b className={t2.overdue ? 'neg' : ''}>{dmy(t2.promised)}</b></div>
+                <div className="ld">
+                  {t2.overdue
+                    ? `This is past what we promised. It is ours to explain, not yours to chase — and it is printed here rather than left for you to notice.`
+                    : `Open ${t2.days_open} day${t2.days_open === 1 ? '' : 's'}. ${t2.with_whom} sees the same clock you do.`}
+                </div>
+              </div>
+            ))}
+            <p className="f-note" style={{ marginBottom: 0 }}>
+              {clock.median_days != null
+                ? `Of the ${clock.closed} things you have asked for and had closed, the middle one took ${clock.median_days} day${clock.median_days === 1 ? '' : 's'}. That is our record, not a target.`
+                : 'Nothing has been closed yet, so there is no record to quote you.'}
+            </p>
+          </div>
+
+          {done.length > 0 && (
+            <div className="f-card" style={{ paddingTop: 4, paddingBottom: 4 }}>
+              {done.slice(0, 4).map(t2 => (
+                <div key={t2.action_id} className="f-row" style={{ cursor: 'default' }}>
+                  <span className="nm">
+                    <b>{t2.label.replace(/_/g, ' ')}</b>
+                    <span>asked {dmy(t2.raised)} · closed {t2.closed ? dmy(t2.closed) : '—'} · {t2.with_whom}</span>
+                  </span>
+                  <span className="f-stamp" style={{ color: STATE_TONE[t2.state] ?? 'var(--f-pos)' }}>
+                    {(t2.outcome ?? t2.state).replace(/_/g, ' ')}
+                  </span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
 
       {/* ── tax, forward-looking (research/14 §12.7) ── */}

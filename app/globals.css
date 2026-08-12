@@ -1312,3 +1312,13 @@ a.qcard .evidence b { color: var(--ink); font-weight: 600; }
 }
 .prov.labelled > summary:hover { background: var(--accent-soft); border-color: var(--accent); }
 .prov.labelled[open] > summary { background: var(--accent-soft); border-color: var(--accent); }
+
+/* The month links under the earnings trend. The bars navigate too; these are the
+   same fourteen destinations in a form that takes keyboard focus. */
+.monthlinks { display: flex; flex-wrap: wrap; gap: 4px 6px; margin: 0 0 14px; }
+.monthlinks a {
+  font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 4px;
+  padding: 2px 7px; text-decoration: none; font-variant-numeric: tabular-nums;
+}
+.monthlinks a:hover { border-color: var(--accent); color: var(--accent); }
+.monthlinks a.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 650; }

@@ -6,6 +6,7 @@ import { clientHeader, clientKpis, clientHoldings, clientActions } from '../../l
 import { clientHealth } from '../../lib/scoring';
 import { manager, plan } from '../../lib/me';
 import { outlooks } from '../../lib/goals';
+import { eventDesk } from '../../lib/eventdesk';
 import { ME } from './layout';
 import { raise } from './acts';
 import { Nothing } from './empty';
@@ -47,10 +48,24 @@ export default async function Today() {
   const p = plan(health.components);
   const needs = p.acts.slice(0, 2);
   const plans = outlooks(ME);
+  // What has actually happened to this money, newest first. Every row is derived
+  // from a record — a handover, a mandate date, a refused instalment — and each
+  // carries the house's written view beside it. See lib/eventdesk.ts.
+  // Two, not three: Today is a reading surface and DESIGN.md caps it at 2.5
+  // screens. Measured at 2.61 with three. The rest live on /me/events.
+  const feed = eventDesk(ME);
+  const changed = feed.slice(0, 2);
 
   return (
     <>
       <p className="f-hello">Good morning, {me.name.split(' ')[0]}.</p>
+
+      <form action="/me/ask" className="f-card" style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '10px 13px' }}>
+        <Icon name="search" />
+        <input name="q" type="search" autoComplete="off" placeholder="Ask about your money…"
+          style={{ flex: 1, border: 0, outline: 0, background: 'none', font: 'inherit', fontSize: 13.5, color: 'var(--f-ink)', minWidth: 0 }} />
+        <span className="f-stamp">BETA</span>
+      </form>
 
       <div className="f-card">
         <div className="f-k"><Icon name="bank" /> Your wealth</div>
@@ -103,6 +118,34 @@ export default async function Today() {
                   <span>{g.reachedOn ? dmy(g.reachedOn).slice(3) : 'not on this path'}</span>
                 </span>
               </Link>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* ── what changed, with the house view beside it and the cost in rupees ── */}
+      {changed.length > 0 && (
+        <>
+          <div className="f-sect">
+            What changed
+            <Link href="/me/events" className="rt">All {feed.length} <Icon name="chev" /></Link>
+          </div>
+          <div className="f-card">
+            {changed.map(e => (
+              <div className="f-ins" key={e.key}>
+                <span className="g">
+                  <Icon name={e.kind === 'instalment_failed' || e.kind === 'mandate_ending' ? 'alert'
+                    : e.kind === 'manager_wrote' ? 'chat' : 'spark'} />
+                </span>
+                <span className="tx">
+                  <span className="d">
+                    {e.days_ago === 0 ? 'Today' : `${e.days_ago} days ago`}
+                    {e.fund ? ` · ${e.fund.replace(/ (Dir|Reg) ?Gr$/, '')}` : ''}
+                  </span>
+                  <b>{e.what}</b>
+                  {e.consequence && <> {e.consequence}</>}
+                </span>
+              </div>
             ))}
           </div>
         </>

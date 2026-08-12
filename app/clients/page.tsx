@@ -13,6 +13,7 @@ import {
   worthActingOn, learning, type ClientFilters,
 } from '../../lib/queries';
 import { bookHealth, SCORING_RULES } from '../../lib/scoring';
+import { ChartBars, ChartScatter } from '../../components/charts';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,6 +74,35 @@ export default async function ClientsPage({ searchParams }: PageProps<'/clients'
   const acting = worthActingOn();
   const learn = learning();
   const allCount = clientRows(me.code, {}).rows.length;
+
+  // Two questions a ranked table cannot answer, because a table can only rank on
+  // one column at a time: how the book is distributed, and who is big AND unwell.
+  // Both read the rows already on screen, so the filter above scopes them too.
+  const SIZES: [string, number, number][] = [
+    ['< ₹1 L', 0, 1e5], ['₹1–5 L', 1e5, 5e5], ['₹5–10 L', 5e5, 1e6],
+    ['₹10–25 L', 1e6, 2.5e6], ['> ₹25 L', 2.5e6, Infinity],
+  ];
+  const sizes = SIZES.map(([label, lo, hi]) => {
+    const inBand = rows.filter(r => r.v >= lo && r.v < hi);
+    return { size: label, n: inBand.length, v: inBand.reduce((s, r) => s + r.v, 0) };
+  });
+  const topBand = [...sizes].reverse().find(b => b.n > 0);
+  const bookTotal = rows.reduce((s, r) => s + r.v, 0);
+
+  // cls is the health band's own class name — the same three the table paints its
+  // score pills with, mapped onto the tone vocabulary rather than a fourth palette.
+  const HEALTH_TONE: Record<string, string> = { lt: 'green', conc: 'amber', atrisk: 'red' };
+  const scatter = rows.map(r => {
+    const h = scores.get(r.client_id);
+    return {
+      name: r.name, score: h?.score ?? 0, v: r.v,
+      tone: HEALTH_TONE[h?.cls ?? ''] ?? 'grey',
+    };
+  });
+  // "Healthy" is the top band's floor, read off the rules rather than retyped.
+  const healthyMin = SCORING_RULES.bands[0].min;
+  const belowHealthy = scatter.filter(d => d.score < healthyMin);
+  const belowHealthyValue = belowHealthy.reduce((s2, d) => s2 + d.v, 0);
 
   return (
     <>
@@ -161,6 +191,35 @@ export default async function ClientsPage({ searchParams }: PageProps<'/clients'
                 Book blended: <b>+{blended.value.x}%</b>{bands.value[0].n > 0 && <> · {bands.value[0].n} clients in the red — talk to them first</>}
               </div>
             </div>
+          </div>
+
+          <div className="charts">
+            <ChartBars
+              title="How the book is distributed" height={215}
+              xLabel="what a client holds" yLabel="clients"
+              source="fifo_summary_holding_active.present_market_value, by client"
+              data={sizes} xKey="size"
+              series={[{ key: 'n', name: 'Clients', tone: 's1' }]}
+              mark={topBand && bookTotal > 0
+                ? <>The <b>{topBand.n}</b> client{topBand.n === 1 ? '' : 's'} in {topBand.size} hold {inrCompact(topBand.v)} — <b>{Math.round((topBand.v / bookTotal) * 100)}%</b> of everything on this screen. Count is drawn; the rupees are on hover.</>
+                : <>No clients in the current filter.</>}
+              aside={<Explain teaser="Why count, not rupees">
+                Both are true and they say opposite things: the bands with the most
+                clients are rarely the bands with the most money. The bars count
+                people, and the hover gives the rupees in that band, so neither
+                reading can quietly stand in for the other.
+              </Explain>}
+            />
+            <ChartScatter
+              title="Health against size" height={215}
+              xLabel="health score" yLabel="what they hold"
+              source="health_v0 score vs present_market_value · one dot per client"
+              data={scatter} xKey="score" yKey="v" nameKey="name"
+              xUnit="count" yUnit="inr" toneKey="tone"
+              quadrant={{ x1: 0, x2: healthyMin, label: 'below healthy' }}
+              keyItems={[{ name: 'healthy', tone: 'green' }, { name: 'needs work', tone: 'amber' }, { name: 'at risk', tone: 'red' }]}
+              mark={<><b>{belowHealthy.length}</b> of {scatter.length} clients sit left of the {healthyMin} line, holding <b>{inrCompact(belowHealthyValue)}</b> between them. Height is what they are worth, so the dot to work is the highest one on the left.</>}
+            />
           </div>
 
           <div className="chips">

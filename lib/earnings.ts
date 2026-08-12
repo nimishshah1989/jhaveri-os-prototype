@@ -61,7 +61,8 @@ export function ladder(sbId: number, month: string): Figure<Ladder> {
 }
 
 export interface Tier { name: string; pct: number }
-export interface TierStep { current: Tier; next: Tier | null; upliftPerMonth: number }
+/** `all` is every rung, so the ladder can be drawn rather than described. */
+export interface TierStep { current: Tier; next: Tier | null; upliftPerMonth: number; all: Tier[] }
 
 /**
  * Where this broker sits on the payout ladder and what the next rung is worth.
@@ -82,7 +83,7 @@ export function tierStep(sbId: number, month: string): Figure<TierStep> {
     ? Math.round(((l.trail / current.pct) * next.pct - l.trail) * 100) / 100
     : 0;
   return {
-    value: { current, next, upliftPerMonth: uplift }, tag: 'rule', sql,
+    value: { current, next, upliftPerMonth: uplift, all: tiers }, tag: 'rule', sql,
     sources: ['broker_category_payout_pct_master.trail_1st_yr_pct', 'sub_broker_category_master.cat_category_name'],
   };
 }

@@ -6,6 +6,7 @@ import { clientHoldings, fundVerdict } from '../../../../lib/client360';
 import { fundHoldingRows, categoryPerformance } from '../../../../lib/portfolio';
 import { schemeGrades } from '../../../../lib/scoring';
 import { fundMeta } from '../../../../lib/me';
+import { manager as fundManager, handovers, findings } from '../../../../lib/funds';
 import { ME } from '../../layout';
 import { raise } from '../../acts';
 
@@ -35,6 +36,13 @@ export default async function Fund({ params }: PageProps<'/me/portfolio/[schemeI
   const nextFree = st.length
     ? st.map(l => new Date(Date.parse(l.purchase_date) + LT_DAYS * 864e5).toISOString().slice(0, 10)).sort()[0]
     : null;
+
+  // Phase 4 — the fund research layer. Every one of these carries its own
+  // provenance to the screen; nothing here is allowed to read as measured when
+  // it was supplied. See lib/funds.ts.
+  const mgr = fundManager(sid);
+  const hands = handovers(sid);
+  const says = findings(ME, sid);
 
   const leans = Object.entries(
     holdings.reduce<Record<string, number>>((a, h) => { a[h.sector] = (a[h.sector] ?? 0) + h.weight_pct; return a; }, {}),
@@ -126,22 +134,42 @@ export default async function Fund({ params }: PageProps<'/me/portfolio/[schemeI
         </div>
       )}
 
-      <div className="f-sect">Against its category</div>
-      <div className="f-card">
-        {cat ? (
+      {/* ── who runs it: the identity here, the research one tap on ──────────
+          research/22 ranks fund-manager credibility second only to performance
+          at 49%, so the name and the tenure stay on this page. The philosophy,
+          the handovers, the capture ratios and the peer table are a surface of
+          their own — this one is already at its 2.5-screen cap without them. */}
+      <Link href={`/me/portfolio/${sid}/research`} className="f-card tap">
+        <div className="f-k"><Icon name="users" /> Who runs it</div>
+        {mgr ? (
           <>
-            <div className="f-step"><span>This category, average over a year</span><b>{cat.cat_avg_1y}%</b></div>
-            <div className="f-step"><span>Best in the category</span><b className="pos">{cat.best_1y}%</b></div>
-            <div className="f-step"><span>Worst in the category</span><b className="neg">{cat.worst_1y}%</b></div>
-            {cat.client_1y != null && (
-              <div className="f-step"><span>Your money in it, over a year</span><b>{cat.client_1y}%</b></div>
-            )}
-            <div className="f-step"><span>Funds we track here</span><b>{cat.funds}</b></div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 10 }}>
+              <span className="mk" style={{
+                width: 34, height: 34, borderRadius: '50%', display: 'grid', placeItems: 'center',
+                background: 'var(--f-gold-soft)', color: 'var(--f-gold-ink)', fontSize: 12, fontWeight: 700, flexShrink: 0,
+              }}>{mgr.name.split(' ').map(w => w[0]).slice(0, 2).join('')}</span>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <b style={{ fontSize: 14.5, fontWeight: 650, display: 'block' }}>{mgr.name}</b>
+                <span style={{ fontSize: 11.5, color: 'var(--f-faint)' }}>
+                  {mgr.months >= 24 ? `${Math.floor(mgr.months / 12)} years on this fund` : `${mgr.months} months on this fund`}
+                  {hands.length > 0 && ` · took it over ${hands[0].months_ago} months ago`}
+                  {mgr.managing_since ? ` · managing money since ${mgr.managing_since}` : ''}
+                </span>
+              </span>
+            </div>
+            <span className="f-cardlink">
+              {says.length > 0
+                ? `${says.length} thing${says.length === 1 ? '' : 's'} its record says, and the evidence under them`
+                : 'Their philosophy, the style drift and the peer group'} <Icon name="chev" />
+            </span>
           </>
         ) : (
-          <p className="f-note" style={{ margin: 0 }}>No category comparison on record for this fund yet.</p>
+          <p className="f-note" style={{ margin: '8px 0 0' }}>
+            <span className="f-dash">—</span> Nobody is on file as running this fund. That is a gap in our
+            data rather than a fund without a manager, and it is the kind of gap we would rather print.
+          </p>
         )}
-      </div>
+      </Link>
 
       <div className="f-sect">
         What it holds

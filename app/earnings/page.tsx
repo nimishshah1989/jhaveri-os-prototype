@@ -14,6 +14,7 @@ import {
   byScheme, clawbacks, variance, invoices, fyTracker, disputes, emptyBuckets, shortPaidRowIds,
 } from '../../lib/earnings';
 import { raiseDispute } from './actions';
+import { ChartBars } from '../../components/charts';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,11 +43,27 @@ export default async function EarningsPage({ searchParams }: PageProps<'/earning
   // as "unpaid" would contradict the ladder, which correctly calls it still open.
   const unpaid = invs.value.filter(i => !i.payment_date && i.period_start_date < THIS_MONTH);
   const shortfall = varr.value.reduce((s, v) => s + v.shortfall, 0);
-  const maxNet = Math.max(...hist.value.map(p => p.net), 1);
-  // Yield on the money he actually looks after — his economics, not the firm's.
-  const yieldBps = l.aum > 0 ? (l.trail * 12 / l.aum) * 10000 : 0;
+
   const link = (m: string, c?: number | null) =>
     `/earnings?m=${m}${c ? `&c=${c}` : ''}`;
+
+  // The fourteen-month series, shaped for the plots. Clawback stays negative so it
+  // draws below the line rather than being folded into trail and disappearing.
+  const trend = hist.value.map(p => ({
+    m: MONTH_LABEL(p.month), trail: p.trail, clawback: p.clawback, net: p.net,
+    tone: p.month === month ? 'blue' : 's1', href: link(p.month),
+  }));
+  const clawMonths = hist.value.filter(p => p.clawback !== 0).length;
+  const best = hist.value.reduce<typeof hist.value[number] | null>((a, b) => (a && a.net > b.net ? a : b), null);
+
+  // The whole payout ladder, with his rung marked. Showing only the next step made
+  // the ladder sound short; it is ten rungs and he is on the fourth.
+  const rungsOfLadder = tier.value.all.map(t => ({
+    tier: t.name, pct: t.pct,
+    tone: t.pct === tier.value.current.pct ? 'green' : t.pct < tier.value.current.pct ? 'grey' : 'blue',
+  }));
+  // Yield on the money he actually looks after — his economics, not the firm's.
+  const yieldBps = l.aum > 0 ? (l.trail * 12 / l.aum) * 10000 : 0;
 
   const rungs: { label: string; note: string; amount: number; sign: '+' | '−' | '' }[] = [
     { label: 'Trail on your book', note: `${l.lines} commission lines across ${inrCompact(l.aum)} of client money`, amount: l.trail, sign: '' },
@@ -146,19 +163,50 @@ export default async function EarningsPage({ searchParams }: PageProps<'/earning
             </div>
           </div>
 
+          <ChartBars
+            horizontal unit="pct" height={280}
+            title="Where you sit on the payout ladder"
+            xLabel="share of the trail you keep" yLabel="tier"
+            source="broker_category_payout_pct_master.trail_1st_yr_pct — the table the payout run reads"
+            data={rungsOfLadder} xKey="tier" toneKey="tone"
+            series={[{ key: 'pct', name: 'Your share', tone: 'blue' }]}
+            mark={<>You are on <b>{tier.value.current.name}</b>, rung {tier.value.all.findIndex(t => t.pct === tier.value.current.pct) + 1} of {tier.value.all.length}.{tier.value.next && <> One rung up is worth <b className="up">{inrExact(tier.value.upliftPerMonth)}</b> a month on this book. Rungs below you are drawn grey — they are what you already cleared, not something you can lose.</>}</>}
+          />
+
           <h2 className="sec">Fourteen months <Explain figure={hist} /></h2>
-          <div className="viz">
-            <div className="hist wide">
-              {hist.value.map(p => (
-                <Link key={p.month} href={link(p.month)} className={`col${p.month === month ? ' on' : ''}`} title={`${MONTH_LABEL(p.month)} · ${inrExact(p.net)}`}>
-                  <span className="n num">{Math.round(p.net / 1000)}k</span>
-                  <span className="bar" style={{ height: `${(p.net / maxNet) * 100}%` }} />
-                  <span className="b">{MONTH_LABEL(p.month)}</span>
-                </Link>
-              ))}
-            </div>
-            <Explain>Net of GST and TDS. Click a month to re-read the whole page for it.</Explain>
+          <div className="charts">
+            <ChartBars
+              title="Trail earned, and what was clawed back" height={230}
+              xLabel="month" yLabel="₹"
+              source="brokerage_master.bkr_payout_amount by bkr_from_date · type 1 trail, type 4 clawback"
+              unit="inr" data={trend} xKey="m"
+              series={[
+                { key: 'trail', name: 'Trail earned', tone: 's1' },
+                { key: 'clawback', name: 'Clawback', tone: 'red' },
+              ]}
+              mark={<>Clawback is drawn below the line because that is where it lands — {clawMonths} of {trend.length} months carry one. Net of GST and TDS is the second chart.</>}
+            />
+            <ChartBars
+              title="Net into your account, by month" height={230}
+              xLabel="month · click a bar to re-read the page for it" yLabel="₹"
+              source="brokerage_master — payout + GST − TDS, by bkr_from_date"
+              unit="inr" data={trend} xKey="m"
+              series={[{ key: 'net', name: 'Net paid out', tone: 'blue' }]}
+              toneKey="tone" hrefKey="href"
+              mark={<><b>{MONTH_LABEL(month)}</b> is the month the rest of this page is reading. {best && <> Best of the fourteen was {MONTH_LABEL(best.month)} at {inrExact(best.net)}.</>}</>}
+            />
           </div>
+          {/* The bars navigate, but an SVG rect takes no keyboard focus — the same
+              fourteen links stay here as text so the month is still reachable by
+              tab, by screen reader, and by anyone who does not aim at a bar. */}
+          <nav className="monthlinks" aria-label="Choose a month">
+            {hist.value.map(p => (
+              <Link key={p.month} href={link(p.month)} className={p.month === month ? 'on' : undefined}
+                title={`${MONTH_LABEL(p.month)} · net ${inrExact(p.net)}`}>
+                {MONTH_LABEL(p.month)}
+              </Link>
+            ))}
+          </nav>
 
           <h2 className="sec">
             Where {MONTH_LABEL(month)} came from <Explain figure={clients} />

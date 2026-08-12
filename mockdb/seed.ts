@@ -12,6 +12,8 @@ import {
   TODAY, addDays, daysBetween, monthStart,
   makeNavSeries, navAt, NavSeries, xirr, runFifo, unrealizedSplit, Txn,
 } from './engines';
+import { seedFundIntelligence } from './seed-funds';
+import { importHeldAway } from '../lib/import';
 
 const DIR = dirname(fileURLToPath(import.meta.url));
 const DB_PATH = join(DIR, 'jhaveri.db');
@@ -1518,4 +1520,36 @@ console.log('DB:', DB_PATH);
      WHERE client_id IN (SELECT cm_user_id FROM client_master WHERE fk_family_id = ?)`,
   ).get(FAM) as { v: number }).v;
   console.log(`HOUSEHOLD: family ${FAM} ${before} → ${after} clients + 1 prospect · ₹${worth.toLocaleString('en-IN')} · ${hcId} consent rows`);
+}
+
+/* ── Fund intelligence (phase 4) ──────────────────────────────────────────────
+   Its own module and its own RNG stream, appended last so it cannot shift a
+   single draw the story facts above are pinned to. Everything it can compute
+   from the NAV history and holdings already written above, it computes; the
+   vendor half is seeded and every row says which it is. */
+{
+  const heldByMeera = (db.prepare(
+    `SELECT DISTINCT scheme_id FROM fifo_summary_holding_active WHERE client_id = 101 ORDER BY scheme_id`,
+  ).all() as { scheme_id: number }[]).map(r2 => r2.scheme_id);
+  const fi = seedFundIntelligence(db, ins, emit, heldByMeera);
+  console.log(`FUNDS: ${fi.managers} managers · ${fi.tenures} tenures (${fi.changes} handovers) · ${fi.styles} style points · ${fi.stats} risk rows`);
+}
+
+/* ── Held-away folios (phase 2) ───────────────────────────────────────────────
+   The MF Central pull, run once at seed time against the demo household so the
+   app ships with a real consolidated picture rather than an empty section. The
+   importer is the same function the app calls — it takes this seed's own handle
+   rather than opening a second one, so there is one code path, not two. */
+{
+  let total = 0, unmatched = 0;
+  for (const cid of [101, 51, 7, 982]) {
+    const res = importHeldAway(cid, db);
+    total += res.inserted;
+    unmatched += res.unmatched;
+  }
+  const worth = (db.prepare(
+    `SELECT COALESCE(ROUND(SUM(h.units * p.price)), 0) v FROM heldaway_folios h
+     JOIN mf_latest_price_master p ON p.fk_scheme_id = h.fk_scheme_id WHERE h.client_id = 101`,
+  ).get() as { v: number }).v;
+  console.log(`HELD AWAY: ${total} folios across the household (${unmatched} unpriceable) · Meera elsewhere ₹${worth.toLocaleString('en-IN')}`);
 }
