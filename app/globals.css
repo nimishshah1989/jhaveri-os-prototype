@@ -1322,3 +1322,54 @@ a.qcard .evidence b { color: var(--ink); font-weight: 600; }
 }
 .monthlinks a:hover { border-color: var(--accent); color: var(--accent); }
 .monthlinks a.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 650; }
+
+/* Detail: Essential / Full — one control in the header, remembered per reader.
+   Full does not reveal anything Essential hides; every explanation is written and
+   present either way. It opens them, and unpins them from a floating popover into
+   a block in the reading order, so the reasoning reads down the page instead of
+   hovering over it. */
+.density { display: flex; align-items: center; gap: 0; margin-left: 20px; }
+.density .dlabel { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: rgba(255,255,255,.45); margin-right: 7px; }
+.density button {
+  font: inherit; font-size: 11.5px; line-height: 1; cursor: pointer; padding: 4px 9px;
+  background: transparent; color: rgba(255,255,255,.6);
+  border: 1px solid rgba(255,255,255,.18); border-right-width: 0;
+}
+.density button:first-of-type { border-radius: 4px 0 0 4px; }
+.density button:last-of-type { border-radius: 0 4px 4px 0; border-right-width: 1px; }
+.density button:hover { color: #fff; background: rgba(255,255,255,.08); }
+.density button.on { color: var(--ink); background: #fff; border-color: #fff; font-weight: 650; }
+
+[data-density='full'] .prov { display: block; position: static; }
+[data-density='full'] .prov > .pop {
+  position: static; width: auto; box-shadow: none; margin: 6px 0 10px;
+  background: var(--panel);
+  /* Capped at the measure for readability, and at its container so that opening
+     an explanation inside a 277px stat card cannot widen the grid track it sits
+     in and push the whole row off the screen. */
+  max-width: min(var(--measure), 100%);
+}
+/* A grid item's default min-width is auto, which lets a wide child force its track
+   wider than its share. Only bites once the popovers are unfolded in place. */
+[data-density='full'] .cards > *,
+[data-density='full'] .charts > *,
+[data-density='full'] .vizrow > *,
+[data-density='full'] .ladderrow > * { min-width: 0; }
+/* A summary that is permanently open is a heading for what follows, not a button. */
+[data-density='full'] .prov.labelled > summary { cursor: default; }
+[data-density='full'] .chartfig .prov > .pop { max-width: none; }
+
+/* The toggle costs the header about 90px, which a 1280 laptop does not have: the
+   brand, seven nav items and the two-line "who" block already fill it. The word
+   "Detail" is the part the buttons make redundant, so it is what goes first. */
+@media (max-width: 1400px) {
+  .density { margin-left: 12px; }
+  .density .dlabel { display: none; }
+}
+/* Below this the brand, the nav, the toggle and the two-line "who" block genuinely
+   do not fit on one line, so the header wraps instead of pushing the page sideways.
+   The 1000px rule below does the same thing for the rest of the layout. */
+@media (max-width: 1300px) {
+  .topbar { flex-wrap: wrap; height: auto; padding: 8px 16px; row-gap: 6px; }
+  .topbar .who { line-height: 1.3; }
+}

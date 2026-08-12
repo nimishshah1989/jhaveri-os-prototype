@@ -1,4 +1,5 @@
 import { GLOSSARY, TAG_TRUST } from '../lib/glossary';
+import { density } from '../lib/density';
 import { Icon } from './Icon';
 
 // The ⓘ a broker clicks. It answers three questions in plain words:
@@ -28,11 +29,17 @@ interface Props {
   teaser?: string;
 }
 
-export function Explain({ id, figure, as = 'info', children, teaser = 'Why' }: Props) {
+export async function Explain({ id, figure, as = 'info', children, teaser = 'Why' }: Props) {
+  // On Full the disclosure is already open when the page arrives, and the CSS
+  // unpins it from a floating popover into a block in the reading order — the
+  // reader asked for the depth, so it should read like part of the page rather
+  // than like something hovering over it. Nothing is added or taken away either
+  // way; `open` is the whole difference.
+  const open = (await density()) === 'full';
   const entry = id ? GLOSSARY[id] : undefined;
   if (children && !entry) {
     return (
-      <details className="prov labelled">
+      <details className="prov labelled" open={open}>
         <summary title="What this section means"><Icon name={as} /> {teaser}</summary>
         <div className="pop prosecap">{children}</div>
       </details>
@@ -44,7 +51,7 @@ export function Explain({ id, figure, as = 'info', children, teaser = 'Why' }: P
   const tag = t.tag ?? figure?.tag;
 
   return (
-    <details className="prov">
+    <details className="prov" open={open}>
       <summary title={`${t.label} — what this means and how to read it`}>
         <Icon name={as} />
       </summary>

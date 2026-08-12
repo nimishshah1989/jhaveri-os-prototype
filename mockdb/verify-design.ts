@@ -441,6 +441,42 @@ for (const pg of PAGES) {
     preached.length === 0, preached.join(' · ') || 'no sentence repeated per row');
 }
 
+// ── 9. Reading depth ────────────────────────────────────────────────────────
+// "Not hidden but open to exploration." The teaser answers the first half; one
+// control in the header answers the second. Three things have to stay true or it
+// stops being a depth control and becomes a feature switch:
+//   · there is ONE of it, and it is in the layout, not per page
+//   · it is remembered for the reader, not reset on the next click
+//   · Full opens what is already written — it never renders text Essential lacks
+const toggle = existsSync('components/DensityToggle.tsx') ? read('components/DensityToggle.tsx') : '';
+const densityLib = existsSync('lib/density.ts') ? read('lib/density.ts') : '';
+const layout = read('app/layout.tsx');
+const explain = read('components/Explain.tsx');
+
+const inHeader = /<DensityToggle\s*\/>/.test(layout);
+check('one control sets the reading depth, and it sits in the header',
+  inHeader, inHeader ? 'app/layout.tsx' : 'no depth control in app/layout.tsx');
+
+const perPage = PAGES.filter(p => /DensityToggle/.test(read(join('app', p, 'page.tsx'))));
+check('the depth control is not repeated per page',
+  perPage.length === 0, perPage.join(', ') || 'one, in the layout');
+
+const remembered = /cookies\(\)/.test(densityLib) && /jar\.set\(/.test(toggle);
+check('the depth choice is remembered for the reader',
+  remembered, remembered ? 'cookie, a year' : 'not persisted — it would reset on the next page');
+
+const twoStates = /'essential' \| 'full'/.test(densityLib);
+check('reading depth has exactly two settings',
+  twoStates, twoStates ? 'Essential · Full' : 'Essential and Full are not the only two states');
+
+// The load-bearing one. If Full ever gated CONTENT rather than its open state,
+// Essential would become a page with things missing from it.
+const opensOnly = /<details className="prov[^"]*" open=\{open\}>/.test(explain)
+  && !/if \(!open\)/.test(explain);
+check('Full opens the explanation rather than revealing text Essential lacks',
+  opensOnly, opensOnly ? 'the open attribute is the whole difference'
+    : 'Explain branches on density somewhere other than the open attribute');
+
 // Explanation must advertise itself. A bare ⓘ is hidden; a teaser is explorable.
 check('moved prose shows a teaser rather than only an icon',
   /teaser/.test(read('components/Explain.tsx')), 'Explain renders an icon with no preview of what is behind it');
