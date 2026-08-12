@@ -3,6 +3,11 @@ import { TODAY } from '../mockdb/engines';
 // Type-only: `lib/journey.ts` imports `next/headers`, and this module is walked
 // by the verifiers under plain tsx. Erased at compile time, so nothing is loaded.
 import type { Journey } from './journey';
+import { KRA, kycFor, type KycVerdict } from './kra';
+
+// The KRA half of joining lives in `lib/kra.ts` — its vocabulary and our
+// phrasebook for it. Re-exported here so the journey stays one import.
+export { kycFor, unphrasedJoinCodes, type KycBranch, type KycVerdict } from './kra';
 
 /* ── Joining ─────────────────────────────────────────────────────────────────
    The client's own way in. Self-signup is the primary path (founder,
@@ -75,126 +80,6 @@ export function resolveBroker(code: string): { ok: true; broker: BrokerRef } | {
   if (!row) return { ok: false, reason: `We have no adviser with the code ${typed}. Check it with whoever gave it to you, or leave it blank and we will assign someone.` };
   if (!row.is_active) return { ok: false, reason: `${row.name}'s code is no longer active. Leave it blank and we will assign someone, or use a current code.` };
   return { ok: true, broker: { sb_id: row.sb_id, name: row.name, code: row.code } };
-}
-
-/* ── the KRA verdict ──────────────────────────────────────────────────────── */
-
-/**
- * The KRA's vocabulary, exactly as the database already spells it. One home for
- * it, because a status written here as 'VERIFIED' when every existing row says
- * 'KRA Verified' produces a client who is verified on our screen and pending on
- * the broker's — two lenses, one truth, disagreeing.
- */
-const KRA = {
-  verified: 'KRA Verified',
-  rejected: 'KRA Rejected',
-  pending: 'Under Process',
-  clean: 'ERR-00000',
-  /** `client_kyc_logs.status` and `onboarding_applications.kyc_status` use these. */
-  internal: { verified: 'VERIFIED', pending: 'PENDING' },
-  /** How the KYC was collected. The app journey is always the digital one. */
-  type: { digital: 'Aadhaar eKYC', paper: 'Physical KRA' },
-} as const;
-
-export type KycBranch = 'validated' | 'lapsed' | 'none';
-
-export interface KycVerdict {
-  branch: KycBranch;
-  /** The KRA's own code, when it gave one. */
-  code: string | null;
-  /** What we say to the client. Written policy for every code we phrase. */
-  plain: string;
-  /** What they have to do next, in their words. */
-  ask: string;
-  /** True when the official wording is being shown because we have no sentence. */
-  unphrased: boolean;
-}
-
-/**
- * What the KRA holds for this PAN. Deterministic on the PAN itself, never
- * random: a verifier has to be able to walk the same branch twice, and a demo
- * has to be able to show all three on demand.
- * ponytail: the real check is a KRA API call; this is the same three branches
- * the live one returns, keyed off the PAN so they are reproducible.
- */
-export function kycFor(pan: string): KycVerdict {
-  const p = pan.trim().toUpperCase();
-  const held = db().prepare(
-    `SELECT kra_status, kra_status_code FROM client_kyc_logs WHERE UPPER(pan_no) = ? ORDER BY id DESC LIMIT 1`,
-  ).get(p) as { kra_status: string | null; kra_status_code: string | null } | undefined;
-
-  const code = held?.kra_status_code && held.kra_status_code !== KRA.clean ? held.kra_status_code : null;
-  const branch: KycBranch = held
-    ? (held.kra_status === KRA.verified && !code ? 'validated' : 'lapsed')
-    : (Number(p.slice(5, 9)) % 3 === 0 ? 'lapsed' : 'none');
-
-  if (branch === 'validated') {
-    return {
-      branch, code: null, unphrased: false,
-      plain: 'The KRA already holds a verified KYC against this PAN, so there is nothing to re-submit.',
-      ask: 'Nothing. We carry it forward and move on to your bank details.',
-    };
-  }
-  const words = code ? phrase(code) : null;
-  if (branch === 'lapsed') {
-    const inFlight = held?.kra_status === KRA.pending;
-    return {
-      branch, code, unphrased: code != null && words == null,
-      plain: words?.plain ?? (code ? official(code) : inFlight
-        ? 'There is already a KYC with the KRA against this PAN, and they have not come back on it yet.'
-        : 'The KRA holds a record against this PAN, but it is no longer current — the rules changed after it was filed.'),
-      ask: words?.ask ?? (inFlight
-        ? 'Nothing new, unless the KRA asks. Filing a second set now would only put you behind your own application.'
-        : 'A fresh set of documents. The earlier file cannot be revived.'),
-    };
-  }
-  return {
-    branch, code: null, unphrased: false,
-    plain: 'The KRA holds nothing against this PAN, which simply means this is your first mutual fund account.',
-    ask: 'Proof of who you are and where you live, a photograph, and your signature. Ten minutes, once, forever.',
-  };
-}
-
-/**
- * The phrasebook is written policy — the same discipline `lib/onboarding.ts`
- * applies for the broker. A wrong sentence sends a client for the wrong
- * document, so a code we have not phrased renders the official wording and says
- * so, rather than being guessed at.
- */
-const PLAIN_WORDS: Record<string, { plain: string; ask: string }> = {
-  'ERR-00009': {
-    plain: 'The PAN does not match income-tax records — usually a typo, or a name spelt differently from the card.',
-    ask: 'Check the number against your card, and enter your name exactly as it is printed there.',
-  },
-  'ERR-00004': {
-    plain: 'The address on your earlier form does not match the proof filed with it.',
-    ask: 'An address proof that matches what you enter here — or change what you enter to match the proof. One or the other, not both.',
-  },
-  'ERR-00017': {
-    plain: 'Your signature did not match the one the KRA already holds.',
-    ask: 'Sign again on a blank sheet, the way you sign at your bank, and photograph it.',
-  },
-  'ERR-00010': {
-    plain: 'This PAN belongs to someone under 18, so the account cannot stand on its own.',
-    ask: "A guardian's PAN and KYC, and the birth certificate.",
-  },
-  'ERR-00031': {
-    plain: 'The KRA closed your earlier file because the documents did not arrive inside their deadline.',
-    ask: 'The full set again. The earlier upload has expired and cannot be revived.',
-  },
-};
-
-const phrase = (code: string) => PLAIN_WORDS[code] ?? null;
-
-function official(code: string): string {
-  const row = db().prepare(`SELECT error_description d FROM kra_error_codes WHERE error_code = ?`).get(code) as { d: string } | undefined;
-  return row ? `The KRA's own words: "${row.d}". We have not yet written a plainer sentence for this one.` : code;
-}
-
-/** Codes with no written sentence. Surfaced, never hidden — same as the broker lens. */
-export function unphrasedJoinCodes(): string[] {
-  return (db().prepare(`SELECT error_code FROM kra_error_codes WHERE error_code != 'ERR-00000'`).all() as
-    { error_code: string }[]).map(r => r.error_code).filter(c => !PLAIN_WORDS[c]);
 }
 
 /* ── the application, and where it has got to ─────────────────────────────── */
@@ -354,11 +239,21 @@ export function recordStep(appId: number, step: Step, payload: Record<string, st
  * ponytail: the exchange leg is a seam. A real UCC comes back from BSE StarMF
  * minutes to hours later; here it is allotted at once and labelled as such.
  */
-export function finishApplication(appId: number): number | null {
-  const app = application(appId);
+export function finishApplication(appId: number, carried?: Journey | null): number | null {
+  const app = application(appId, carried);
   if (!app || app.client_id) return null;
   const d = captured(app);
   if (!d.pan || !d.name) return null;
+
+  // The same PAN cannot open a second account. Without this, a double submit —
+  // or the same journey replayed on a second instance — mints a twin: two client
+  // rows for one person, and every total still balances.
+  const already = db().prepare(`SELECT cm_user_id id FROM client_master WHERE cm_pan_no = ?`)
+    .get(d.pan) as { id: number } | undefined;
+  if (already) {
+    close(appId, already.id, app.sb_id, app.lead_id);
+    return already.id;
+  }
 
   const next = (db().prepare(`SELECT COALESCE(MAX(cm_user_id), 0) + 1 n FROM client_master`).get() as { n: number }).n;
   const parts = d.name.trim().split(/\s+/);
@@ -397,20 +292,36 @@ export function finishApplication(appId: number): number | null {
      VALUES (?, ?, ?, ?, ?, 1, 0)`,
   ).run(next, next, d.name, ucc, TODAY);
 
+  close(appId, next, app.sb_id, app.lead_id);
+  return next;
+}
+
+/** The UCC the exchange allots. One spelling, used by both paths through `finishApplication`. */
+const uccFor = (clientId: number) => `MKYC${String(clientId).padStart(6, '0')}`;
+
+/**
+ * The last four rows of a journey: the application points at its client, the lead
+ * is converted, and the terminal events are appended. Split out because the
+ * duplicate-PAN path has to close the journey too — a client who exists but whose
+ * application never reaches `live` leaves the joiner staring at "with the regulator".
+ */
+function close(appId: number, clientId: number, sbId: number, leadId: number | null): void {
   db().prepare(
     `UPDATE onboarding_applications
      SET client_id = ?, ucc_status = 'ACTIVE', bse_status = 'Registered', completed_at = ?
      WHERE application_id = ?`,
-  ).run(next, TODAY, appId);
+  ).run(clientId, TODAY, appId);
 
-  db().prepare(`UPDATE leads SET stage = 'converted', converted_client_id = ? WHERE lead_id = ?`)
-    .run(next, app.lead_id);
+  if (leadId != null) {
+    db().prepare(`UPDATE leads SET stage = 'converted', converted_client_id = ? WHERE lead_id = ?`)
+      .run(clientId, leadId);
+  }
 
+  const ucc = uccFor(clientId);
   event(appId, 'stage_ucc', { ucc });
-  event(appId, 'stage_live', { client_id: next, sb_id: app.sb_id });
+  event(appId, 'stage_live', { client_id: clientId, sb_id: sbId });
   event(appId, DONE('waiting'), {});
-  event(appId, DONE('live'), { client_id: String(next), ucc });
-  return next;
+  event(appId, DONE('live'), { client_id: String(clientId), ucc });
 }
 
 /** The assisted route. Paper has no e-signature step of its own — `stepsFor` drops it. */

@@ -91,11 +91,18 @@ function walk(from: number, monthly: number, annualPct: number, months: number):
   return v;
 }
 
-/** The goals a client has named, with their own money attached. */
+/**
+ * The goals a client has named, with their own money attached.
+ *
+ * Goals the household owns are deliberately not here. They are funded from more
+ * than one member's accounts, so counting them on one person's page would put
+ * somebody else's money inside that person's denominator — see `lib/household.ts`.
+ */
 export function goals(clientId: number): Goal[] {
   const rows = db().prepare(
     `SELECT goal_id, goal_name name, goal_kind kind, target_amount target, target_date "on"
-     FROM client_goals WHERE fk_cm_user_id = ? AND is_active = 1 ORDER BY target_date`,
+     FROM client_goals WHERE fk_cm_user_id = ? AND is_active = 1 AND is_family = 0
+     ORDER BY target_date`,
   ).all(clientId) as Omit<Goal, 'now' | 'put' | 'rate' | 'assumed' | 'monthly' | 'schemes'>[];
 
   // Per asset class, so the projection rate can be blended from what the money is

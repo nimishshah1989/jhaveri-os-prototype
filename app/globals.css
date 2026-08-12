@@ -1233,3 +1233,26 @@ a.qcard .evidence b { color: var(--ink); font-weight: 600; }
 .lobby footer p { font-size: var(--t-sm); line-height: 1.7; color: var(--muted); margin: 0 0 var(--sp-3); }
 .lobby footer b { color: var(--ink); }
 .lobby footer code { font-size: .95em; background: var(--grey-soft); padding: 1px 5px; border-radius: 3px; }
+
+/* Stream headings are section rows inside the one table now, so every stream shares
+   a single column template instead of auto-sizing to its own content. */
+.qsection th {
+  text-align: left; background: var(--panel); border-bottom: 1px solid var(--line);
+  border-top: 1px solid var(--line); padding: 7px 12px;
+  font-size: var(--t-xs); text-transform: uppercase; letter-spacing: .07em; font-weight: 700;
+}
+.qsection th .ic { width: .95em; height: .95em; vertical-align: -1px; margin-right: 5px; }
+.qsection th .count { font-weight: 500; color: var(--muted); text-transform: none; letter-spacing: 0; margin-left: 6px; }
+.qsection.red th { color: var(--neg); }
+.qsection.amber th { color: var(--amber); }
+.qsection.grey th { color: var(--muted); }
+.streamhint { display: flex; justify-content: flex-end; margin-bottom: 6px; }
+
+/* Today runs full width now. The right rail cost a third of the screen and carried
+   a news list and a panel that told the same story as the progress strip. */
+.wide { display: block; }
+.wide > div { min-width: 0; }
+.plearn { display: flex; flex-direction: column; gap: 3px; min-width: 150px; }
+.plbars { display: flex; gap: 3px; }
+.plbar { display: block; width: 26px; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.plbar i { display: block; height: 100%; background: var(--accent); border-radius: 2px; }

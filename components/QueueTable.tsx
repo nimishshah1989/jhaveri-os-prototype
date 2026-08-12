@@ -27,12 +27,24 @@ import { QueueActions } from './QueueActions';
 // keeps the markup a real table (aligned columns, one header) while the entire row is
 // a single click target with a single accessible name.
 
-export function QueueTable({ items, readonly = false, shown = 5, openId }: {
-  items: QueueItem[]; readonly?: boolean; shown?: number; openId?: number;
-}) {
-  if (items.length === 0) return <div className="empty">Nothing here today.</div>;
+export interface QueueSection {
+  key: string; label: string; icon: string; tone: string;
+  items: QueueItem[]; shown: number;
+  /** Trails the heading — the count, the ranking rule, whatever the stream needs. */
+  note?: string;
+}
 
-  const rows = items.map(item => {
+export function QueueTable({ items, sections, readonly = false, shown = 5, openId }: {
+  items?: QueueItem[];
+  /** Streams rendered inside ONE table so their columns cannot disagree. */
+  sections?: QueueSection[];
+  readonly?: boolean; shown?: number; openId?: number;
+}) {
+  const groups: QueueSection[] = sections
+    ?? [{ key: 'all', label: '', icon: '', tone: '', items: items ?? [], shown, note: undefined }];
+  if (groups.every(g => g.items.length === 0)) return <div className="empty">Nothing here today.</div>;
+
+  const renderRow = (item: QueueItem) => {
     const t = typeOf(item.action_type);
     const auto = item.outcome_type === 'auto_resolved';
     const d = sla(item.sla_due);
@@ -83,7 +95,7 @@ export function QueueTable({ items, readonly = false, shown = 5, openId }: {
         </td>
       </tr>
     );
-  });
+  };
 
   return (
     <div className="tblwrap queue">
@@ -99,9 +111,25 @@ export function QueueTable({ items, readonly = false, shown = 5, openId }: {
             <th />
           </tr>
         </thead>
-        <tbody>
-          <Collapse items={rows} shown={shown} noun="in this queue" as="rows" span={7} />
-        </tbody>
+        {/* One <tbody> per stream. Three separate <table> elements each auto-sized to
+            their own content, so the same column measured 125, 140 and 127px down the
+            page — management saw the step before this test did. One table, one set of
+            widths, and the streams keep their headings as section rows. */}
+        {groups.map(g => (
+          <tbody key={g.key}>
+            {g.label && (
+              <tr className={`qsection ${g.tone}`}>
+                <th colSpan={7} scope="colgroup">
+                  <Icon name={g.icon} /> {g.label}
+                  <span className="count">{`· ${g.items.length}${g.note ? ` — ${g.note}` : ''}`}</span>
+                </th>
+              </tr>
+            )}
+            {g.items.length === 0
+              ? <tr><td colSpan={7} className="empty">Nothing here.</td></tr>
+              : <Collapse items={g.items.map(renderRow)} shown={g.shown} noun="in this stream" as="rows" span={7} />}
+          </tbody>
+        ))}
       </table>
     </div>
   );

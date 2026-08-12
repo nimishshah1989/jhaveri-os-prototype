@@ -49,26 +49,35 @@ function verify(body: string, mac: string): boolean {
   return want.length === got.length && timingSafeEqual(want, got);
 }
 
-/** The journey this browser is carrying, if it is the one being asked about. */
-export async function readJourney(id: number): Promise<Journey | null> {
-  const raw = (await cookies()).get(NAME)?.value;
-  if (!raw) return null;
+/** The cookie value for a journey. Pure, so a verifier can exercise the seal. */
+export function seal(j: Journey): string {
+  const body = Buffer.from(JSON.stringify(j), 'utf8').toString('base64url');
+  return `${body}.${sign(body)}`;
+}
+
+/** The journey inside a cookie value, or null if it was edited on the way. */
+export function open(raw: string): Journey | null {
   const cut = raw.lastIndexOf('.');
   if (cut < 1) return null;
   const [body, mac] = [raw.slice(0, cut), raw.slice(cut + 1)];
   if (!verify(body, mac)) return null;
   try {
-    const j = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as Journey;
-    // A cookie from a different application is not this application's state.
-    return j && j.id === id ? j : null;
+    return JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as Journey;
   } catch {
     return null;
   }
 }
 
+/** The journey this browser is carrying, if it is the one being asked about. */
+export async function readJourney(id: number): Promise<Journey | null> {
+  const raw = (await cookies()).get(NAME)?.value;
+  const j = raw ? open(raw) : null;
+  // A cookie from a different application is not this application's state.
+  return j && j.id === id ? j : null;
+}
+
 export async function writeJourney(j: Journey): Promise<void> {
-  const body = Buffer.from(JSON.stringify(j), 'utf8').toString('base64url');
-  (await cookies()).set(NAME, `${body}.${sign(body)}`, {
+  (await cookies()).set(NAME, seal(j), {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',

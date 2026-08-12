@@ -1,4 +1,5 @@
 import { Icon } from './Icon';
+import { Explain } from './Explain';
 
 // What a broker has already done, before what he still owes. Opening a dashboard on
 // nothing but a backlog is what makes it feel like a load; the work he closed is as
@@ -15,7 +16,13 @@ export interface Progress {
   movedPositive: boolean;
 }
 
-export function ProgressStrip({ p, name }: { p: Progress; name: string }) {
+export function ProgressStrip({ p, name, learning, learningFigure }: {
+  p: Progress; name: string;
+  /** What the engine has learned FROM closed work — the same story as the numbers
+      beside it, which is why it belongs here rather than in a rail of its own. */
+  learning?: { workflow: string; policy_key: string; evidence_n: number; target_n: number }[];
+  learningFigure?: { tag?: string };
+}) {
   const pct = p.closed > 0 ? Math.round((p.closedInSla / p.closed) * 100) : null;
   // Praise has to be earned by the number, so the greeting is graded, never flattering.
   const standing = pct === null ? 'Nothing closed yet — the first one sets the pace.'
@@ -46,6 +53,20 @@ export function ProgressStrip({ p, name }: { p: Progress; name: string }) {
           <span className="pd">{p.dueToday === 0 ? 'clear' : 'due before end of day'}</span>
         </div>
       </div>
+      {learning && learning.length > 0 && (
+        <div className="plearn">
+          <span className="pk"><Icon name="bulb" /> Learning from this <Explain figure={learningFigure} as="bulb" /></span>
+          <div className="plbars">
+            {learning.map(l => (
+              <span key={`${l.workflow}-${l.policy_key}`} className="plbar"
+                title={`${l.workflow.replace(/_/g, ' ')} · ${l.policy_key.replace(/_/g, ' ')} — ${l.evidence_n} of ${l.target_n} outcomes`}>
+                <i style={{ width: `${Math.min(100, (l.evidence_n / l.target_n) * 100)}%` }} />
+              </span>
+            ))}
+          </div>
+          <span className="pd">{learning.length} policies · greyed until real outcomes exist</span>
+        </div>
+      )}
     </section>
   );
 }

@@ -76,9 +76,9 @@ export default async function TodayPage({ searchParams }: PageProps<'/today'>) {
         dueToday: score.value.dueToday,
         movedThisMonth: signedInrCompact(flows.value.v),
         movedPositive: flows.value.v >= 0,
-      }} />
+      }} learning={learn.value} learningFigure={learn} />
 
-      <div className="cols">
+      <div className="wide">
         <div>
           <QueueFilter items={all} active={kind} />
           <div className="cards">
@@ -101,41 +101,20 @@ export default async function TodayPage({ searchParams }: PageProps<'/today'>) {
             <button type="submit">Add</button>
           </form>
 
-          <section className="stream red">
-            <h2>
-              <Icon name="alert" /> Act now <span className="count">· {q.red.length}</span>
-              {/* Said once, on the first queue only — the blue name and the chevron carry
-                  it after that. */}
+          {/* One table, three sections. Three tables meant three column templates and
+              the eye stepped sideways twice on the way down the page. */}
+          <div className="stream">
+            <div className="streamhint">
               <span className="hint">click a row for the full story · <b>j</b> <b>k</b> to move · <b>esc</b> to close</span>
-            </h2>
-            <QueueTable items={q.red} shown={6} openId={openId} />
-          </section>
-
-          <section className="stream amber">
-            <h2><Icon name="target" /> Opportunities <span className="count">· {q.amber.length} — ranked by ₹</span></h2>
-            <QueueTable items={q.amber} shown={4} openId={openId} />
-          </section>
-
-          <section className="stream grey">
-            <h2><Icon name="users" /> Relationship &amp; FYI <span className="count">· {q.grey.length}</span></h2>
-            <QueueTable items={q.grey} shown={4} openId={openId} />
-          </section>
+            </div>
+            <QueueTable openId={openId} sections={[
+              { key: 'red', label: 'Act now', icon: 'alert', tone: 'red', items: q.red, shown: 6 },
+              { key: 'amber', label: 'Opportunities', icon: 'target', tone: 'amber', items: q.amber, shown: 4, note: 'ranked by ₹' },
+              { key: 'grey', label: 'Relationship & FYI', icon: 'users', tone: 'grey', items: q.grey, shown: 4 },
+            ]} />
+          </div>
         </div>
 
-        <aside className="side">
-          <NewsPanel />
-          <div className="panel learn">
-            <h3>What the system is learning <Explain figure={learn} as="bulb" /></h3>
-            {learn.value.map(p => (
-              <div key={`${p.workflow}-${p.policy_key}`} className="row">
-                <span>{p.workflow.replace(/_/g, ' ')} · {p.policy_key.replace(/_/g, ' ')}</span>
-                <span className="bar"><i style={{ width: `${Math.min(100, (p.evidence_n / p.target_n) * 100)}%` }} /></span>
-                <span className="num">{p.evidence_n}/{p.target_n}</span>
-              </div>
-            ))}
-            <div className="d ghost">Greyed until enough real outcomes exist — never a faked insight.</div>
-          </div>
-        </aside>
       </div>
 
       <QueueKeys prevId={prevId} nextId={nextId} firstId={order[0]?.action_id} isOpen={!!openId} />

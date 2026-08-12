@@ -2,7 +2,8 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { application, recordStep, setPaper, startApplication, type Step } from '../../lib/join';
+import { application, recordStep, setPaper, startApplication, type Application, type Step } from '../../lib/join';
+import { readJourney, writeJourney } from '../../lib/journey';
 
 /* The HTTP shell around `lib/join.ts`. Everything here is validation and a
    redirect; every row that gets written is written by the library, so the
@@ -79,13 +80,37 @@ export async function start(formData: FormData): Promise<void> {
   }
   const started = startApplication(name, mobile, code);
   if (!started.ok) redirect(`/join?e=${encodeURIComponent(started.reason)}&code=${encodeURIComponent(code)}`);
+  await carry(application(started.appId));
   redirect(`/join/${started.appId}`);
+}
+
+/**
+ * Hand the journey back to the browser.
+ *
+ * On a serverless deploy every instance has its own scratch copy of the mock
+ * database, so the rows this step just wrote may be invisible to the request
+ * that serves the next one. The cookie is the one copy that follows the person
+ * rather than the machine, and `application()` merges it back over whatever the
+ * local database happens to hold. Written from the derived state, never
+ * hand-assembled, so the two can never describe different journeys.
+ */
+async function carry(app: Application | null): Promise<void> {
+  if (!app) return;
+  await writeJourney({
+    id: app.application_id,
+    sb: app.sb_id,
+    br: app.broker,
+    channel: app.channel,
+    lead: app.lead_id,
+    e: Object.entries(app.data) as [Step, Record<string, string>][],
+  });
 }
 
 export async function advance(formData: FormData): Promise<void> {
   const appId = Number(s(formData, 'application_id'));
   const step = s(formData, 'step') as Step;
-  const app = application(appId);
+  const carried = await readJourney(appId);
+  const app = application(appId, carried);
   if (!app || !(step in KEEP)) return;
   // Only the step the application is actually on may be written. Anything else is
   // a replayed or forged form, and it must not rewrite a completed step.
@@ -99,7 +124,8 @@ export async function advance(formData: FormData): Promise<void> {
     const v = s(formData, k);
     if (v) payload[k] = k === 'pan' || k === 'ifsc' ? v.toUpperCase() : v;
   }
-  recordStep(appId, step, payload);
+  recordStep(appId, step, payload, carried);
+  await carry(application(appId, carried));
 
   revalidatePath('/me');
   revalidatePath('/onboarding');
@@ -109,7 +135,10 @@ export async function advance(formData: FormData): Promise<void> {
 /** The paper path: the same journey, filed by the adviser, watched by the client. */
 export async function switchToPaper(formData: FormData): Promise<void> {
   const appId = Number(s(formData, 'application_id'));
-  if (!application(appId)) return;
+  const carried = await readJourney(appId);
+  const app = application(appId, carried);
+  if (!app) return;
   setPaper(appId);
+  await carry({ ...app, channel: 'offline' });
   redirect(`/join/${appId}`);
 }

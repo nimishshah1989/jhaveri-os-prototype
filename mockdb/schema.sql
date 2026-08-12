@@ -1147,6 +1147,49 @@ CREATE TABLE client_goals (
   target_amount NUMERIC NOT NULL,
   target_date   TEXT NOT NULL,
   created_at    TEXT,
-  is_active     INTEGER DEFAULT 1
+  is_active     INTEGER DEFAULT 1,
+  -- A goal the household owns rather than one person. Funded by whichever
+  -- members' transactions carry its id, so it is still one denominator.
+  is_family     INTEGER DEFAULT 0
 );
 CREATE INDEX idx_goal_client ON client_goals(fk_cm_user_id, is_active);
+
+-- ── The household ───────────────────────────────────────────────────────────
+-- `client_master.fk_family_id` already says who is in a family. It cannot say
+-- how they are related, and it cannot hold someone who has no account yet —
+-- which is the whole point of a household as an acquisition surface. This table
+-- carries exactly those two facts and nothing that is already stored elsewhere:
+-- money still comes from fifo_summary_holding_active, keyed on the client id.
+CREATE TABLE household_members (
+  member_id     INTEGER PRIMARY KEY,
+  family_id     INTEGER NOT NULL REFERENCES family_master(family_id),
+  -- NULL until they open an account. A named person with no client id is a
+  -- prospect the family already knows, not a gap in the data.
+  client_id     INTEGER REFERENCES client_master(cm_user_id),
+  full_name     TEXT NOT NULL,
+  relation      TEXT NOT NULL,                 -- self | spouse | son | daughter | mother | father | huf
+  date_of_birth TEXT,
+  -- Set while the member is a minor. A guardian sees the account by law, which
+  -- is why a minor has no consent rows: there is no question to ask.
+  guardian_client_id INTEGER REFERENCES client_master(cm_user_id),
+  added_at      TEXT NOT NULL,
+  UNIQUE (family_id, full_name)
+);
+CREATE INDEX idx_hm_family ON household_members(family_id);
+
+-- Who may see whose money, and how much of it. Deliberately not a boolean on
+-- the member row: consent is per subject, per viewer, per scope, and it has a
+-- state a person can be in the middle of — asked, and not yet answered.
+-- A row is required for money to cross between two adults. No row is a refusal.
+CREATE TABLE household_consents (
+  hc_id       INTEGER PRIMARY KEY,
+  family_id   INTEGER NOT NULL REFERENCES family_master(family_id),
+  subject_id  INTEGER NOT NULL REFERENCES client_master(cm_user_id),  -- whose money
+  viewer_id   INTEGER NOT NULL REFERENCES client_master(cm_user_id),  -- who is asking
+  scope       TEXT NOT NULL,                   -- total | holdings
+  state       TEXT NOT NULL,                   -- asked | granted | refused | withdrawn
+  asked_at    TEXT NOT NULL,
+  decided_at  TEXT,
+  decided_via TEXT,                            -- app | review meeting | phone
+  UNIQUE (family_id, subject_id, viewer_id, scope)
+);

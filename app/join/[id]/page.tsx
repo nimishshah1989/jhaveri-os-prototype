@@ -4,6 +4,7 @@ import { Icon } from '../../../components/Icon';
 import { dmy } from '../../../lib/format';
 import { TODAY } from '../../../mockdb/engines';
 import { application, captured, stepsFor, STEPS, type Application, type Step } from '../../../lib/join';
+import { readJourney } from '../../../lib/journey';
 import { advance, switchToPaper } from '../actions';
 
 export const dynamic = 'force-dynamic';
@@ -78,7 +79,9 @@ function Rail({ app }: { app: Application }) {
 export default async function JoinStep({ params, searchParams }: PageProps<'/join/[id]'>) {
   const { id } = await params;
   const q = await searchParams;
-  const app = application(Number(id));
+  // The browser's own copy of the journey, merged over whatever this instance's
+  // scratch database happens to hold. See `lib/journey.ts`.
+  const app = application(Number(id), await readJourney(Number(id)));
   if (!app) notFound();
 
   const bad = refusalsFrom(typeof q.e === 'string' ? q.e : undefined);

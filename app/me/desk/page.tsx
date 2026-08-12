@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import { Icon } from '../../../components/Icon';
 import { inr, inrCompact, dmy } from '../../../lib/format';
-import { clientHeader, familyMembers, clientTxns } from '../../../lib/client360';
+import { clientHeader, clientTxns } from '../../../lib/client360';
 import { manager, raisedByMe } from '../../../lib/me';
 import { taxAhead, feeOnMe, consents } from '../../../lib/desk';
+import { household } from '../../../lib/household';
 import { ME } from '../layout';
 import { raise } from '../acts';
 import { Prefs } from '../prefs';
@@ -32,7 +33,7 @@ export default async function Desk() {
   const tax = taxAhead(ME);
   const fee = feeOnMe(ME);
   const perms = consents(ME);
-  const family = familyMembers(me.family_id).rows;
+  const home = household(ME);
   const txns = clientTxns(ME);
 
   return (
@@ -164,32 +165,31 @@ export default async function Desk() {
         The Folio never charges you for your own records.
       </p>
 
-      {/* ── the household (research/14 §13.6 — the longest-shelf-life differentiator) ── */}
+      {/* ── the household is its own surface now; the Desk keeps the landmark ──
+          It used to reprint the member list here, which made two pages say the
+          same thing. A directory names the room and opens the door. */}
       <div className="f-sect">The household</div>
-      <div className="f-card" style={{ paddingTop: 4, paddingBottom: 4 }}>
-        {family.map(m => (
-          <div key={m.client_id} className="f-row" style={{ cursor: 'default' }}>
-            <span className="mk">{m.name.split(' ').map(w => w[0]).slice(0, 2).join('')}</span>
-            <span className="nm">
-              <b>{m.name}{m.is_head ? ' ' : ''}{m.is_head ? <span className="f-stamp">HEAD</span> : null}</b>
-              <span>{m.open_actions > 0 ? `${m.open_actions} open with the desk` : 'nothing outstanding'}</span>
-            </span>
-            <span className="fg"><b className="num">{inrCompact(m.v)}</b>
-              <span className="num" style={{ color: 'var(--f-faint)', fontWeight: 400 }}>{m.wx != null ? `${m.wx}%` : '—'}</span></span>
+      {home && (
+      <Link href="/me/household" className="f-card tap">
+        <div className="f-k"><Icon name="users" /> {home.family_name}</div>
+        <div className="f-big num" style={{ fontSize: 26 }}>{inrCompact(home.combined)}</div>
+        <div className="f-trio">
+          <div>
+            <div className="l">Members</div>
+            <div className="v num">{home.members.filter(m => m.client_id != null).length}</div>
           </div>
-        ))}
-      </div>
-      <p className="f-note">
-        A household is a set of permissions with names on it, not a shared login. A spouse or parent brings their own
-        PAN and KYC; a minor is held by a guardian until the birthday and transfers automatically; an HUF is a separate
-        taxpayer and never mixed into your totals. Each member sees their own money, and the roll-up only if you share it.
-      </p>
-      <form action={raise}>
-        <input type="hidden" name="kind" value="invite_member" />
-        <input type="hidden" name="label" value="Add a family member to the household" />
-        <input type="hidden" name="evidence" value={`family ${me.family_name}, ${family.length} member(s) today`} />
-        <button className="f-btn ghost" type="submit">Add someone to the household</button>
-      </form>
+          <div>
+            <div className="l">Shared with you</div>
+            <div className="v num">{home.members.filter(m => m.total === 'granted').length}</div>
+          </div>
+          <div>
+            <div className="l">Not started</div>
+            <div className="v num">{home.prospects.length}</div>
+          </div>
+        </div>
+        <span className="f-cardlink">Open the household <Icon name="chev" /></span>
+      </Link>
+      )}
 
       {/* ── consent, visible and reversible ── */}
       <div className="f-sect">What you have agreed to</div>

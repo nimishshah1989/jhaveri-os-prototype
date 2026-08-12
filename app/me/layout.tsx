@@ -9,9 +9,12 @@ import './folio.css';
 // it is an env var, never a query param, because this lens has no auth yet.
 export const ME = Number(process.env.FOLIO_CLIENT ?? 101);
 
+// Five, not four: the household is where the next client already is, and a
+// surface reachable only from inside a settings page is a surface nobody visits.
 const TABS: [string, string, string][] = [
   ['/me', 'today', 'Today'],
   ['/me/portfolio', 'pie', 'Portfolio'],
+  ['/me/household', 'users', 'Family'],
   ['/me/discover', 'search', 'Discover'],
   ['/me/desk', 'desk', 'Desk'],
 ];

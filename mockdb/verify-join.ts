@@ -17,6 +17,7 @@ import {
   application, captured, finishApplication, kycFor, recordStep, resolveBroker,
   setPaper, startApplication, stepsFor, unphrasedJoinCodes, type Step,
 } from '../lib/join';
+import { open, seal } from '../lib/journey';
 
 const conn = db();
 let pass = 0;
@@ -214,6 +215,83 @@ try {
       v.plain.length > 20 && (!unphrased.includes(c) || v.unphrased),
       'a code with no written sentence must say so, never be guessed at');
   }
+
+  /* ── the journey survives losing the database it started on ─────────────
+     On Vercel `lib/db.ts` gives every serverless instance its own scratch copy,
+     so the rows a step wrote can be invisible to the request that serves the
+     next one. This block reproduces exactly that: walk three steps, delete
+     every row the journey wrote, and require the client to be able to carry on.
+     Without `lib/journey.ts` the first assertion below passes and the second
+     fails — which is the production bug, reproduced. */
+
+  const car = startApplication('Carried Client', '9000000004', real.code);
+  if (!car.ok) throw new Error('cannot continue without an application');
+  const carId = car.appId;
+  const CARRIED_PAN = 'BBBBB2222B';
+  recordStep(carId, 'pan', { pan: CARRIED_PAN, name: 'Carried Client', dob: '1990-02-02' });
+  const afterPan = application(carId)!;
+  for (const s of afterPan.step === 'kyc' ? ['kyc'] as Step[] : [] as Step[]) {
+    recordStep(carId, s, { identity_source: 'digilocker', photo: '1', signature: '1' });
+  }
+  recordStep(carId, 'bank', { account: '000111222333', ifsc: 'HDFC0001234', bank_name: 'HDFC Bank' });
+
+  // What the browser is holding, assembled the way `carry()` in the action does.
+  const inHand = application(carId)!;
+  const cookie = seal({
+    id: inHand.application_id, sb: inHand.sb_id, br: inHand.broker, channel: inHand.channel,
+    lead: inHand.lead_id, e: Object.entries(inHand.data) as [Step, Record<string, string>][],
+  });
+
+  // The next request lands on an instance that never saw any of this.
+  conn.prepare(`DELETE FROM events WHERE subject_type='application' AND subject_id=?`).run(String(carId));
+  conn.prepare(`DELETE FROM onboarding_applications WHERE application_id=?`).run(carId);
+  conn.prepare(`DELETE FROM client_kyc_logs WHERE pan_no=?`).run(CARRIED_PAN);
+
+  check('an application whose rows are on another instance is gone from this one',
+    application(carId), null);
+
+  const carried = open(cookie);
+  assert('the sealed journey opens', carried != null && carried.id === carId);
+  const restored = application(carId, carried)!;
+  assert('and the journey is restored from what the browser carried', restored != null);
+  check('to the exact step it left', restored.step, inHand.step);
+  check('with the adviser it was tagged to', restored.sb_id, real.sb_id);
+  check('and every field already captured', captured(restored), captured(inHand));
+
+  assert('a tampered cookie is refused rather than trusted',
+    open(cookie.slice(0, cookie.lastIndexOf('.')) + '.forged') === null,
+    'the adviser code decides commission — an edited journey must not be honoured');
+  const swapped = seal({ ...carried!, sb: real.sb_id + 1 });
+  check('a re-signed journey for another application is not this one\'s state',
+    application(carId + 99_000, open(swapped)), null);
+
+  // …and the rest of the journey completes on the instance that has nothing.
+  let at = restored.step;
+  const fill: Record<string, Record<string, string>> = {
+    nominee: { nominee_name: 'Vikram Verma', relation: 'Spouse' },
+    profile: { horizon: 'long', fall: 'wait', purpose: 'grow', fatca: '1' },
+    sign: { signed: '1', digio_request_id: `DIGIO-${carId}` },
+    kyc: { identity_source: 'digilocker', photo: '1', signature: '1' },
+    bank: { account: '000111222333', ifsc: 'HDFC0001234', bank_name: 'HDFC Bank' },
+  };
+  let live: ReturnType<typeof application> = null;
+  for (let guard = 0; guard < 8 && at !== 'live'; guard++) {
+    recordStep(carId, at, fill[at] ?? {}, carried);
+    live = application(carId, carried);
+    if (!live) break;
+    at = live.step;
+  }
+  check('the journey reaches open on an instance that never saw it start', at, 'live');
+  check('and mints exactly one client for that PAN',
+    one<{ n: number }>(`SELECT COUNT(*) n FROM client_master WHERE cm_pan_no = ?`, CARRIED_PAN).n, 1);
+  check('tagged to the adviser the cookie carried, not the house desk',
+    one<{ sb: number }>(`SELECT fk_primary_sub_broker_id sb FROM client_master WHERE cm_pan_no = ?`, CARRIED_PAN).sb,
+    real.sb_id);
+
+  // A double submit is the same race with a shorter fuse.
+  finishApplication(carId, carried);
+  check('filing the same journey twice does not mint a twin',
+    one<{ n: number }>(`SELECT COUNT(*) n FROM client_master WHERE cm_pan_no = ?`, CARRIED_PAN).n, 1);
 
   /* ── every step is reachable, and the order never doubles back ─────────── */
 

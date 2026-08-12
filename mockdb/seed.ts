@@ -1398,3 +1398,124 @@ console.log('DB:', DB_PATH);
   ).get(meera) as { n: number }).n;
   console.log('GOALS: 3 for client 101 across', tagged, 'schemes');
 }
+
+/* ── The household ────────────────────────────────────────────────────────────
+   Runs after every random draw, like the goals block above, so nothing here can
+   shift the RNG stream and re-roll the story facts the rest of the app is
+   pinned to.
+
+   The seed gave all 1068 families exactly one member, so `familyMembers()` has
+   always returned the client looking at it and nothing else — the household was
+   a table with no data behind it. Rather than mint new clients (which would
+   need folios, a FIFO run and a commission trail, all of which happen hundreds
+   of lines above this point), three existing clients on Meera's own adviser are
+   moved into her family and given their household names. They keep every
+   transaction, folio, holding and payout they already had, so the household's
+   money is real money the rest of the app already reconciles against.
+
+   Ananya is the exception and the point: she is eleven, she has no account, and
+   her mother has been saving for her university since 2025. She is a member with
+   a null client id — the next client, already in the list.                    */
+{
+  const MEERA = 101, FAM = 91;
+  // [client id, household name, relation, date of birth, gender]
+  const MOVED: [number, string, string, string, string][] = [
+    [51,  'Nikhil Shah', 'spouse', '1986-07-16', 'M'],
+    [7,   'Hansa Shah',  'mother', '1957-03-02', 'F'],
+    [982, 'Dhruv Shah',  'son',    '2011-11-08', 'M'],
+  ];
+
+  const before = (db.prepare(`SELECT COUNT(*) n FROM client_master WHERE fk_family_id = ?`).get(FAM) as { n: number }).n;
+
+  for (const [id, name, , dob, gender] of MOVED) {
+    const first = name.split(' ')[0], last = name.split(' ').slice(-1)[0];
+    const was = (db.prepare(`SELECT cm_full_name n, fk_family_id f FROM client_master WHERE cm_user_id = ?`)
+      .get(id) as { n: string; f: number });
+    db.prepare(
+      `UPDATE client_master SET cm_full_name = ?, cm_first_name = ?, cm_last_name = ?,
+              cm_date_of_birth = ?, cm_gender = ?, fk_family_id = ?, is_family_head = 0
+       WHERE cm_user_id = ?`,
+    ).run(name, first, last, dob, gender, FAM, id);
+    // The name and the family are denormalised into three more places. A rename
+    // that misses one produces a household whose members are strangers on the
+    // page that prices them.
+    db.prepare(`UPDATE fifo_summary_holding_active SET client_name = ?, family_id = ?, family_name = 'Shah Family' WHERE client_id = ?`)
+      .run(name, FAM, id);
+    db.prepare(`UPDATE accounts_master SET acc_name = ? WHERE fk_cm_user_id = ?`).run(name, id);
+    db.prepare(`UPDATE bse_client_master SET first_applicant = ? WHERE pan_no = (SELECT cm_pan_no FROM client_master WHERE cm_user_id = ?)`)
+      .run(name, id);
+    // The family they left is one member smaller, and may now be empty.
+    db.prepare(`UPDATE family_master SET total_members = MAX(0, total_members - 1) WHERE family_id = ?`).run(was.f);
+    emit({ at: addDays(TODAY, -intBetween(rx, 60, 400)), subjectType: 'family', subjectId: FAM,
+      type: 'household_member_joined', payload: { client_id: id, name, from_family: was.f }, source: 'ui' });
+  }
+
+  let memberId = 0;
+  const member = (clientId: number | null, name: string, relation: string, dob: string, guardian: number | null, ago: number) => {
+    ins('household_members', {
+      member_id: ++memberId, family_id: FAM, client_id: clientId, full_name: name,
+      relation, date_of_birth: dob, guardian_client_id: guardian, added_at: addDays(TODAY, -ago),
+    });
+  };
+  member(MEERA, 'Meera Shah', 'self', '1988-01-17', null, 900);
+  member(51, 'Nikhil Shah', 'spouse', '1986-07-16', null, 380);
+  member(7, 'Hansa Shah', 'mother', '1957-03-02', null, 240);
+  // A minor's folio is operated by a guardian. That is law, not preference, and
+  // it is why the consent rows below skip him entirely.
+  member(982, 'Dhruv Shah', 'son', '2011-11-08', MEERA, 150);
+  // No client id, on purpose: she is why the education goal exists, and she has
+  // nothing of her own. Every rupee figure about her must render as a dash.
+  member(null, 'Ananya Shah', 'daughter', '2015-05-22', null, 900);
+
+  db.prepare(`UPDATE family_master SET total_members = ?, family_head_name = 'Meera Shah' WHERE family_id = ?`)
+    .run(before + MOVED.length, FAM);
+
+  /* Consent, as three different real answers rather than one switch. */
+  let hcId = 0;
+  const consent = (subject: number, scope: string, state: string, via: string | null, askedAgo: number, decidedAgo: number | null) => {
+    ins('household_consents', {
+      hc_id: ++hcId, family_id: FAM, subject_id: subject, viewer_id: MEERA, scope, state,
+      asked_at: addDays(TODAY, -askedAgo),
+      decided_at: decidedAgo == null ? null : addDays(TODAY, -decidedAgo),
+      decided_via: via,
+    });
+    emit({ at: addDays(TODAY, -(decidedAgo ?? askedAgo)), subjectType: 'client', subjectId: subject,
+      type: `household_consent_${state}`, payload: { viewer: MEERA, scope }, source: 'ui' });
+  };
+  // Nikhil shares everything: the household roll-up is honest about his money.
+  consent(51, 'total', 'granted', 'app', 375, 375);
+  consent(51, 'holdings', 'granted', 'app', 375, 375);
+  // Hansa agrees to be counted but not to be read. This is the case the design
+  // exists for: her value belongs in the total, her funds are nobody else's business.
+  consent(7, 'total', 'granted', 'review meeting', 230, 228);
+  consent(7, 'holdings', 'refused', 'review meeting', 230, 228);
+
+  /* Goals the family owns rather than one person. Funded only from Nikhil's
+     schemes: tagging any of Meera's would move money out of her own untagged
+     figure, and the one-denominator check in verify-goals would stop closing. */
+  const nikhilSchemes = (db.prepare(
+    `SELECT DISTINCT fk_scheme_id sid FROM transaction_master WHERE fk_acc_id = ? AND is_active = 1 ORDER BY sid`,
+  ).all(51) as { sid: number }[]).map(r => r.sid);
+  const FAMILY_GOALS: [string, string, number, string][] = [
+    ['Six months of everything, for all of us', 'freedom', 2000000, '2029-04-01'],
+    ['Somewhere by the sea', 'home', 6000000, '2035-06-01'],
+  ];
+  FAMILY_GOALS.forEach(([name, kind, target, on], i) => {
+    const gid = 100 + i;
+    if (!nikhilSchemes[i]) return;
+    ins('client_goals', {
+      goal_id: gid, fk_cm_user_id: MEERA, goal_name: name, goal_kind: kind,
+      target_amount: target, target_date: on, created_at: addDays(TODAY, -300 + i * 60),
+      is_active: 1, is_family: 1,
+    });
+    db.prepare(`UPDATE transaction_master SET fk_goal_id = ? WHERE fk_acc_id = 51 AND fk_scheme_id = ?`)
+      .run(gid, nikhilSchemes[i]);
+  });
+
+  const after = (db.prepare(`SELECT COUNT(*) n FROM client_master WHERE fk_family_id = ?`).get(FAM) as { n: number }).n;
+  const worth = (db.prepare(
+    `SELECT ROUND(COALESCE(SUM(present_market_value), 0)) v FROM fifo_summary_holding_active
+     WHERE client_id IN (SELECT cm_user_id FROM client_master WHERE fk_family_id = ?)`,
+  ).get(FAM) as { v: number }).v;
+  console.log(`HOUSEHOLD: family ${FAM} ${before} → ${after} clients + 1 prospect · ₹${worth.toLocaleString('en-IN')} · ${hcId} consent rows`);
+}
