@@ -6,6 +6,7 @@ import { Collapse } from '../../components/Collapse';
 import { Icon } from '../../components/Icon';
 import { Explain } from '../../components/Explain';
 import { StatCard } from '../../components/StatCard';
+import { ChartBars } from '../../components/charts';
 import { inr, inrCompact, dmy, dmy2 } from '../../lib/format';
 import { TODAY } from '../../mockdb/engines';
 import { broker, DEMO_SB } from '../../lib/queries';
@@ -38,6 +39,16 @@ export default async function MarketingPage({ searchParams }: PageProps<'/market
   const sentAug = sentThisMonth(DEMO_SB);
 
   const attributed = money.value.reduce((s, m) => s + m.attributed, 0);
+
+  // Campaign names are long, so the money chart reads down the page; the narrowing
+  // chart reads across, because four bars per campaign only compare side by side.
+  const roiRows = [...money.value]
+    .sort((a, b) => a.attributed - b.attributed)
+    .map(m => ({ campaign: m.campaign, attributed: m.attributed }));
+  const funnelRows = money.value.map(m => ({
+    campaign: m.campaign, delivered: m.delivered, responses: m.responses,
+    interested: m.interested, invested: m.invested,
+  }));
   const openResponders = resp.value.filter(r => r.action_id && r.action_state !== 'done' && r.action_state !== 'dismissed');
   const runnable = rack.value.filter(c => c.runnable && c.state === 'live');
   const totalSent = del.value.reduce((s, d) => s + d.sent, 0);
@@ -243,6 +254,31 @@ export default async function MarketingPage({ searchParams }: PageProps<'/market
           </div>
 
           <h2 className="sec">What each campaign was worth <Explain figure={money} /></h2>
+          <div className="charts">
+            <ChartBars
+              horizontal unit="inr" height={230}
+              title="Money a campaign can actually be credited with"
+              xLabel="attributed ₹" yLabel="campaign"
+              source="actions.linked_txn_ids → transaction_master.tr_amount, only on closed actions"
+              data={roiRows} xKey="campaign"
+              series={[{ key: 'attributed', name: 'Attributed', tone: 'green' }]}
+              mark={<><b>{inr(attributed)}</b> across {money.value.length} campaigns. A bar at zero is not a failed campaign — it is one where nobody linked a transaction when they closed the action, and unlinked money is deliberately not claimed.</>}
+            />
+            <ChartBars
+              height={230}
+              title="How the send narrows, campaign by campaign"
+              xLabel="campaign" yLabel="clients"
+              source="campaign_sends.delivery_state · campaign_responses.response_type · actions.state"
+              data={funnelRows} xKey="campaign"
+              series={[
+                { key: 'delivered', name: 'Delivered', tone: 's1' },
+                { key: 'responses', name: 'Replied', tone: 'blue' },
+                { key: 'interested', name: 'Interested', tone: 'amber' },
+                { key: 'invested', name: 'Invested', tone: 'green' },
+              ]}
+              mark={<>Four bars per campaign, each a subset of the one before it — grouped rather than stacked, because these are not four separate things that add up, they are the same people surviving four filters.</>}
+            />
+          </div>
           <div className="tblwrap">
             <table>
               <thead>

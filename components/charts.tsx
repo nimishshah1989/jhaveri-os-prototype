@@ -80,6 +80,20 @@ const AXIS_TITLE = { fill: 'var(--muted)', fontSize: 10.5 };
 // lands on top of them. Width follows the unit rather than a single guess.
 const yWidth = (u: Unit) => (u === 'inr' ? 78 : 58);
 
+// inrCompact switches unit per value, which is right in a sentence and wrong on an
+// axis: a scale running ₹0 · ₹80.00 L · ₹1.60 Cr asks the reader to convert between
+// ticks to see that they are evenly spaced. One unit for the whole axis, chosen
+// from the largest value on it. The hover stays exact and unrounded.
+function moneyAxis(data: Row[], keys: string[]): (n: number) => string {
+  const max = Math.max(0, ...data.flatMap(r => keys.map(k => Math.abs(Number(r[k]) || 0))));
+  const [div, suffix] = max >= 1e7 ? [1e7, ' Cr'] : max >= 1e5 ? [1e5, ' L'] : [1, ''];
+  const dp = div === 1 ? 0 : 2;
+  return (n: number) => `${n < 0 ? '−' : ''}₹${(Math.abs(n) / div).toFixed(dp)}${suffix}`;
+}
+
+const axisFormat = (unit: Unit, data: Row[], keys: string[]) =>
+  unit === 'inr' ? moneyAxis(data, keys) : UNIT[unit].axis;
+
 // The legend sits above the plot. At the bottom it lands on the x-axis title,
 // and one of the two always loses.
 const LEGEND = {
@@ -167,7 +181,8 @@ export function ChartBars({
       }
     : undefined;
   const cat = { dataKey: xKey, tick: AXIS, stroke: GRID, type: 'category' as const };
-  const val = { tick: AXIS, stroke: GRID, type: 'number' as const, tickFormatter: UNIT[unit].axis };
+  const val = { tick: AXIS, stroke: GRID, type: 'number' as const,
+    tickFormatter: axisFormat(unit, data, series.map(x => x.key)) };
   return (
     <Figure {...frame}>
       <ComposedChart data={data} layout={horizontal ? 'vertical' : 'horizontal'}
@@ -198,7 +213,7 @@ export function ChartBars({
 // Change over time. One value axis only — two scales on one plot invent a
 // correlation that is not in the data, so a second measure gets its own chart.
 export function ChartLines({
-  data, xKey, series, unit = 'inr', filled, bars, ...frame
+  data, xKey, series, unit = 'inr', filled, bars, baseline = 'zero', ...frame
 }: Frame & {
   data: Row[];
   xKey: string;
@@ -208,6 +223,14 @@ export function ChartLines({
   filled?: boolean;
   /** Series drawn as columns beneath the lines — same axis, same unit. */
   bars?: Series[];
+  /**
+   * Where the value axis starts. 'zero' is the default and the honest one for
+   * anything read as a magnitude. 'data' is for two series that sit within a
+   * percent of each other: on a zero baseline they overplot into a single line
+   * and the chart claims one measure where there are two. Legitimate only for
+   * lines, which encode position — never for bars, which encode length.
+   */
+  baseline?: 'zero' | 'data';
 }) {
   return (
     <Figure {...frame}>
@@ -215,7 +238,9 @@ export function ChartLines({
         <CartesianGrid stroke={GRID} vertical={false} />
         <XAxis dataKey={xKey} tick={AXIS} stroke={GRID} interval="preserveStartEnd"
           label={{ value: frame.xLabel, position: 'insideBottom', offset: -12, ...AXIS_TITLE }} />
-        <YAxis tick={AXIS} stroke={GRID} width={yWidth(unit)} tickFormatter={UNIT[unit].axis}
+        <YAxis tick={AXIS} stroke={GRID} width={yWidth(unit)}
+          tickFormatter={axisFormat(unit, data, [...series, ...(bars ?? [])].map(x => x.key))}
+          domain={baseline === 'data' ? ['dataMin', 'dataMax'] : [0, 'auto']}
           label={{ value: frame.yLabel, angle: -90, position: 'insideLeft', ...AXIS_TITLE }} />
         <Tooltip {...tip(unit)} />
         {series.length + (bars?.length ?? 0) > 1 && <Legend {...LEGEND} />}
@@ -258,9 +283,10 @@ export function ChartScatter({
     <Figure {...frame}>
       <ScatterChart margin={{ top: 6, right: 14, bottom: 18, left: 6 }}>
         <CartesianGrid stroke={GRID} />
-        <XAxis type="number" dataKey={xKey} tick={AXIS} stroke={GRID} tickFormatter={UNIT[xUnit].axis}
+        <XAxis type="number" dataKey={xKey} tick={AXIS} stroke={GRID} tickFormatter={axisFormat(xUnit, data, [xKey])}
           label={{ value: frame.xLabel, position: 'insideBottom', offset: -12, ...AXIS_TITLE }} />
-        <YAxis type="number" dataKey={yKey} tick={AXIS} stroke={GRID} width={yWidth(yUnit)} tickFormatter={UNIT[yUnit].axis}
+        <YAxis type="number" dataKey={yKey} tick={AXIS} stroke={GRID} width={yWidth(yUnit)}
+          tickFormatter={axisFormat(yUnit, data, [yKey])}
           label={{ value: frame.yLabel, angle: -90, position: 'insideLeft', ...AXIS_TITLE }} />
         <ZAxis range={[26, 26]} />
         <Tooltip

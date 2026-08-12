@@ -6,6 +6,7 @@ import { Collapse } from '../../components/Collapse';
 import { Icon } from '../../components/Icon';
 import { Explain } from '../../components/Explain';
 import { StatCard } from '../../components/StatCard';
+import { ChartBars, ChartScatter } from '../../components/charts';
 import { inr, inrCompact, dmy, dmy2 } from '../../lib/format';
 import { TODAY } from '../../mockdb/engines';
 import { broker, DEMO_SB } from '../../lib/queries';
@@ -25,6 +26,25 @@ export default async function ReviewPacksPage({ searchParams }: PageProps<'/revi
   const cov = coverage(DEMO_SB);
   const past = history(DEMO_SB);
   const running = queue(DEMO_SB);
+
+  const coverRows = [
+    { state: 'Reviewed', n: cov.value.reviewed, tone: 'green' },
+    { state: 'Overdue', n: cov.value.overdue, tone: 'amber' },
+    { state: 'Never reviewed', n: cov.value.never, tone: 'red' },
+  ];
+
+  // A client who has never had a pack has no "months since" — the honest answer is
+  // no number at all. Plotting them at zero would put them beside the best-served
+  // clients on the page, so they are floored just past the worst real figure and
+  // the caption says so rather than letting the axis imply a measurement.
+  const realMonths = dueList.value.map(r => r.months_since ?? 0);
+  const neverAt = Math.max(REVIEW_RULES.review_months, ...realMonths) + 2;
+  const overdueRows = dueList.value.map(r => ({
+    name: r.name, v: r.value,
+    months: r.months_since ?? neverAt,
+    tone: r.last_pack === null ? 'red'
+      : (r.months_since ?? 0) >= REVIEW_RULES.review_months ? 'amber' : 'blue',
+  }));
 
   const picked = typeof sp.c === 'string' ? Number(sp.c) : dueList.value[0]?.client_id;
   const preview = picked ? pack(picked) : null;
@@ -89,6 +109,30 @@ export default async function ReviewPacksPage({ searchParams }: PageProps<'/revi
               the existing portfolio PDFs use.
             </div>
           )}
+
+          <div className="charts">
+            <ChartBars
+              height={215}
+              title="How much of the book has ever had a review"
+              xLabel="state" yLabel="clients"
+              source="review_packs.generated_at against every client holding units"
+              data={coverRows} xKey="state"
+              series={[{ key: 'n', name: 'Clients', tone: 'green' }]}
+              toneKey="tone"
+              keyItems={[{ name: 'reviewed', tone: 'green' }, { name: 'overdue', tone: 'amber' }, { name: 'never', tone: 'red' }]}
+              mark={<><b>{cov.value.reviewed}</b> of {cov.value.book} clients have ever had a pack. The red bar is not a backlog — those clients have never been sent one at all.</>}
+            />
+            <ChartScatter
+              height={215}
+              title="How overdue, against how much they hold"
+              xLabel="months since the last pack" yLabel="what they hold"
+              source={`review_packs.generated_at vs present_market_value · due at ${REVIEW_RULES.review_months} months`}
+              data={overdueRows} xKey="months" yKey="v" nameKey="name"
+              xUnit="count" yUnit="inr" toneKey="tone"
+              keyItems={[{ name: 'never reviewed', tone: 'red' }, { name: 'overdue', tone: 'amber' }, { name: 'flagged since the last pack', tone: 'blue' }]}
+              mark={<>Never-reviewed clients are drawn at {neverAt} months so they cannot hide off the left edge — that is a floor, not a measurement. The dot to book first is the highest one furthest right.</>}
+            />
+          </div>
 
           <h2 className="sec">Who needs one, and why <Explain figure={dueList} /></h2>
           <div className="tblwrap">

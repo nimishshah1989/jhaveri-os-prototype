@@ -10,6 +10,7 @@ import { broker, DEMO_SB } from '../../lib/queries';
 import { REPORT_FORMAT, REPORTS, NOT_CARRIED, catalogue, queue } from '../../lib/reports';
 import { QUESTIONS, SEMANTIC_SKETCH, ask } from '../../lib/ask';
 import { requestReport } from './actions';
+import { ChartBars } from '../../components/charts';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,6 +25,27 @@ export default async function ReportsPage({ searchParams }: PageProps<'/reports'
   const groups = catalogue(DEMO_SB);
   const q = queue(DEMO_SB);
   const live = q.filter(r => !r.expired);
+
+  // Both plots are folded out of the catalogue and the download log already on the
+  // page. An empty report keeps its bar rather than being filtered out: a reader
+  // who cannot see the zero assumes the report is missing.
+  const sizes = groups.flatMap(g => g.reports)
+    .map(r => ({ report: r.name, rows: r.count, tone: r.count > 0 ? 's1' : 'grey' }))
+    .sort((a, b) => a.rows - b.rows);
+  const emptyNames = sizes.filter(r => r.rows === 0).map(r => r.report);
+
+  const daysLeft = (r: { expires_at: string | null }) => r.expires_at
+    ? Math.round((Date.parse(r.expires_at) - Date.parse(TODAY)) / 86400000) : null;
+  const EXPIRY_BANDS: [string, string, (d: number | null) => boolean][] = [
+    ['Expired', 'grey', d => d !== null && d < 0],
+    ['Under 2 days', 'amber', d => d !== null && d >= 0 && d < 2],
+    ['2–4 days', 'blue', d => d !== null && d >= 2 && d < 5],
+    ['5+ days', 'blue', d => d !== null && d >= 5],
+    ['No expiry set', 'grey', d => d === null],
+  ];
+  const expiry = EXPIRY_BANDS
+    .map(([band, tone, test]) => ({ band, tone, n: q.filter(r => test(daysLeft(r))).length }))
+    .filter(b => b.n > 0);
 
   return (
     <>
@@ -107,6 +129,31 @@ export default async function ReportsPage({ searchParams }: PageProps<'/reports'
               )}
             </div>
           )}
+
+          <div className="charts">
+            <ChartBars
+              horizontal height={300}
+              title="How big each report actually is"
+              xLabel="rows in the export" yLabel="report"
+              source="the same queries the screens run — each report counts its own rows"
+              data={sizes} xKey="report"
+              series={[{ key: 'rows', name: 'Rows', tone: 's1' }]}
+              toneKey="tone"
+              keyItems={[{ name: 'has rows', tone: 's1' }, { name: 'empty right now', tone: 'grey' }]}
+              mark={<>A report at zero is not broken — {emptyNames.length ? <>{emptyNames.join(' and ')} {emptyNames.length === 1 ? 'has' : 'have'} nothing to carry today, which is a fact about the book rather than about the export.</> : <>every report has rows today.</>} The counts are live, so a report&apos;s size here is what you will actually download.</>}
+            />
+            <ChartBars
+              height={300}
+              title="What you have downloaded, and what is about to expire"
+              xLabel="days left before it expires" yLabel="downloads"
+              source={`download_history_logs.expires_at · ${REPORT_FORMAT.expiry_days}-day retention`}
+              data={expiry} xKey="band"
+              series={[{ key: 'n', name: 'Downloads', tone: 'blue' }]}
+              toneKey="tone"
+              keyItems={[{ name: 'still available', tone: 'blue' }, { name: 'going soon', tone: 'amber' }, { name: 'expired', tone: 'grey' }]}
+              mark={<><b>{live.length}</b> of {q.length} downloads are still fetchable. Expiry is not a cleanup job — a valuation dated three months ago is a wrong answer, not an old one.</>}
+            />
+          </div>
 
           {groups.map(g => (
             <div key={g.group}>

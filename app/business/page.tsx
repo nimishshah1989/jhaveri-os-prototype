@@ -6,6 +6,7 @@ import { ClientLink } from '../../components/ClientLink';
 import { Collapse } from '../../components/Collapse';
 
 import { StatCard } from '../../components/StatCard';
+import { ChartBars, ChartLines } from '../../components/charts';
 import { inr, inrCompact, signedInrCompact, dmy, dmy2, monthLabel as MONTH_LABEL } from '../../lib/format';
 import { TODAY } from '../../mockdb/engines';
 import { broker, DEMO_SB, netFlowsMtd } from '../../lib/queries';
@@ -31,8 +32,6 @@ export default function BusinessPage() {
   const pace = monthPace(month);
 
   const rows = aum.value;
-  const maxAum = Math.max(...rows.map(m => m.peak_day_aum), 1);
-  const maxFlow = Math.max(...rows.map(m => Math.abs(m.net_flows)), 1);
   const last = rows[rows.length - 1];
   const prev = rows[rows.length - 2];
   const mom = prev ? last.month_end_aum - prev.month_end_aum : 0;
@@ -40,6 +39,22 @@ export default function BusinessPage() {
   const lostThisFy = lost.value.filter(w => w.on >= '2026-04-01');
   const attainment = tgt.value.length
     ? Math.round(tgt.value.reduce((s, t) => s + t.pct, 0) / tgt.value.length) : 0;
+
+  // Shaped for the plots. Both AUM measures ride one axis because they are the
+  // same unit answering the same question; flows and market get their own chart
+  // because they are two orders of magnitude smaller than the book they moved.
+  const series = rows.map(m => ({
+    m: MONTH_LABEL(m.month), peak: m.peak_day_aum, close: m.month_end_aum,
+    flows: m.net_flows, market: m.market_movement,
+  }));
+  // How far apart the two AUM definitions actually run, measured rather than
+  // asserted — it is the reason the page carries both.
+  const peakPremium = (
+    (rows.reduce((s2, m) => s2 + (m.peak_day_aum / m.month_end_aum - 1), 0) / rows.length) * 100
+  ).toFixed(1);
+  const attain = hist.value.map(h => ({
+    m: MONTH_LABEL(h.month), pct: h.pct, tone: h.pct >= 100 ? 'green' : 'amber',
+  }));
 
   return (
     <>
@@ -102,32 +117,45 @@ export default function BusinessPage() {
           <h2 className="sec">
             Where the book came from <Explain id="aum_peak_day" figure={aum} />
           </h2>
-          <div className="viz">
-            <div className="axis">
-              <span>{inrCompact(rows[0].peak_day_aum)} in {MONTH_LABEL(rows[0].month)}</span>
-              <span>{inrCompact(last.peak_day_aum)} in {MONTH_LABEL(last.month)}</span>
-            </div>
-            <div className="aumchart">
-              {rows.map(m => (
-                <div key={m.month} className="acol" title={`${MONTH_LABEL(m.month)} · peak ${inrCompact(m.peak_day_aum)} on ${dmy2(m.peak_date)}`}>
-                  <span className="abar" style={{ height: `${(m.peak_day_aum / maxAum) * 100}%` }} />
-                </div>
-              ))}
-            </div>
-            <div className="flowrow">
-              {rows.map(m => (
-                <div key={m.month} className="fcol" title={`${MONTH_LABEL(m.month)} · flows ${signedInrCompact(m.net_flows)} · market ${signedInrCompact(m.market_movement)}`}>
-                  <span className={`fbar2 ${m.net_flows >= 0 ? 'pos' : 'neg'}`}
-                    style={{ height: `${(Math.abs(m.net_flows) / maxFlow) * 100}%` }} />
-                  <span className="fl">{MONTH_LABEL(m.month)}</span>
-                </div>
-              ))}
-            </div>
-            <Explain>
-              Tall bars are <b>AUM</b>, on the {BUSINESS_RULES.aum_definition} definition the firm
-              reports. Short bars underneath are <b>net flows</b> — money you actually moved that
-              month. A rising line with flat flows means the market did the work.
-            </Explain>
+          {/* Two plots, not one with two scales. AUM is in crores and a month's
+              flows are in lakhs; on a shared axis the flows flatten to nothing and
+              the chart quietly argues that the broker did no work at all. */}
+          <div className="charts">
+            <ChartLines
+              title="What the book was worth" height={230} unit="inr" baseline="data"
+              xLabel="month" yLabel="AUM"
+              source={`aum_snapshot — peak-day and month-end, ${BUSINESS_RULES.aum_definition} definition`}
+              data={series} xKey="m"
+              series={[
+                { key: 'peak', name: 'Peak day in the month', tone: 's1' },
+                { key: 'close', name: 'Month end', tone: 'blue' },
+              ]}
+              mark={<>{inrCompact(rows[0].peak_day_aum)} in {MONTH_LABEL(rows[0].month)} to {inrCompact(last.peak_day_aum)} in {MONTH_LABEL(last.month)}. The two definitions run <b>{peakPremium}%</b> apart.</>}
+              aside={<Explain id="aum_peak_day" figure={aum} teaser="Two lines, and a non-zero axis">
+                The firm reports peak-day AUM; the growth split below is computed on month-end.
+                Both are drawn so the gap between them is visible rather than argued about. The
+                axis starts at the data rather than at zero for the same reason — on a zero
+                baseline a {peakPremium}% gap collapses and the chart claims one measure where
+                there are two. Lines may do that because they encode position; the bars beside
+                them may not, because a bar encodes length from zero.
+              </Explain>}
+            />
+            <ChartBars
+              title="What moved it: your money against the market" height={230} unit="inr"
+              xLabel="month" yLabel="₹ change"
+              source="transaction_master net flows vs derived market movement, by month"
+              data={series} xKey="m"
+              series={[
+                { key: 'flows', name: 'Money you brought in', tone: 'green', stack: 'chg' },
+                { key: 'market', name: 'What the market added', tone: 's4', stack: 'chg' },
+              ]}
+              mark={<>The two stack to the month&apos;s whole change, so a tall bar made only of the second colour is a month the market carried. Over {rows.length} months it was <b>{g.value.flowsPct}%</b> you and <b>{g.value.marketPct}%</b> the market.</>}
+              aside={<Explain>
+                Net flows are purchases and SIPs less redemptions — money that actually moved.
+                Market movement is what the same money did on its own, derived as the residual, so
+                opening + flows + market equals closing to the rupee on every month.
+              </Explain>}
+            />
           </div>
 
           <h2 className="sec">The last {rows.length} months, split honestly <Explain id="growth_split" figure={g} /></h2>
@@ -168,22 +196,17 @@ export default function BusinessPage() {
             );
           })}
 
-          <div className="viz" style={{ marginTop: 14 }}>
-            <h4>Lump-sum attainment, month by month <Explain id="target_attainment" figure={hist} /></h4>
-            <div className="hist wide">
-              {hist.value.map(h => (
-                <div key={h.month} className={`col${h.pct >= 100 ? '' : ' neg'}`} title={`${MONTH_LABEL(h.month)} · ${h.pct}%`}>
-                  <span className="n num">{h.pct}%</span>
-                  <span className="bar" style={{ height: `${Math.min(100, (h.pct / 150) * 100)}%` }} />
-                  <span className="b">{MONTH_LABEL(h.month)}</span>
-                </div>
-              ))}
-            </div>
-            <Explain>
-              Bars cap at 150%. The current month is still running, so its bar is partial by
-              definition, not a miss.
-            </Explain>
-          </div>
+          <ChartBars
+            title="Lump-sum attainment, month by month" height={215} unit="pct"
+            xLabel="month" yLabel="% of target"
+            source="sb_target_master vs achieved, by month"
+            data={attain} xKey="m"
+            series={[{ key: 'pct', name: 'Attainment', tone: 'green' }]}
+            toneKey="tone"
+            keyItems={[{ name: 'target met', tone: 'green' }, { name: 'short', tone: 'amber' }]}
+            mark={<><b>{hist.value.filter(h => h.pct >= 100).length}</b> of {hist.value.length} months hit the number. The last bar is the month still running, so it is partial by definition rather than a miss.</>}
+            aside={<Explain id="target_attainment" figure={hist} />}
+          />
 
           <h2 className="sec">Clients won and lost — every one named</h2>
           <div className="winlose">

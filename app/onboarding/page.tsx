@@ -7,6 +7,7 @@ import { Icon } from '../../components/Icon';
 import { PipelineBoard } from '../../components/PipelineBoard';
 import { Explain } from '../../components/Explain';
 import { StatCard } from '../../components/StatCard';
+import { ChartBars } from '../../components/charts';
 import { dmy, dmy2 } from '../../lib/format';
 import { TODAY } from '../../mockdb/engines';
 import { broker } from '../../lib/queries';
@@ -33,9 +34,13 @@ export default function OnboardingPage() {
     .reduce((s, c) => s + c.cards.length, 0);
   const openLeads = columns[0].leads?.length ?? 0;
   const myLink = links.value.find(l => l.sb_id === me.sb_id);
-  const funMax = Math.max(...fun.value.map(s => s.n));
-  const agingMax = Math.max(1, ...aging.map(a => a.n));
   const oldest = stall.value[0];
+
+  // Both plots read what is already queried. The funnel keeps its step order —
+  // these are ordered categories, so the bar's position carries the stage and the
+  // colour is not asked to carry it twice.
+  const funnelRows = fun.value.map(s => ({ step: s.label, n: s.n }));
+  const agingRows = aging.map(a => ({ band: a.band, n: a.n, tone: a.band === '0–7 days' ? 'amber' : 'red' }));
 
   const list = <T,>(rows: T[], f: (r: T) => { label: string; detail: string; amount: number }) =>
     ({ rows: rows.slice(0, 10).map(f), total: rows.length });
@@ -101,45 +106,34 @@ export default function OnboardingPage() {
             />
           </div>
 
-          <div className="vizrow two">
-            <div className="viz">
-              <h4>Where applications die <Explain figure={fun} /></h4>
-              <div className="funnel">
-                {fun.value.map((s, i) => (
-                  <div key={s.label} className="frow">
-                    <span className="lab">{s.label}</span>
-                    <span className="fbar"><i style={{ width: `${(s.n / funMax) * 100}%` }} /></span>
-                    <span className="n num">{s.n}</span>
-                    <span className="gap num">
-                      {i < fun.value.length - 1 && s.medianDays !== null ? `↓ ${s.medianDays}d` : ''}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <Explain>
-                Bars are applications reaching each step; <b>↓ Nd</b> is the median wait to the next one.
-                Paper applications clear the e-log step instantly — they have no BSE e-log.
-              </Explain>
-            </div>
-
-            <div className="viz">
-              <h4>How long the stuck ones have been stuck</h4>
-              <div className="hist">
-                {aging.map(a => (
-                  <div key={a.band} className={`col${a.band === '0–7 days' ? '' : ' neg'}`}>
-                    <span className="n num">{a.n}</span>
-                    <span className="bar" style={{ height: `${(a.n / agingMax) * 100}%` }} />
-                    <span className="b">{a.band}</span>
-                  </div>
-                ))}
-              </div>
-              <Explain>
-                Waiting past <b>{ONBOARDING_RULES.stall_days} days</b> at the e-log or at KYC counts as
-                stalled. A rejection blocks from the day it lands, not after seven — which is why the
-                first band is not empty. One threshold, and it lives in <code>rules_registry</code>,
-                not in this page.
-              </Explain>
-            </div>
+          <div className="charts">
+            <ChartBars
+              horizontal height={230}
+              title="Where applications die"
+              xLabel="applications reaching this step" yLabel="step"
+              source="events.event_type — the first time each application reached each stage"
+              data={funnelRows} xKey="step"
+              series={[{ key: 'n', name: 'Applications', tone: 's1' }]}
+              mark={<>{fun.value.length > 1 && <>{fun.value[0].n} leads become <b>{fun.value[fun.value.length - 1].n}</b> live accounts. </>}The wait between steps is the median in days: {fun.value.filter(s => s.medianDays !== null).map(s => `${s.label.toLowerCase()} → ${s.medianDays}d`).join(' · ')}.</>}
+              aside={<Explain figure={fun}>
+                Paper applications clear the e-log step instantly — they have no BSE e-log, and
+                about four in five applications are paper, so that step looks faster than the
+                electronic route actually is.
+              </Explain>}
+            />
+            <ChartBars
+              height={230}
+              title="How long the stuck ones have been stuck"
+              xLabel="waiting" yLabel="applications"
+              source={`onboarding_applications.stall_since · stalled past ${ONBOARDING_RULES.stall_days} days, from rules_registry`}
+              data={agingRows} xKey="band"
+              series={[{ key: 'n', name: 'Applications', tone: 'amber' }]}
+              toneKey="tone"
+              keyItems={[{ name: 'recent', tone: 'amber' }, { name: 'past a fortnight', tone: 'red' }]}
+              mark={oldest
+                ? <>Worst is <b>{oldest.name}</b> at {oldest.days} days. The first band is not empty because a rejection blocks from the day it lands, not after {ONBOARDING_RULES.stall_days}.</>
+                : <>Nothing is stalled.</>}
+            />
           </div>
 
           <h2 className="sec">The pipeline</h2>
