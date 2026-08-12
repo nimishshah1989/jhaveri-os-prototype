@@ -1,5 +1,5 @@
 import { Icon } from '../../../components/Icon';
-import { clientHealth, SCORING_RULES } from '../../../lib/scoring';
+import { clientHealth } from '../../../lib/scoring';
 import { plan, manager } from '../../../lib/me';
 import { ME } from '../layout';
 import { raise } from '../acts';
@@ -54,12 +54,11 @@ export function HealthTab() {
           </div>
           <div style={{ fontSize: 14.5, fontWeight: 650, lineHeight: 1.35, marginTop: 8 }}>{a.act.verb}</div>
           <div style={{ fontSize: 12, color: 'var(--f-muted)', lineHeight: 1.5, marginTop: 5 }}>{a.detail}</div>
-          <div style={{ fontSize: 11.5, color: 'var(--f-faint)', lineHeight: 1.5, marginTop: 6 }}>
-            {a.act.sells
-              ? <>This one sells units, so {rm?.first ?? 'your manager'} prepares it with the tax and the exit fee
-                  computed from your own lots, and you approve the figures before anything moves.</>
-              : <>Nothing is sold. {rm?.first ?? 'Your manager'} prepares it and you approve in one tap.</>}
-          </div>
+          {a.act.sells && (
+            <div style={{ fontSize: 11.5, color: 'var(--f-faint)', lineHeight: 1.5, marginTop: 6 }}>
+              Sells units — you approve the tax and the exit fee, computed from your own lots, before anything moves.
+            </div>
+          )}
           <div className="f-btnrow">
             <form action={raise} style={{ flex: 1 }}>
               <input type="hidden" name="kind" value={`lever_${a.key}`} />
@@ -101,8 +100,14 @@ export function HealthTab() {
         </details>
       )}
 
+      <p className="f-note">
+        {rm?.first ?? 'Your manager'} prepares each of these and you approve in one tap. Nothing moves until you say so.
+      </p>
+
       <div className="f-sect">Why the score is what it is</div>
-      {h.components.map(c => (
+      {h.components.map(c => {
+        const fix = p.acts.find(a => a.area === c.label);
+        return (
         <details className="f-acc" key={c.key}>
           <summary>
             <Icon name="chev" />
@@ -121,30 +126,40 @@ export function HealthTab() {
             ))}
             {c.breakdown.length > 0 && (
               <details style={{ marginTop: 8 }}>
-                <summary style={{ cursor: 'pointer', fontSize: 11.5, color: 'var(--f-gold)', fontWeight: 650 }}>
+                <summary style={{ cursor: 'pointer', fontSize: 12, color: 'var(--f-gold-ink)', fontWeight: 650, minHeight: 44, display: 'flex', alignItems: 'center' }}>
                   How this {c.score} was reached
                 </summary>
                 <div style={{ paddingTop: 6 }}>
-                  {c.breakdown.map(s => (
-                    <div className="f-step" key={s.label}><span>{s.label}</span><b>{s.effect}</b></div>
+                  {c.breakdown.map(st => (
+                    <div className="f-step" key={st.label}><span>{st.label}</span><b>{st.effect}</b></div>
                   ))}
                 </div>
               </details>
             )}
+
+            {fix ? (
+              <form action={raise} style={{ marginTop: 12 }}>
+                <input type="hidden" name="kind" value={`lever_${fix.key}`} />
+                <input type="hidden" name="label" value={fix.act.verb} />
+                <input type="hidden" name="evidence" value={`${c.label} · +${fix.delta} pts · from the why panel`} />
+                <button className="f-btn ghost" type="submit">
+                  {fix.act.verb} · +{fix.delta} pts
+                </button>
+              </form>
+            ) : (
+              <p className="f-note" style={{ marginBottom: 0 }}>
+                Nothing here is yours to act on — this is what your funds happen to hold, not something you can
+                trade. It moves when the funds change.
+              </p>
+            )}
           </div>
         </details>
-      ))}
+      );})}
 
       <p className="f-note">
-        Findings here are the reason behind the score, not a list of instructions. Some of what the audit measures —
-        which sectors your funds happen to lean on, how much sits in their ten largest companies — is not something
-        you can act on directly, because you own funds, not shares. Those show up above as the <i>why</i>, and only
-        the things you can actually authorise on a fund appear as acts.
-      </p>
-      <p className="f-note">
-        Five areas, {PER_COMPONENT} points each. Rules and weights are <b>{SCORING_RULES.version}</b> — the same ones
-        {' '}{rm?.first ?? 'your manager'} sees, published rather than hidden, and awaiting compliance sign-off before
-        they carry weight in a conversation.
+        Five areas, {PER_COMPONENT} points each. These are the same pages {rm?.first ?? 'your manager'} reads — the
+        rules are published rather than hidden, and every point is arithmetic on your own folios, not an opinion
+        about you. They are still under review by our compliance team before they carry weight in a conversation.
       </p>
     </>
   );

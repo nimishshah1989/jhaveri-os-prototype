@@ -230,6 +230,41 @@ body:has(.folio) { background: #2A2C30; }
 .f-step { display: flex; justify-content: space-between; gap: 12px; font-size: 12.5px; padding: 6px 0; color: var(--f-muted); }
 .f-step b { font-variant-numeric: tabular-nums; color: var(--f-ink); font-weight: 650; white-space: nowrap; }
 
+/* ── a settings row: what it is on the left, the control on the right ────── */
+.setrow {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 14px 1px; border-bottom: 1px solid var(--f-line); min-height: 56px;
+}
+.setrow:last-child { border-bottom: 0; }
+.setrow .st2 { font-size: 13.5px; font-weight: 650; flex: 1; min-width: 0; }
+.setrow .st2 span {
+  display: block; font-size: 11.5px; color: var(--f-faint);
+  font-weight: 400; margin-top: 3px; line-height: 1.5;
+}
+.sw {
+  width: 48px; height: 28px; border-radius: 14px; flex-shrink: 0; cursor: pointer;
+  border: 1px solid var(--f-line); background: var(--f-track); position: relative;
+  transition: background .16s ease, border-color .16s ease;
+}
+.sw i {
+  position: absolute; top: 2px; left: 2px; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--f-card); border: 1px solid var(--f-line); display: block;
+  transition: left .16s cubic-bezier(.3,.7,.3,1);
+}
+.sw.on { background: var(--f-gold); border-color: var(--f-gold); }
+.sw.on i { left: 22px; border-color: var(--f-gold); }
+.seg {
+  display: flex; flex-shrink: 0; border: 1px solid var(--f-line);
+  border-radius: 6px; overflow: hidden;
+}
+.seg button {
+  font: inherit; font-size: 12px; font-weight: 650; min-height: 40px; padding: 8px 13px;
+  border: 0; background: none; color: var(--f-muted); cursor: pointer;
+}
+.seg button + button { border-left: 1px solid var(--f-line); }
+.seg button.on { background: var(--f-ink); color: var(--f-ground); }
+.seg button:disabled { color: var(--f-faint); cursor: not-allowed; }
+
 /* ── honest states ───────────────────────────────────────────────────────── */
 .f-note {
   font-size: 12px; line-height: 1.6; color: var(--f-faint);
@@ -288,9 +323,6 @@ body:has(.folio) { background: #2A2C30; }
 .f-btn { min-height: 46px; }
 .f-chip { min-height: 40px; display: inline-flex; align-items: center; padding: 8px 14px; }
 .f-tabbar a { min-height: 42px; display: inline-flex; align-items: center; }
-.sw { width: 48px; height: 28px; border-radius: 14px; }
-.sw i { width: 22px; height: 22px; }
-.seg button { min-height: 40px; padding: 8px 13px; }
 
 /* ── the bottom tabs carry more weight — they are the app's spine ──────── */
 .f-tabs {
