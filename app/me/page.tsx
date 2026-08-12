@@ -5,6 +5,7 @@ import { TODAY } from '../../mockdb/engines';
 import { clientHeader, clientKpis, clientHoldings, clientActions } from '../../lib/client360';
 import { clientHealth } from '../../lib/scoring';
 import { manager, plan } from '../../lib/me';
+import { outlooks } from '../../lib/goals';
 import { ME } from './layout';
 import { raise } from './acts';
 import { Nothing } from './empty';
@@ -45,6 +46,7 @@ export default async function Today() {
   // reason behind the score — a client cannot trade a share out of a fund.
   const p = plan(health.components);
   const needs = p.acts.slice(0, 2);
+  const plans = outlooks(ME);
 
   return (
     <>
@@ -69,7 +71,42 @@ export default async function Today() {
         <Link href="/me/portfolio" className="f-cardlink">
           All {holdings.length} holdings, priced {dmy(TODAY)} <Icon name="chev" />
         </Link>
+        <div className="f-btnrow" style={{ marginTop: 10 }}>
+          <Link href="/me/invest" className="f-btn" style={{ textAlign: 'center' }}>Put money in</Link>
+          <Link href="/me/orders" className="f-btn ghost" style={{ textAlign: 'center' }}>Your orders</Link>
+        </div>
       </div>
+
+      {/* The same money, read as time. A rupee figure tells you nothing about whether
+          you are all right; an arrival month tells you everything. */}
+      {plans.length > 0 && (
+        <>
+          <div className="f-sect">
+            What it is for
+            <Link href="/me/goals" className="rt">All {plans.length} <Icon name="chev" /></Link>
+          </div>
+          <div className="f-card" style={{ paddingTop: 4, paddingBottom: 4 }}>
+            {plans.map(g => (
+              <Link key={g.goal_id} href={`/me/goals/${g.goal_id}`} className="f-row">
+                <span className="mk">
+                  <Icon name={g.kind === 'retirement' ? 'clock' : g.kind === 'education' ? 'users' : 'bank'} />
+                </span>
+                <span className="nm">
+                  <b>{g.name}</b>
+                  <span>{inrCompact(g.now)} of {inrCompact(g.target)} · wanted {dmy(g.on).slice(3)}</span>
+                </span>
+                <span className="fg">
+                  <b className={`num ${g.monthsOff != null && g.monthsOff <= 0 ? 'pos' : 'neg'}`}>
+                    {g.met ? 'There' : g.monthsOff == null ? <span className="f-dash">—</span>
+                      : `${Math.abs(g.monthsOff)}m ${g.monthsOff < 0 ? 'early' : 'late'}`}
+                  </b>
+                  <span>{g.reachedOn ? dmy(g.reachedOn).slice(3) : 'not on this path'}</span>
+                </span>
+              </Link>
+            ))}
+          </div>
+        </>
+      )}
 
       {needs.length > 0 && (
         <>

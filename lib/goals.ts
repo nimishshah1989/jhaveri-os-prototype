@@ -1,0 +1,236 @@
+import { db } from './db';
+import { TODAY } from '../mockdb/engines';
+
+/* ── Goals ───────────────────────────────────────────────────────────────────
+   The denominator that is not rupees. ₹15.74L means nothing to a person;
+   "fourteen months ahead of Ananya's first year" means everything. Every figure
+   in this file is derived, and where it cannot be derived honestly it is null
+   and the page prints a dash — a projected date computed off a rate we do not
+   have is a promise, and we do not make promises.
+
+   A goal owns the schemes whose transactions carry its id, so progress is read
+   off `fifo_summary_holding_active` — the same table every other page prices
+   from. One denominator, extended rather than replaced.                       */
+
+/** Every assumption this file applies, in one place. Nothing is hidden in a formula. */
+export const GOAL_RULES = {
+  /**
+   * Projection rates, by what the money is actually in. Published, deliberately
+   * sober, and the same for every client.
+   *
+   * We do NOT project a client's own return forward, and that is a deliberate
+   * refusal rather than a missing feature. One of Meera's goals has earned 48.7%
+   * and another −9.2%; compounding either for twenty years produces a number that
+   * is arithmetically perfect and completely false. Her own rate is history, and
+   * it is shown as history. What happens next is an assumption, priced the same
+   * way for everyone, and named on screen.
+   */
+  rates: { Equity: 11, Hybrid: 9, Debt: 6.5, Gold: 7, Other: 8 } as Record<string, number>,
+  fallback_rate: 9,
+  /** A projection past this is arithmetic, not foresight. Beyond it we say so. */
+  horizon_years: 25,
+  /** Under this, a goal is "reached" — pennies are not a shortfall. */
+  reached_within: 0.995,
+  version: 'goals-v1 (12-Aug-2026)',
+} as const;
+
+export interface Goal {
+  goal_id: number;
+  name: string;
+  kind: string;
+  target: number;
+  on: string;
+  /** What the schemes tagged to this goal are worth this morning. */
+  now: number;
+  /** What was put into them. */
+  put: number;
+  /** The rate this goal is projected at — always the published assumption, never their own. */
+  rate: number;
+  /** What this money has actually done so far. History, shown as history, never projected. */
+  ownRate: number | null;
+  /** The asset mix the projection rate was blended from, biggest first. */
+  mix: { asset: string; pct: number }[];
+  /** What is going in every month, from live instalments on those schemes. */
+  monthly: number;
+  /** How many schemes stand behind it. */
+  schemes: number;
+}
+
+export interface Outlook extends Goal {
+  /** Projected value on the target date. */
+  projected: number;
+  /** Positive = surplus, negative = shortfall, both in rupees. */
+  gap: number;
+  /** The month the target is actually reached, or null if not inside the horizon. */
+  reachedOn: string | null;
+  /** Negative = early, positive = late, in months. Null when `reachedOn` is null. */
+  monthsOff: number | null;
+  /** Already there. */
+  met: boolean;
+}
+
+const monthsBetween = (from: string, to: string) =>
+  Math.round((Date.parse(to) - Date.parse(from)) / 2.6298e9);
+
+function addMonths(from: string, n: number): string {
+  const d = new Date(from);
+  d.setMonth(d.getMonth() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Walks the money forward one month at a time rather than solving a closed form:
+ * the instalment lands monthly and compounds from the month it lands, and an
+ * annuity formula written from memory is exactly the kind of thing that is
+ * wrong by a year and looks right.
+ */
+function walk(from: number, monthly: number, annualPct: number, months: number): number {
+  const r = annualPct / 100 / 12;
+  let v = from;
+  for (let i = 0; i < months; i++) v = v * (1 + r) + monthly;
+  return v;
+}
+
+/** The goals a client has named, with their own money attached. */
+export function goals(clientId: number): Goal[] {
+  const rows = db().prepare(
+    `SELECT goal_id, goal_name name, goal_kind kind, target_amount target, target_date "on"
+     FROM client_goals WHERE fk_cm_user_id = ? AND is_active = 1 ORDER BY target_date`,
+  ).all(clientId) as Omit<Goal, 'now' | 'put' | 'rate' | 'assumed' | 'monthly' | 'schemes'>[];
+
+  // Per asset class, so the projection rate can be blended from what the money is
+  // actually in rather than applied as one number to everything.
+  const money = db().prepare(
+    `WITH tagged AS (
+       SELECT DISTINCT fk_goal_id g, fk_scheme_id sid
+       FROM transaction_master
+       WHERE fk_acc_id = ? AND is_active = 1 AND fk_goal_id IS NOT NULL
+     )
+     SELECT t.g, COALESCE(f.asset_name, 'Other') asset, COUNT(*) schemes,
+            SUM(f.present_market_value) now,
+            SUM(f.cost_amount) put,
+            SUM(CASE WHEN f.xirr IS NOT NULL THEN f.present_market_value ELSE 0 END) rated,
+            SUM(CASE WHEN f.xirr IS NOT NULL THEN f.present_market_value * f.xirr ELSE 0 END) weighted
+     FROM tagged t
+     JOIN fifo_summary_holding_active f ON f.client_id = ? AND f.scheme_id = t.sid
+     GROUP BY t.g, asset`,
+  ).all(clientId, clientId) as {
+    g: number; asset: string; schemes: number; now: number; put: number; rated: number; weighted: number;
+  }[];
+
+  const sips = db().prepare(
+    `WITH tagged AS (
+       SELECT DISTINCT fk_goal_id g, fk_scheme_id sid
+       FROM transaction_master WHERE fk_acc_id = ? AND is_active = 1 AND fk_goal_id IS NOT NULL
+     )
+     SELECT t.g, COALESCE(SUM(s.tr_amount), 0) monthly
+     FROM tagged t
+     JOIN sip_master s ON s.fk_acc_id = ? AND s.fk_to_scheme_id = t.sid AND s.is_live_sip = 1
+     GROUP BY t.g`,
+  ).all(clientId, clientId) as { g: number; monthly: number }[];
+
+  const bySip = new Map(sips.map(s => [s.g, s.monthly]));
+
+  return rows.map(g => {
+    const parts = money.filter(m => m.g === g.goal_id);
+    const now = parts.reduce((s, p) => s + p.now, 0);
+    const rated = parts.reduce((s, p) => s + p.rated, 0);
+
+    const mix = parts
+      .map(p => ({ asset: p.asset, pct: now > 0 ? Math.round((p.now / now) * 100) : 0 }))
+      .sort((a, b) => b.pct - a.pct);
+
+    // The projection rate is the published one for each asset class, weighted by
+    // what is actually held. Never this client's own return — see GOAL_RULES.
+    const rate = now > 0
+      ? Math.round(parts.reduce((s, p) =>
+          s + (GOAL_RULES.rates[p.asset] ?? GOAL_RULES.fallback_rate) * (p.now / now), 0) * 10) / 10
+      : GOAL_RULES.fallback_rate;
+
+    // A holding with no XIRR is excluded from this blend, never counted as zero —
+    // the house rule that keeps a young fund from dragging a real record down.
+    const ownRate = rated > 0
+      ? Math.round((parts.reduce((s, p) => s + p.weighted, 0) / rated) * 10) / 10
+      : null;
+
+    return {
+      ...g,
+      now: Math.round(now),
+      put: Math.round(parts.reduce((s, p) => s + p.put, 0)),
+      schemes: parts.reduce((s, p) => s + p.schemes, 0),
+      rate, ownRate, mix,
+      monthly: Math.round(bySip.get(g.goal_id) ?? 0),
+    };
+  });
+}
+
+/** Where a goal lands, and when. */
+export function outlook(g: Goal): Outlook {
+  const months = Math.max(0, monthsBetween(TODAY, g.on));
+  const rate = g.rate;
+  const met = g.now >= g.target * GOAL_RULES.reached_within;
+
+  const projected = Math.round(walk(g.now, g.monthly, rate, months));
+  const gap = projected - g.target;
+
+  let reachedOn: string | null = met ? TODAY : null;
+  if (!met) {
+    const limit = GOAL_RULES.horizon_years * 12;
+    let v = g.now;
+    for (let i = 1; i <= limit; i++) {
+      v = walk(v, g.monthly, rate, 1);
+      if (v >= g.target) { reachedOn = addMonths(TODAY, i); break; }
+    }
+  }
+  return {
+    ...g, projected, gap, reachedOn, met,
+    monthsOff: reachedOn ? monthsBetween(g.on, reachedOn) : null,
+  };
+}
+
+export function outlooks(clientId: number): Outlook[] {
+  return goals(clientId).map(outlook);
+}
+
+/**
+ * The sentence a page prints under a goal. Written here rather than in each
+ * component so the same situation never gets two different phrasings.
+ */
+export function verdict(o: Outlook): string {
+  if (o.met) return 'Already there. Nothing more has to go in for this one.';
+  if (o.monthsOff == null) {
+    return `At this pace it does not get there inside ${GOAL_RULES.horizon_years} years, and projecting further would be arithmetic rather than foresight.`;
+  }
+  const n = Math.abs(o.monthsOff);
+  const when = n === 0 ? 'almost exactly on time'
+    : `${n} month${n === 1 ? '' : 's'} ${o.monthsOff < 0 ? 'early' : 'late'}`;
+  const how = o.monthly > 0
+    ? `on what is already going in every month`
+    : `on what is already invested, with nothing further going in`;
+  return `${when}, ${how}.`;
+}
+
+/**
+ * What one more rupee a month is worth, in time. This is the number that makes a
+ * goal actionable: not "you are short ₹4L" but "₹2,000 a month buys back a year".
+ */
+export function monthsBoughtBy(g: Goal, extraMonthly: number): number | null {
+  const base = outlook(g);
+  if (base.reachedOn == null) return null;
+  const faster = outlook({ ...g, monthly: g.monthly + extraMonthly });
+  if (faster.reachedOn == null) return null;
+  return monthsBetween(faster.reachedOn, base.reachedOn);
+}
+
+/** How a client's whole book divides across what they said it was for. */
+export function untagged(clientId: number): { value: number; schemes: number } {
+  const r = db().prepare(
+    `SELECT COUNT(*) schemes, COALESCE(SUM(f.present_market_value), 0) value
+     FROM fifo_summary_holding_active f
+     WHERE f.client_id = ?
+       AND f.scheme_id NOT IN (
+         SELECT DISTINCT fk_scheme_id FROM transaction_master
+         WHERE fk_acc_id = ? AND is_active = 1 AND fk_goal_id IS NOT NULL)`,
+  ).get(clientId, clientId) as { schemes: number; value: number };
+  return { value: Math.round(r.value), schemes: r.schemes };
+}

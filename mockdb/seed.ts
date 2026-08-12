@@ -1366,3 +1366,35 @@ const counts = ['client_master', 'sub_broker_master', 'folio_master', 'transacti
   .map(t => `${t}=${(db.prepare(`SELECT COUNT(*) n FROM ${t}`).get() as { n: number }).n}`).join(' · ');
 console.log('SEEDED:', counts);
 console.log('DB:', DB_PATH);
+
+/* ── Goals for the demo client ────────────────────────────────────────────────
+   Fixed, never drawn from the RNG: this block runs after every random draw is
+   spent, so adding it cannot shift the stream and re-roll the story facts the
+   rest of the app is pinned to.
+
+   Each goal is pinned to a named scheme rather than assigned round-robin, and
+   each target is sized against what that scheme is actually worth, so the three
+   goals demonstrate the three real answers: comfortably ahead, late but
+   recoverable, and short enough that only a monthly instalment fixes it. A goal
+   set to an impossible number would make an honest projection look broken. */
+{
+  const meera = 101;
+  const GOALS: [number, string, string, number, string, number][] = [
+    // scheme, name, kind, target, by, goal_id
+    [1,  'Ananya at university', 'education',  2200000, '2033-06-01', 1],
+    [5,  'Stop working at 58',   'retirement', 4000000, '2044-04-01', 2],
+    [11, 'The Alibaug house',    'home',        600000, '2030-12-01', 3],
+  ];
+  for (const [sid, name, kind, target, on, gid] of GOALS) {
+    ins('client_goals', {
+      goal_id: gid, fk_cm_user_id: meera, goal_name: name, goal_kind: kind,
+      target_amount: target, target_date: on, created_at: addDays(TODAY, -420 + gid * 90), is_active: 1,
+    });
+    db.prepare(`UPDATE transaction_master SET fk_goal_id = ? WHERE fk_acc_id = ? AND fk_scheme_id = ?`)
+      .run(gid, meera, sid);
+  }
+  const tagged = (db.prepare(
+    `SELECT COUNT(DISTINCT fk_scheme_id) n FROM transaction_master WHERE fk_acc_id = ? AND fk_goal_id IS NOT NULL`,
+  ).get(meera) as { n: number }).n;
+  console.log('GOALS: 3 for client 101 across', tagged, 'schemes');
+}

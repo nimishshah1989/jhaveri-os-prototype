@@ -357,3 +357,60 @@ body:has(.folio) { background: #2A2C30; }
 /* the urgency stripe carries the weight, so the second card can stay quiet */
 .f-act { border-left-width: 3px; }
 .f-act .t { font-size: 16px; }
+
+
+/* ── form controls ───────────────────────────────────────────────────────────
+   Added when the lens gained places that take input rather than only show it:
+   joining, and putting money in. Shared by both, defined once. */
+
+.f-fields { display: flex; flex-direction: column; gap: 14px; }
+
+.f-field { display: flex; flex-direction: column; gap: 6px; }
+
+.f-field > label {
+  font-size: 11px; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--f-faint); font-weight: 650;
+}
+
+.f-field .hint { font-size: 11.5px; color: var(--f-faint); line-height: 1.5; }
+
+.folio input[type='text'],
+.folio input[type='tel'],
+.folio input[type='date'],
+.folio select {
+  width: 100%; min-height: 44px; padding: 10px 12px;
+  font: inherit; font-size: 15px; color: var(--f-ink);
+  background: var(--f-ground); border: 1px solid var(--f-line);
+  border-radius: 6px; appearance: none;
+}
+.folio input::placeholder { color: var(--f-faint); }
+.folio input[name='pan'],
+.folio input[name='ifsc'] { text-transform: uppercase; letter-spacing: .04em; }
+.folio input.num { font-variant-numeric: tabular-nums; }
+
+/* A refusal belongs against the field that caused it, never in a banner at the top. */
+.f-field.bad input, .f-field.bad select { border-color: var(--f-neg); }
+.f-field .says { font-size: 12px; color: var(--f-neg); line-height: 1.45; }
+
+/* ── one-of-several, as chips rather than a select ───────────────────────── */
+
+.f-pick { display: flex; flex-wrap: wrap; gap: 8px; }
+.f-pick label {
+  flex: 1 1 auto; min-height: 44px; display: flex; align-items: center; justify-content: center;
+  padding: 8px 14px; font-size: 13px; text-align: center;
+  border: 1px solid var(--f-line); border-radius: 6px; background: var(--f-card);
+  color: var(--f-muted); cursor: pointer;
+}
+.f-pick input { position: absolute; opacity: 0; pointer-events: none; }
+.f-pick input:checked + span { color: var(--f-ink); font-weight: 650; }
+.f-pick label:has(input:checked) { border-color: var(--f-gold); background: var(--f-gold-soft); }
+.f-pick label:has(input:focus-visible) { outline: 2px solid var(--f-gold); outline-offset: 2px; }
+
+/* ── the declaration checkbox: a real control, not a styled div ──────────── */
+
+.f-declare {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 12px; border: 1px solid var(--f-line); border-radius: 6px; background: var(--f-ground);
+  font-size: 12.5px; line-height: 1.55; color: var(--f-muted); cursor: pointer;
+}
+.f-declare input { width: 20px; height: 20px; margin: 1px 0 0; flex-shrink: 0; accent-color: var(--f-gold); }

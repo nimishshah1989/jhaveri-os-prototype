@@ -1134,3 +1134,19 @@ CREATE VIEW v_broker_book AS                   -- helper: current book per broke
 SELECT advisor_code, SUM(present_market_value) AS book_value, COUNT(DISTINCT client_id) AS clients
 FROM fifo_summary_holding_active
 GROUP BY advisor_code;
+
+-- Goals. `transaction_master.fk_goal_id` has always pointed here; the table
+-- itself did not exist until the client lens needed a denominator that is not
+-- rupees. A goal owns the schemes whose transactions carry its id, so progress
+-- is read off the same fifo holdings every other page prices from.
+CREATE TABLE client_goals (
+  goal_id       INTEGER PRIMARY KEY,
+  fk_cm_user_id INTEGER NOT NULL REFERENCES client_master(cm_user_id),
+  goal_name     TEXT NOT NULL,
+  goal_kind     TEXT,                          -- education | retirement | home | freedom | other
+  target_amount NUMERIC NOT NULL,
+  target_date   TEXT NOT NULL,
+  created_at    TEXT,
+  is_active     INTEGER DEFAULT 1
+);
+CREATE INDEX idx_goal_client ON client_goals(fk_cm_user_id, is_active);
