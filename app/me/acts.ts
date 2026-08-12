@@ -12,13 +12,11 @@ import { TODAY } from '../../mockdb/engines';
 // SECURITY. The acting client is resolved on the server and is NEVER read from the
 // form. A hidden client_id in a form is a client-supplied identity: today the lens
 // has no auth so it changes nothing, but the day a session exists it would be an
-// account-takeover shaped exactly like a feature. `whoami()` is the single place
-// that changes — it becomes the session lookup, and RLS scopes every write beneath it.
-
-/** The one place identity is decided. Real build: read the session, not a constant. */
-function whoami(): number {
-  return Number(process.env.FOLIO_CLIENT ?? 101);
-}
+// account-takeover shaped exactly like a feature. `whoami()` in `lib/whoami.ts` is
+// the single place that changes — it becomes the session lookup, and RLS scopes
+// every write beneath it. It moved out of this file because a `'use server'` module
+// may only export async functions, and the money actions need it too.
+import { whoami } from '../../lib/whoami';
 
 function managerOf(clientId: number): number | null {
   const r = db().prepare(

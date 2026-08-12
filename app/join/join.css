@@ -1,0 +1,29 @@
+/* Joining — the only surface a person sees before they are a client.
+   It borrows the whole Folio language from app/me/folio.css and adds only the two
+   things that exist nowhere else: the progress rail, and the seam marker for a
+   step a real build hands to somebody else. The form controls moved to folio.css
+   when the client lens grew forms of its own. */
+
+/* ── the rail: which step, out of how many, and what is behind you ───────── */
+
+.f-rail { display: flex; gap: 4px; margin: 2px 2px 14px; }
+.f-rail i {
+  flex: 1; height: 3px; border-radius: 2px; background: var(--f-track);
+}
+.f-rail i.done { background: var(--f-gold); }
+.f-rail i.now  { background: var(--f-gold-ink); }
+
+.f-railtext {
+  display: flex; justify-content: space-between; gap: 12px;
+  font-size: 11px; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--f-faint); font-weight: 650; margin: 0 2px 10px;
+}
+
+/* ── a seam: something a real build hands to someone else ────────────────── */
+
+.f-seam {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px; border: 1px dashed var(--f-line); border-radius: 8px;
+  background: var(--f-ground); font-size: 12.5px; color: var(--f-muted); line-height: 1.5;
+}
+.f-seam b { color: var(--f-ink); font-weight: 650; }

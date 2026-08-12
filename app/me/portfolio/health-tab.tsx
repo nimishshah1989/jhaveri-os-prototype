@@ -8,10 +8,6 @@ import { raise } from '../acts';
 // so a bar divides by that, never by 100.
 const PER_COMPONENT = 20;
 const TONE = (s: number) => (s / PER_COMPONENT >= 0.7 ? 'var(--f-pos)' : s / PER_COMPONENT >= 0.45 ? 'var(--f-gold)' : 'var(--f-neg)');
-const GLYPH: Record<string, string> = {
-  performance: 'up', diversification: 'pie', discipline: 'calendar', tax: 'file', risk_fit: 'shield',
-};
-
 export function HealthTab() {
   const h = clientHealth(ME);
   const p = plan(h.components);
@@ -39,70 +35,10 @@ export function HealthTab() {
         )}
       </div>
 
-      <div className="f-sect">What you can authorise</div>
-      {p.acts.length === 0 ? (
-        <p className="f-note">Nothing needs your signature today. That is a good place to be.</p>
-      ) : p.acts.slice(0, 2).map((a, i) => (
-        <div className="f-card" key={a.key}>
-          <div className="f-k">
-            <Icon name={GLYPH[a.area.toLowerCase().replace(' ', '_')] ?? 'spark'} />
-            {i < 2 ? 'This review' : 'A later review'}
-            <span className="pts rt" style={{
-              background: 'var(--f-gold-soft)', color: 'var(--f-gold)', borderRadius: 999,
-              padding: '3px 8px', fontWeight: 700, fontSize: 11,
-            }}>+{a.delta} pts</span>
-          </div>
-          <div style={{ fontSize: 14.5, fontWeight: 650, lineHeight: 1.35, marginTop: 8 }}>{a.act.verb}</div>
-          <div style={{ fontSize: 12, color: 'var(--f-muted)', lineHeight: 1.5, marginTop: 5 }}>{a.detail}</div>
-          {a.act.sells && (
-            <div style={{ fontSize: 11.5, color: 'var(--f-faint)', lineHeight: 1.5, marginTop: 6 }}>
-              Sells units — you approve the tax and the exit fee, computed from your own lots, before anything moves.
-            </div>
-          )}
-          <div className="f-btnrow">
-            <form action={raise} style={{ flex: 1 }}>
-              <input type="hidden" name="kind" value={`lever_${a.key}`} />
-              <input type="hidden" name="label" value={a.act.verb} />
-              <input type="hidden" name="evidence" value={`${a.area} · +${a.delta} pts · ${a.label}`} />
-              <button className="f-btn" type="submit" style={{ marginTop: 0 }}>Prepare it for me</button>
-            </form>
-            <form action={raise} style={{ flex: 1 }}>
-              <input type="hidden" name="kind" value="call_rm" />
-              <input type="hidden" name="label" value={`Talk through: ${a.act.verb}`} />
-              <input type="hidden" name="evidence" value={`${a.area} · +${a.delta} pts`} />
-              <button className="f-btn ghost" type="submit" style={{ marginTop: 0 }}>Talk it through</button>
-            </form>
-          </div>
-        </div>
-      ))}
-
-      {p.acts.length > 2 && (
-        <details className="f-acc">
-          <summary>
-            <Icon name="chev" />
-            <span style={{ flex: 1 }}>{p.acts.length - 2} more, for a later review</span>
-            <span className="rt">+{p.acts.slice(2).reduce((s2, a) => s2 + a.delta, 0)} pts</span>
-          </summary>
-          <div className="body">
-            {p.acts.slice(2).map(a => (
-              <div className="f-lever" key={a.key}>
-                <div className="lh"><b>{a.act.verb}</b><span className="pts">+{a.delta} pts</span></div>
-                <div className="ld">{a.detail}</div>
-                <form action={raise}>
-                  <input type="hidden" name="kind" value={`lever_${a.key}`} />
-                  <input type="hidden" name="label" value={a.act.verb} />
-                  <input type="hidden" name="evidence" value={`${a.area} · +${a.delta} pts`} />
-                  <button className="f-btn ghost" type="submit">Prepare it for me</button>
-                </form>
-              </div>
-            ))}
-          </div>
-        </details>
-      )}
-
-      <p className="f-note">
-        {rm?.first ?? 'Your manager'} prepares each of these and you approve in one tap. Nothing moves until you say so.
-      </p>
+      {/* This page used to reprint the same two act cards Today already shows —
+          identical wording, identical button, one tap apart. Two pages doing one
+          job. Today is the prompt; this page is the working, so every act now
+          hangs off the component that explains WHY it is worth doing, below. */}
 
       <div className="f-sect">Why the score is what it is</div>
       {h.components.map(c => {
