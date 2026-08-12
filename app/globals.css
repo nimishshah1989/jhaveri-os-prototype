@@ -1196,3 +1196,40 @@ a.qcard .evidence b { color: var(--ink); font-weight: 600; }
 .bcol h4 .oldest.red { background: var(--red-soft); color: var(--neg); }
 .bcol h4 .oldest.amber { background: var(--amber-soft); color: var(--amber); }
 .bcol .morebtn { width: 100%; margin-top: 6px; }
+
+/* ══ the lobby — the front door of a shared prototype ═════════════════════ */
+.lobby { max-width: 940px; margin: 0 auto; padding: 56px 24px 80px; }
+.lobby header { max-width: var(--measure); }
+.lobby .kick {
+  display: block; font-size: var(--t-xs); letter-spacing: .28em; text-transform: uppercase;
+  color: var(--gold); font-weight: 700; margin-bottom: var(--sp-3);
+}
+.lobby h1 {
+  font-family: var(--display); font-size: 2.4rem; font-weight: 600; line-height: 1.12;
+  letter-spacing: -.02em; margin: 0 0 var(--sp-4); text-wrap: balance;
+}
+.lobby header p { font-size: var(--t-lg); line-height: 1.6; color: var(--muted); margin: 0; }
+
+.lobby .lenses { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); margin: var(--sp-6) 0; }
+@media (max-width: 720px) { .lobby .lenses { grid-template-columns: 1fr; } }
+.lobby .lens {
+  display: flex; flex-direction: column; gap: var(--sp-2);
+  background: var(--ground); border: 1px solid var(--line); border-radius: var(--radius-lg);
+  padding: var(--sp-5); box-shadow: var(--lift); color: inherit;
+  transition: border-color .15s ease, transform .15s ease;
+}
+.lobby .lens:hover { border-color: var(--gold); transform: translateY(-2px); text-decoration: none; }
+.lobby .lens .nm { font-family: var(--display); font-size: var(--t-xl); font-weight: 600; }
+.lobby .lens .who { font-size: var(--t-sm); color: var(--gold); font-weight: 650; }
+.lobby .lens .line { font-size: var(--t-md); line-height: 1.55; color: var(--muted); }
+.lobby .lens .pages { display: flex; flex-wrap: wrap; gap: 6px; margin-top: var(--sp-1); }
+.lobby .lens .pages i {
+  font-style: normal; font-size: var(--t-xs); color: var(--muted);
+  border: 1px solid var(--line); border-radius: 999px; padding: 4px 9px;
+}
+.lobby .lens .go { margin-top: auto; padding-top: var(--sp-3); font-size: var(--t-sm); font-weight: 700; color: var(--accent); }
+
+.lobby footer { border-top: 2px solid var(--ink); padding-top: var(--sp-4); max-width: var(--measure); }
+.lobby footer p { font-size: var(--t-sm); line-height: 1.7; color: var(--muted); margin: 0 0 var(--sp-3); }
+.lobby footer b { color: var(--ink); }
+.lobby footer code { font-size: .95em; background: var(--grey-soft); padding: 1px 5px; border-radius: 3px; }
