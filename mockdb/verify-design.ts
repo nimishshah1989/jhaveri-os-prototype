@@ -9,7 +9,7 @@
 //
 // Usage: npx tsx mockdb/verify-design.ts
 
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -224,12 +224,62 @@ check('the queue renders one table, not one per stream',
   'three <table> elements auto-size independently: 125/140/127px on the same column');
 
 // A finance product that draws no picture makes the reader do the arithmetic.
-// Every page owes at least one visual encoding of its main story.
-const CHARTED = ['funnel', 'hist', 'gauge', 'ladder', 'bar2', 'valbar', 'wait', 'acol', 'fcol', 'spark', 'Chart'];
+// Every page owes a visual encoding of its main story.
+//
+// This check used to pass all eight pages by matching class names — but `.valbar`
+// is a bar inside a table cell and `.wait` is a bar inside a row, and a page can
+// hold both while drawing nothing. Counted in a browser on the deployed build,
+// plotted figures per page were: today 0, earnings 9, business 29, clients 57.
+// Today is the home screen and it had none. A check that calls that page charted
+// is worse than no check, so this one now names what a chart is.
+//
+// A chart is a component exported from components/charts.tsx — the single place
+// Recharts may be imported and the single place a chart colour may be chosen.
+const CHART_KIT = 'components/charts.tsx';
+const kit = existsSync(CHART_KIT) ? read(CHART_KIT) : '';
+
+check('charts are plotted by a library, not assembled out of divs',
+  /from 'recharts'/.test(kit), `${CHART_KIT} does not import recharts`);
+
+// The four things every chart owes its reader (founder rule, frontend-viz.md):
+// an axis to read the value off, a legend once there is more than one series, the
+// exact number on hover, and the table the figure came from.
+for (const [what, needle] of [
+  ['a labelled x axis', '<XAxis'], ['a labelled y axis', '<YAxis'],
+  ['a hover tooltip carrying the exact value', '<Tooltip'],
+  ['a legend for multi-series charts', '<Legend'],
+  ['a source line under every figure', '<figcaption'],
+] as const) {
+  check(`every chart carries ${what}`, kit.includes(needle), `no ${needle} in ${CHART_KIT}`);
+}
+
+// Attribution is not optional, so it is not an optional prop — `source?: string`
+// would let a chart ship unsourced and still typecheck.
+check('a chart cannot be drawn without naming its source',
+  /\n\s*source:\s*string;/.test(kit), 'source is optional or absent in the kit props');
+
+// Five meanings plus four fixed categorical slots, every one of them a token. A
+// hex literal in the kit is a tenth colour nobody agreed to.
+const kitHex = [...new Set([...kit.matchAll(/#[0-9a-fA-F]{3,8}\b/g)].map(m => m[0]))];
+check('the chart kit invents no colour of its own',
+  kitHex.length === 0, kitHex.length ? `hex literals: ${kitHex.join(', ')}` : 'tokens only');
+
+// Recharts anywhere but the kit is how the vocabulary drifts apart — the same way
+// a second ACTION_LABEL map did, two checks up.
+const rogueRecharts = pageFiles.filter(f => f !== CHART_KIT && /from 'recharts'/.test(read(f)));
+check('no page imports the plotting library directly',
+  rogueRecharts.length === 0, rogueRecharts.join(', ') || `only ${CHART_KIT}`);
+
+// Two per page: one for the headline story, one for its shape. One chart on a page
+// this dense is an ornament; two make an argument.
+const CHARTS_PER_PAGE = 2;
+const kitCharts = [...kit.matchAll(/export function (\w+)\(/g)].map(m => m[1]);
 for (const pg of PAGES) {
   const src = read(join('app', pg, 'page.tsx'));
-  const has = CHARTED.some(c => src.includes(c));
-  check(`${pg} draws its story, not only tabulates it`, has, has ? '' : 'no visual encoding on the page');
+  const drawn = kitCharts.filter(c => new RegExp(`<${c}[\\s/>]`).test(src));
+  check(`${pg} plots at least ${CHARTS_PER_PAGE} of its story`,
+    drawn.length >= CHARTS_PER_PAGE,
+    drawn.length ? drawn.join(' · ') : 'nothing plotted — an inline bar in a table cell is not a chart');
 }
 
 // Explanation must advertise itself. A bare ⓘ is hidden; a teaser is explorable.
