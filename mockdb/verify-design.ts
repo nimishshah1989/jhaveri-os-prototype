@@ -210,6 +210,36 @@ check('the pipeline draws the wait as a length, not only as digits',
 check('the wait keeps its number beside the bar',
   /className="age num"/.test(read('components/PipelineBoard.tsx')));
 
+// ── 7. Consistency and visual encoding ──────────────────────────────────────
+// Management read the product before this section existed and found both of these
+// by eye, which is the strongest argument for asserting them.
+
+// Repeating a table component per section gives each <table> its own auto-layout,
+// so the columns step sideways down the page. One table with section rows, or a
+// fixed template — either way, a component used more than once on a page may not
+// render more than one <table>.
+const queueSrc = read('components/QueueTable.tsx');
+check('the queue renders one table, not one per stream',
+  /table-layout:\s*fixed/.test(css) || /sections/.test(queueSrc),
+  'three <table> elements auto-size independently: 125/140/127px on the same column');
+
+// A finance product that draws no picture makes the reader do the arithmetic.
+// Every page owes at least one visual encoding of its main story.
+const CHARTED = ['funnel', 'hist', 'gauge', 'ladder', 'bar2', 'valbar', 'wait', 'acol', 'fcol', 'spark', 'Chart'];
+for (const pg of PAGES) {
+  const src = read(join('app', pg, 'page.tsx'));
+  const has = CHARTED.some(c => src.includes(c));
+  check(`${pg} draws its story, not only tabulates it`, has, has ? '' : 'no visual encoding on the page');
+}
+
+// Explanation must advertise itself. A bare ⓘ is hidden; a teaser is explorable.
+check('moved prose shows a teaser rather than only an icon',
+  /teaser/.test(read('components/Explain.tsx')), 'Explain renders an icon with no preview of what is behind it');
+
+// Family is how the money is actually held in India; the product may not be blind to it.
+check('a family lens exists',
+  pageFiles.some(f => /Family360|familyRollup/.test(read(f))), 'no family entity anywhere');
+
 // ── Summary ─────────────────────────────────────────────────────────────────
 const worst = Object.entries(prose).sort((a, b) => b[1] - a[1])[0];
 console.log(`\nMeasure ${measure ? measure[1] + 'ch' : 'UNSET'} · vocabulary ${distinct.length} tones · worst page ${worst[0]} at ${worst[1]} standing words`);

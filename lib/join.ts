@@ -1,5 +1,8 @@
 import { db } from './db';
 import { TODAY } from '../mockdb/engines';
+// Type-only: `lib/journey.ts` imports `next/headers`, and this module is walked
+// by the verifiers under plain tsx. Erased at compile time, so nothing is loaded.
+import type { Journey } from './journey';
 
 /* ── Joining ─────────────────────────────────────────────────────────────────
    The client's own way in. Self-signup is the primary path (founder,
@@ -221,7 +224,17 @@ export function stepsFor(channel: string, kyc: KycVerdict | null): Step[] {
   });
 }
 
-export function application(id: number): Application | null {
+/**
+ * Where the application has got to.
+ *
+ * `carried` is the browser's own copy of the journey (see `lib/journey.ts`).
+ * On a serverless deploy the rows written by an earlier step may live on a
+ * different instance's scratch database, so both sources are merged and the
+ * browser's copy wins — it is the one that cannot be split across instances.
+ * Passing nothing reads the database alone, which is what dev and every
+ * verifier do.
+ */
+export function application(id: number, carried?: Journey | null): Application | null {
   const row = db().prepare(
     `SELECT oa.application_id, oa.lead_id, oa.client_id, oa.sb_id, oa.channel,
             COALESCE(sb.sb_holder_name, 'Unassigned') broker
@@ -229,7 +242,12 @@ export function application(id: number): Application | null {
      LEFT JOIN sub_broker_master sb ON sb.sb_id = oa.sb_id
      WHERE oa.application_id = ?`,
   ).get(id) as Omit<Application, 'step' | 'done' | 'data' | 'kyc'> | undefined;
-  if (!row) return null;
+
+  const mine = carried && carried.id === id ? carried : null;
+  const base: Omit<Application, 'step' | 'done' | 'data' | 'kyc'> | null = row ?? (mine
+    ? { application_id: id, lead_id: mine.lead, client_id: null, sb_id: mine.sb, broker: mine.br, channel: mine.channel }
+    : null);
+  if (!base) return null;
 
   const evs = db().prepare(
     `SELECT event_type, payload FROM events
@@ -239,16 +257,26 @@ export function application(id: number): Application | null {
 
   const done: Step[] = [];
   const data: Application['data'] = {};
+  const put = (key: Step, payload: Record<string, string>) => {
+    if (!done.includes(key)) done.push(key);
+    data[key] = payload;
+  };
   for (const e of evs) {
     const key = e.event_type.slice(5, -5) as Step;
-    if (!done.includes(key)) done.push(key);
-    try { data[key] = JSON.parse(e.payload ?? '{}'); } catch { data[key] = {}; }
+    try { put(key, JSON.parse(e.payload ?? '{}')); } catch { put(key, {}); }
   }
+  for (const [key, payload] of mine?.e ?? []) put(key, payload);
 
+  // The paper switch is a single flag, and it may have been set on an instance
+  // this request never sees. Once asked for, it stays asked for.
+  const channel = mine?.channel === 'offline' ? 'offline' : base.channel;
   const kyc = data.pan?.pan ? kycFor(data.pan.pan) : null;
-  const order = stepsFor(row.channel, kyc);
+  const order = stepsFor(channel, kyc);
   const step = order.find(s => !done.includes(s)) ?? 'live';
-  return { ...row, done, data, kyc, step };
+  // A finished journey names its client in the payload of its own last step, so
+  // it is still known when the row that would have carried it is on another box.
+  const client_id = base.client_id ?? (data.live?.client_id ? Number(data.live.client_id) : null);
+  return { ...base, channel, client_id, done, data, kyc, step };
 }
 
 /** Everything captured so far, flattened. Used to prefill a resumed journey. */
@@ -289,8 +317,8 @@ export function startApplication(name: string, mobile: string, code: string):
 }
 
 /** One completed step. Returns the step the application is on afterwards. */
-export function recordStep(appId: number, step: Step, payload: Record<string, string>): Step | null {
-  const before = application(appId);
+export function recordStep(appId: number, step: Step, payload: Record<string, string>, carried?: Journey | null): Step | null {
+  const before = application(appId, carried);
   if (!before || before.step !== step) return before?.step ?? null;
 
   event(appId, DONE(step), payload);
@@ -310,9 +338,11 @@ export function recordStep(appId: number, step: Step, payload: Record<string, st
     event(appId, 'stage_kyc', { branch: verdict.branch, code: verdict.code });
   }
 
-  const after = application(appId);
-  if (after?.step === 'waiting') finishApplication(appId);
-  return application(appId)?.step ?? null;
+  // The step just written is in the database on this instance, so it is visible
+  // to the re-read without being carried; anything from an earlier instance is not.
+  const after = application(appId, carried);
+  if (after?.step === 'waiting') finishApplication(appId, carried);
+  return application(appId, carried)?.step ?? null;
 }
 
 /**
