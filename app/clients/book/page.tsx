@@ -36,7 +36,7 @@ export default async function MyBookPage({ searchParams }: PageProps<'/clients/b
         question="What is my whole book actually invested in, underneath the fund names?"
         meta={`${me.name} · ${h.clients} clients · as of ${dmy(h.as_of ?? TODAY)}`}
       />
-      <p className="denom">
+      <div className="denom">
         {inrCompact(h.aum)} across {h.schemes} funds and {h.folios} folios — the same rows the
         client pages read, with nobody&apos;s name attached
         <Explain teaser="Why this is not the Growth page">
@@ -44,7 +44,7 @@ export default async function MyBookPage({ searchParams }: PageProps<'/clients/b
           in. They share a total and nothing else: a book can be perfectly allocated and shrinking,
           or growing fast into one sector. Clients answers the third question — who needs a call.
         </Explain>
-      </p>
+      </div>
 
       <div className="tabbar">
         {TABS.map(([key, label]) => (

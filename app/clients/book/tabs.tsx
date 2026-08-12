@@ -24,7 +24,7 @@ const toneFor = (label: string): string => ASSET_TONE[label] ?? 'grey';
 /** The sentence the whole page hangs off. Repeated nowhere — passed in. */
 function Coverage({ lt }: { lt: LookThrough }) {
   return (
-    <p className="d">
+    <div className="d">
       Stock-level detail covers <b>{inrCompact(lt.covered)}</b> of {inrCompact(lt.total)} — {lt.coverage_pct}% of
       the book. Every sector and stock share below is a share of that {lt.coverage_pct}%, never of the whole book.
       <Explain teaser="Why not all of it">
@@ -33,7 +33,7 @@ function Coverage({ lt }: { lt: LookThrough }) {
         counted as an unknown sector, which would make the equity concentration read smaller than
         it is. The Allocation tab shows that money by name.
       </Explain>
-    </p>
+    </div>
   );
 }
 
@@ -157,8 +157,12 @@ export function AllocationTab({ code, head }: { code: string; head: BookHeader }
           xLabel="₹ held" yLabel="category"
           source="fifo_summary_holding_active.fund_category"
           data={[...cat.value].reverse().map(c => ({ label: c.label, v: c.v, tone: toneFor(c.asset) }))}
-          xKey="label"
+          xKey="label" toneKey="tone"
           series={[{ key: 'v', name: 'Held', tone: 's1' }]}
+          keyItems={[
+            { name: 'Equity', tone: 's1' }, { name: 'Debt', tone: 's3' },
+            { name: 'Hybrid', tone: 's4' }, { name: 'Commodities', tone: 's2' },
+          ]}
           mark={<>The hybrids are here: {cat.value.filter(c => /hybrid|arbitrage/i.test(c.label)).map(c => `${c.label} ${inrCompact(c.v)}`).join(' · ') || 'none held'}. They sit between equity and debt by design, which is why the asset-class table above cannot answer this question on its own.</>}
         />
         <ChartBars
@@ -360,7 +364,7 @@ export function FundsTab({ code, head }: { code: string; head: BookHeader }) {
           </tfoot>
         </table>
       </div>
-      <p className="d">
+      <div className="d">
         A fund can be the largest line in the book and the worst thing in its category; only the
         last column says so.
         <Explain teaser="What the gap is not">
@@ -368,7 +372,7 @@ export function FundsTab({ code, head }: { code: string; head: BookHeader }) {
           recommendation and not risk-adjusted. A Small Cap fund beating its category in a year
           the whole category fell is still a fund that lost your clients money.
         </Explain>
-      </p>
+      </div>
     </>
   );
 }
