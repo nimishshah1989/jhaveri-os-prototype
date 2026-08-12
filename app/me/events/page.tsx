@@ -4,6 +4,7 @@ import { dmy } from '../../../lib/format';
 import { TODAY } from '../../../mockdb/engines';
 import { eventDesk, unviewedKinds } from '../../../lib/eventdesk';
 import { manager } from '../../../lib/me';
+import { FolioBars } from '../folio-charts';
 import { ME } from '../layout';
 import { raise } from '../acts';
 
@@ -33,6 +34,19 @@ export default async function Events() {
   const RECENT = 4;
   const recent = rows.slice(0, RECENT);
   const older = rows.slice(RECENT);
+  // One bar per fund, carrying the largest sum any single change on it puts at
+  // stake. Keyed on the scheme, not on the name: all three of this client's
+  // funds begin "WhiteOak Capital", so a name-prefix key collapsed them into a
+  // single bar and the chart silently disappeared.
+  const byFund = new Map<number, { name: string; value: number }>();
+  for (const e of rows) {
+    if (e.at_stake == null || e.scheme_id == null) continue;
+    const label = (e.fund ?? '').replace(/ (Dir|Reg) ?Gr$/, '').replace(/^WhiteOak Capital /, '');
+    const at = byFund.get(e.scheme_id);
+    if (!at || e.at_stake > at.value) byFund.set(e.scheme_id, { name: label, value: e.at_stake });
+  }
+  const ranked = [...byFund.values()].sort((a, b) => b.value - a.value)
+    .map(r => ({ ...r, tone: 'gold' as const }));
 
   if (rows.length === 0) {
     return (
@@ -53,11 +67,17 @@ export default async function Events() {
   return (
     <>
       <p className="f-hello">What changed.</p>
-      <p className="f-note" style={{ margin: '0 2px 14px' }}>
-        {rows.length} things have happened to the funds you hold. Each says what it means for your
-        money, and what we make of it — and where we have not written a view, it says that instead of
-        inventing one.
-      </p>
+      {/* Ranked by what each change actually touches, so the biggest number is
+          the first thing read rather than the most recent one. */}
+      {ranked.length > 1 && (
+        <div className="f-card">
+          <div className="f-k"><Icon name="money" /> What each change touches</div>
+          <FolioBars rows={ranked} />
+          <p className="f-note" style={{ marginBottom: 0 }}>
+            {rows.length} changes on the funds you hold, newest first below.
+          </p>
+        </div>
+      )}
 
       {recent.map(e => (
         <div className="f-card" key={e.key}>
@@ -81,19 +101,12 @@ export default async function Events() {
             </div>
           )}
 
-          <div className="f-ins" style={{ marginTop: 11, borderBottom: 0, paddingBottom: 0 }}>
-            <span className="g"><Icon name="bulb" /></span>
-            <span className="tx">
-              <span className="d">What we make of it</span>
-              {e.view ?? (
-                <>
-                  We have not written a house view for this kind of event yet. The fact above is a
-                  record; the sentence that should sit here is not written, and we would rather say so
-                  than have a page compose one.
-                </>
-              )}
-            </span>
-          </div>
+          <details className="f-acc" style={{ marginTop: 8 }}>
+            <summary><Icon name="chev" /> What we make of it</summary>
+            <div className="body" style={{ fontSize: 12.5, lineHeight: 1.6, color: 'var(--f-muted)' }}>
+              {e.view ?? 'We have not written a house view for this kind of event yet, and would rather say so than have a page compose one.'}
+            </div>
+          </details>
 
           {e.act && (
             <form action={raise}>
@@ -123,8 +136,7 @@ export default async function Events() {
               </div>
             ))}
             <p className="f-note" style={{ marginBottom: 0 }}>
-              Older than the four above. Each still traces to a record, and the house view for its kind
-              of event is the same one printed above.
+              Older than the four above, same house view as their kind.
             </p>
           </div>
         </>

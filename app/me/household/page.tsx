@@ -5,6 +5,7 @@ import { TODAY } from '../../../mockdb/engines';
 import { household, familyGoals, startable, accessLabel, whyHidden, STARTING_FLOOR } from '../../../lib/household';
 import { verdict, GOAL_RULES } from '../../../lib/goals';
 import { manager } from '../../../lib/me';
+import { FolioBars } from '../folio-charts';
 import { ME } from '../layout';
 import { startMember } from './acts';
 
@@ -44,10 +45,17 @@ export default async function Household() {
             <div className="v num">{h.counted} of {h.members.filter(m => m.client_id != null).length}</div>
           </div>
         </div>
+        {/* The split, drawn. A member who has not shared reads as an empty
+            track with their name still on it — withheld, never zero. */}
+        <FolioBars rows={h.members.filter(m => m.client_id != null).map(m => ({
+          name: m.name.split(' ')[0],
+          value: m.value,
+          tone: m.total === 'self' ? 'gold' : 'muted',
+        }))} />
         <p className="f-note" style={{ marginBottom: 0 }}>
           {h.withheld.length === 0
-            ? `Every account in this household is counted here — ${shared === 0 ? 'yours alone' : `${shared} ${shared === 1 ? 'person has' : 'people have'} agreed to be`}. Nobody's money is added in without them saying so.`
-            : `${h.withheld.map(m => m.name.split(' ')[0]).join(' and ')} ${h.withheld.length === 1 ? 'is' : 'are'} not in this figure. It is their money and their answer, so the total says so rather than quietly leaving them out.`}
+            ? `All ${h.counted} accounts counted, each with permission.`
+            : `${h.withheld.map(m => m.name.split(' ')[0]).join(' and ')} chose not to be counted here.`}
         </p>
       </div>
 
@@ -93,11 +101,14 @@ export default async function Household() {
             </div>
           );
         })}
-        <p className="f-note" style={{ marginBottom: 0 }}>
-          A household is a set of permissions with names on it, never a shared login. Each member keeps
-          their own PAN, their own KYC and their own tax position, and can withdraw what they shared
-          without asking anyone here.
-        </p>
+        <details className="f-acc">
+          <summary><Icon name="chev" /> How a household works here</summary>
+          <div className="body" style={{ fontSize: 12.5, lineHeight: 1.6, color: 'var(--f-muted)' }}>
+            A set of permissions with names on it, never a shared login. Each member keeps their own
+            PAN, their own KYC and their own tax position, and can withdraw what they shared without
+            asking anyone here.
+          </div>
+        </details>
       </div>
 
       {/* ── goals the family owns, funded across more than one account ──────── */}
@@ -137,8 +148,7 @@ export default async function Household() {
                 </div>
               ))}
               <p className="f-note" style={{ marginBottom: 0 }}>
-                Projected at {g.rate}% a year, the published assumption for {g.mix.map(m => `${m.pct}% ${m.asset.toLowerCase()}`).join(' and ')}
-                {' '}— never anyone in this household&rsquo;s own past return. {GOAL_RULES.version}.
+                At {g.rate}% a year — the published rate, never anyone&rsquo;s own past return.
               </p>
             </div>
           ))}
@@ -155,8 +165,8 @@ export default async function Household() {
             {goal && years != null && ` You have been saving for “${goal.name}” since 2025 — ${years} years from now — in your own name. Opened in ${member.name.split(' ')[0]}'s, the same money is ${member.name.split(' ')[0]}'s.`}
           </div>
           <p className="f-note">
-            A monthly instalment starts at ₹100 by regulation. Most people believe the floor is far higher,
-            and that belief is the commonest reason an account is never opened at all.
+            The regulated floor is ₹100 a month. Believing it is higher is the commonest reason an
+            account never gets opened.
           </p>
           <form action={startMember}>
             <input type="hidden" name="member_id" value={member.member_id} />
@@ -180,9 +190,7 @@ export default async function Household() {
       )}
 
       <p className="f-note">
-        Every figure on this page is computed from each member&rsquo;s own folios, priced {dmy(TODAY)}, and
-        shown only where that member has agreed. Where they have not, the page prints a dash and says whose
-        choice it was.
+        Priced {dmy(TODAY)} from each member&rsquo;s own folios, shown only where they agreed.
       </p>
     </>
   );

@@ -3,6 +3,7 @@ import { Icon } from '../../../components/Icon';
 import { inr, inrCompact, dmy } from '../../../lib/format';
 import { heldAway, netWorth, lastImport } from '../../../lib/import';
 import { manager } from '../../../lib/me';
+import { FolioBars } from '../folio-charts';
 import { ME } from '../layout';
 import { raise } from '../acts';
 
@@ -67,10 +68,8 @@ export function ElsewhereTab() {
             {Math.round((nw.elsewhere / Math.max(1, nw.everything)) * 100)}% not advised by us</span>
         </div>
         <p className="f-note" style={{ marginBottom: 0 }}>
-          Every other page in this app prints <b>{inrCompact(nw.with_us)}</b> — the money we actually
-          manage. This is the only figure that adds the rest in, and it says so beside the number.
-          Nothing held elsewhere reaches your health score, your goals or your rate, because we did
-          not advise it and cannot stand behind it.
+          The only figure in this app that adds the two together. Nothing held elsewhere reaches your
+          health score, your goals or your rate.
         </p>
       </div>
 
@@ -78,6 +77,16 @@ export function ElsewhereTab() {
       <div className="f-sect">
         What is sitting elsewhere
         <span className="rt" style={{ color: 'var(--f-faint)', fontWeight: 400 }}>{rows.length} folios</span>
+      </div>
+      <div className="f-card">
+        <FolioBars rows={rows.map(r => ({
+          name: r.amc_name.replace(/ (Asset Management|Mutual Fund|Asset Management Co Ltd).*$/, '').slice(0, 14),
+          value: r.value,
+          tone: r.also_with_us ? 'gold' : 'muted',
+        }))} />
+        <p className="f-note" style={{ marginBottom: 0 }}>
+          A bar with no length is a folio we hold no NAV for.
+        </p>
       </div>
       <div className="f-card" style={{ paddingTop: 4, paddingBottom: 4 }}>
         {rows.map(r => {
@@ -125,11 +134,9 @@ export function ElsewhereTab() {
           Move {rows.length} folio{rows.length === 1 ? '' : 's'} onto one statement
         </div>
         <div className="s">
-          A transfer of the distributor code — the units, the cost and the tax clock all stay exactly
-          as they are, and nothing is sold. What changes is that {rm?.first ?? 'your manager'} can see
-          them, so your overlap, your tax position and your goals are computed on all of your money
-          rather than {Math.round((nw.with_us / Math.max(1, nw.everything)) * 100)}% of it.
-          {both.length > 0 && ` ${both.length} of them ${both.length === 1 ? 'is a fund' : 'are funds'} you already hold here, under a second folio number.`}
+          A change of distributor code. Nothing is sold; units, cost and the tax clock all stay put.
+          Your overlap, tax and goals would then be computed on all of your money rather than
+          {' '}{Math.round((nw.with_us / Math.max(1, nw.everything)) * 100)}% of it.
         </div>
         <form action={raise}>
           <input type="hidden" name="kind" value="consolidate" />
@@ -138,15 +145,12 @@ export function ElsewhereTab() {
             value={`${inrCompact(nw.elsewhere)} across ${rows.length} folios, ${nw.unpriced} unpriceable, found via MF Central`} />
           <button className="f-btn" type="submit">Ask {rm?.first ?? 'my manager'} to start this</button>
         </form>
-        <p className="f-note" style={{ marginBottom: 0 }}>
-          There is no cost and no exit load. It is paperwork, and it is ours to do.
-        </p>
+        <p className="f-note" style={{ marginBottom: 0 }}>No cost, no exit load. Paperwork, and ours to do.</p>
       </div>
 
       <p className="f-note">
-        Fetched from MF Central against your PAN on {run ? dmy(run.at) : dmy(nw.as_of ?? '')}, covering
-        both registrars. Priced on the same NAVs as everything you hold here, dated {dmy(rows.find(r => r.nav_date)?.nav_date ?? nw.as_of ?? '')} —
-        a fund cannot be worth one thing on this tab and another on the last one.
+        From MF Central against your PAN, {run ? dmy(run.at) : dmy(nw.as_of ?? '')}. Priced on the same
+        NAVs as everything else you hold.
       </p>
     </>
   );

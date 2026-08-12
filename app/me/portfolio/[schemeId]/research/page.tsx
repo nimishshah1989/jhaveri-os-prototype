@@ -8,6 +8,7 @@ import {
   manager as fundManager, handovers, commentary, riskStats, styleHistory, drift,
   peers, overlapWith, findings, SEEDED_NOTE, type Finding as FundFinding,
 } from '../../../../../lib/funds';
+import { FolioStyleBox, FolioCapture } from '../../../folio-charts';
 import { ME } from '../../../layout';
 
 export const dynamic = 'force-dynamic';
@@ -86,9 +87,6 @@ export default async function Research({ params }: PageProps<'/me/portfolio/[sch
                 </span>
               </span>
             </div>
-            <p style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--f-muted)', margin: '11px 0 0' }}>
-              {mgr.philosophy}
-            </p>
 
             {hands.length > 0 && (
               <div style={{ marginTop: 12, paddingTop: 11, borderTop: '1px solid var(--f-line)' }}>
@@ -98,8 +96,8 @@ export default async function Research({ params }: PageProps<'/me/portfolio/[sch
                     <span className="tx">
                       <span className="d">Changed hands · {dmy(hv.on)}</span>
                       <b>{hv.to_name}</b> took this fund from <b>{hv.from_name}</b>
-                      {hv.reason ? `, who ${hv.reason}` : ''}. That was {hv.months_ago} months ago
-                      {hv.months_ago < 36 && `, so ${36 - hv.months_ago} of the last three years of this fund's record are somebody else's work`}.
+                      {hv.reason ? `, who ${hv.reason}` : ''} — {hv.months_ago} months ago
+                      {hv.months_ago < 36 && `, so ${36 - hv.months_ago} of its three-year record is somebody else's work`}.
                     </span>
                   </div>
                 ))}
@@ -113,7 +111,8 @@ export default async function Research({ params }: PageProps<'/me/portfolio/[sch
                   <span className="rt">{dmy(note.as_of).slice(3)}</span>
                 </summary>
                 <div className="body" style={{ fontSize: 12.5, lineHeight: 1.6, color: 'var(--f-muted)' }}>
-                  {note.body}
+                  <b style={{ color: 'var(--f-ink)' }}>How {mgr.first} invests.</b> {mgr.philosophy}
+                  <div style={{ marginTop: 10 }}>{note.body}</div>
                   <div style={{ marginTop: 8, fontSize: 11, color: 'var(--f-faint)' }}>
                     {note.manager}, {dmy(note.as_of)}.
                   </div>
@@ -122,7 +121,7 @@ export default async function Research({ params }: PageProps<'/me/portfolio/[sch
             )}
 
             <p className="f-note" style={{ marginBottom: 0 }}>
-              The name, the tenure and the words above come from the fund research feed. {SEEDED_NOTE}
+              From the research feed. {SEEDED_NOTE}
             </p>
           </>
         ) : (
@@ -154,8 +153,8 @@ export default async function Research({ params }: PageProps<'/me/portfolio/[sch
               </details>
             )}
             <p className="f-note" style={{ marginBottom: 0 }}>
-              Every one of these states the finding, the number under it, what could be done instead, what it costs
-              to do nothing, and how sure we are. A finding missing any of the five does not get printed.
+              Each states the finding, its number, the alternative, the cost of doing nothing, and how
+              sure we are. Missing any of the five and it is not printed.
             </p>
           </div>
         </>
@@ -171,20 +170,7 @@ export default async function Research({ params }: PageProps<'/me/portfolio/[sch
               <span className="rt">{risk.downside_capture}% of the falls</span>
             </summary>
             <div className="body">
-              {([['Of the index’s rises, it captured', risk.upside_capture, 'pos'],
-                 ['Of the index’s falls, it took', risk.downside_capture, 'neg']] as const).map(([label, v, tone]) => (
-                <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 7, fontSize: 11.5 }}>
-                  <span style={{ width: 150, flexShrink: 0, color: 'var(--f-muted)' }}>{label}</span>
-                  <span style={{ flex: 1, height: 9, background: 'var(--f-track)', position: 'relative' }}>
-                    <i style={{
-                      position: 'absolute', top: 0, bottom: 0, left: 0, display: 'block',
-                      width: `${Math.min(100, (v / 160) * 100)}%`,
-                      background: tone === 'pos' ? 'var(--f-pos)' : 'var(--f-neg)',
-                    }} />
-                  </span>
-                  <b className="num" style={{ width: 50, textAlign: 'right', fontWeight: 650 }}>{v}%</b>
-                </div>
-              ))}
+              <FolioCapture up={risk.upside_capture} down={risk.downside_capture} />
               <div className="f-step"><span>Worst peak-to-trough fall in {risk.period_months} months</span>
                 <b className="neg">{risk.max_drawdown}%</b></div>
               <div className="f-step"><span>How much it moves, a year</span><b>{risk.std_dev}%</b></div>
@@ -193,9 +179,8 @@ export default async function Research({ params }: PageProps<'/me/portfolio/[sch
               <div className="f-step"><span>Months the index rose · fell</span>
                 <b>{risk.months_up} · {risk.months_down}</b></div>
               <p className="f-note" style={{ marginBottom: 0 }}>
-                The fall, the movement and the return-per-unit are measured here from {risk.period_months} months of
-                this fund&rsquo;s own prices.{' '}
-                {risk.capture_is_seeded && <>The two capture figures are not: {SEEDED_NOTE}</>}
+                Fall, movement and return-per-unit measured from {risk.period_months} months of this
+                fund&rsquo;s own prices. {risk.capture_is_seeded && <>Capture is not: {SEEDED_NOTE}</>}
               </p>
             </div>
           </details>
@@ -208,18 +193,13 @@ export default async function Research({ params }: PageProps<'/me/portfolio/[sch
               <span className="rt">{style[style.length - 1].box}</span>
             </summary>
             <div className="body">
-              {style.map(p => (
-                <div className="f-step" key={p.as_of}>
-                  <span>{dmy(p.as_of).slice(3)}{p.source === 'computed' ? ' · from what it holds today' : ''}</span>
-                  <b>{p.box}</b>
-                </div>
-              ))}
+              <FolioStyleBox points={style} />
               {sd?.says && (
                 <p style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--f-muted)', marginTop: 8 }}>{sd.says}</p>
               )}
               <p className="f-note" style={{ marginBottom: 0 }}>
-                Today&rsquo;s box is computed from the {holdings.length} companies this fund actually discloses.
-                The three quarters before it stand in for a holdings history we do not have yet. {SEEDED_NOTE}
+                Today from the {holdings.length} companies it discloses; earlier quarters stand in
+                for a history we do not have. {SEEDED_NOTE}
               </p>
             </div>
           </details>
@@ -271,8 +251,7 @@ export default async function Research({ params }: PageProps<'/me/portfolio/[sch
               </div>
             )}
             <p className="f-note" style={{ marginBottom: 0 }}>
-              Compounded here from three years of each fund&rsquo;s own NAV history — the same window every risk
-              figure above uses. No rating decides this order.
+              Three years of each fund&rsquo;s own NAV history. No rating decides this order.
             </p>
           </div>
         </details>

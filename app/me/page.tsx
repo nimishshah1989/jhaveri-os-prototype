@@ -7,6 +7,8 @@ import { clientHealth } from '../../lib/scoring';
 import { manager, plan } from '../../lib/me';
 import { outlooks } from '../../lib/goals';
 import { eventDesk } from '../../lib/eventdesk';
+import { equityCurve } from '../../lib/portfolio';
+import { FolioArc } from './folio-charts';
 import { ME } from './layout';
 import { raise } from './acts';
 import { Nothing } from './empty';
@@ -55,6 +57,11 @@ export default async function Today() {
   // screens. Measured at 2.61 with three. The rest live on /me/events.
   const feed = eventDesk(ME);
   const changed = feed.slice(0, 2);
+  // The arc has existed in lib/portfolio since the broker lens was built and no
+  // client-lens page had ever drawn it. It is the one picture that answers
+  // "is this working" without a sentence: worth, against what went in, against
+  // the index on the same dates.
+  const arc = equityCurve(ME).value;
 
   return (
     <>
@@ -83,6 +90,7 @@ export default async function Today() {
             <div className="v num">{k.wx != null ? `${k.wx}%` : <span className="f-dash">—</span>}</div>
           </div>
         </div>
+        <FolioArc data={arc} />
         <Link href="/me/portfolio" className="f-cardlink">
           All {holdings.length} holdings, priced {dmy(TODAY)} <Icon name="chev" />
         </Link>
@@ -176,10 +184,8 @@ export default async function Today() {
             </div>
           ))}
           <p className="f-note">
-            {needs.some(n => n.act.sells)
-              ? `${rm?.first ?? 'Your manager'} prepares each of these — with the tax computed from your own lots where anything is sold — and you approve before it moves.`
-              : `Nothing here sells anything. ${rm?.first ?? 'Your manager'} prepares it, you approve in one tap.`}
-            {open.length > 0 && ` ${open.length} request${open.length > 1 ? 's are' : ' is'} already with ${rm?.first ?? 'them'}.`}
+            {rm?.first ?? 'Your manager'} prepares it; you approve before anything moves.
+            {open.length > 0 && ` ${open.length} already with ${rm?.first ?? 'them'}.`}
           </p>
         </>
       )}
@@ -207,27 +213,10 @@ export default async function Today() {
         </span>
       </Link>
 
-      <div className="f-sect">
-        What you own
-        <Link href="/me/portfolio" className="rt">All {holdings.length} <Icon name="chev" /></Link>
-      </div>
-      <div className="f-card" style={{ paddingTop: 4, paddingBottom: 4 }}>
-        {holdings.slice(0, 3).map(h => (
-          <Link key={h.scheme_id} href={`/me/portfolio/${h.scheme_id}`} className="f-row">
-            <span className="mk">{h.fund_name.slice(0, 2).toUpperCase()}</span>
-            <span className="nm">
-              <b>{h.fund_name.replace(/ (Dir|Reg) ?Gr$/, '')}</b>
-              <span>{h.fund_category} · folio {h.folio_no}</span>
-            </span>
-            <span className="fg">
-              <b className="num">{inrCompact(h.value)}</b>
-              <span className={`num ${(h.xirr ?? 0) >= 0 ? 'pos' : 'neg'}`}>
-                <Trend n={h.xirr ?? 0} /> {h.xirr != null ? `${h.xirr}%` : '—'}
-              </span>
-            </span>
-          </Link>
-        ))}
-      </div>
+      {/* The top three holdings used to be reprinted here. That is Portfolio's
+          first tab verbatim, and no page may repeat another page — the wealth
+          card above already links straight to it. Removing it also bought back
+          the room the arc needed. */}
 
       <div className="f-card tap" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <span className="mk" style={{
@@ -250,10 +239,7 @@ export default async function Today() {
         </form>
       </div>
 
-      <p className="f-note">
-        Every figure here is computed from your own folios, priced {dmy(TODAY)}. Where one cannot be computed
-        honestly the page prints a dash and says why.
-      </p>
+      <p className="f-note">Computed from your own folios, priced {dmy(TODAY)}.</p>
     </>
   );
 }

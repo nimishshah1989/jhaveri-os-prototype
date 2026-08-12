@@ -45,6 +45,8 @@ export interface DeskEvent {
   what: string;
   /** What it means for this client's money, in rupees. Null when there is none. */
   consequence: string | null;
+  /** The same figure as a number, so the desk can rank and draw it. */
+  at_stake: number | null;
   /** Which fund it touches, when it touches one. */
   scheme_id: number | null;
   fund: string | null;
@@ -70,6 +72,7 @@ function fundEvents(add: Add, held: Held[]): void {
         scheme_id: h.scheme_id, fund: short,
         what: `${hv.to_name} took over ${short} from ${hv.from_name}${hv.reason ? `, who ${hv.reason}` : ''}.`,
         consequence: `${inr(h.value)} of yours is in this fund — ${Math.round((h.value / Math.max(1, held.reduce((s, x) => s + x.value, 0))) * 100)}% of everything you hold here.`,
+        at_stake: h.value,
         act: { kind: 'call_rm', label: `Ask about the change on ${short}` },
       });
     }
@@ -80,7 +83,7 @@ function fundEvents(add: Add, held: Held[]): void {
         key: `note-${h.scheme_id}-${note.as_of}`, kind: 'manager_wrote', on: note.as_of,
         scheme_id: h.scheme_id, fund: short,
         what: `${note.manager} wrote about ${short}: “${note.headline}”.`,
-        consequence: null,
+        consequence: null, at_stake: null,
         act: null,
       });
     }
@@ -92,6 +95,7 @@ function fundEvents(add: Add, held: Held[]): void {
         scheme_id: h.scheme_id, fund: short,
         what: `${short} has moved from ${d.from.box.toLowerCase()} to ${d.to.box.toLowerCase()}.`,
         consequence: `Your ${inr(h.value)} in it is now buying a different kind of company than when you bought it.`,
+        at_stake: h.value,
         act: null,
       });
     }
@@ -109,6 +113,7 @@ function fundEvents(add: Add, held: Held[]): void {
           scheme_id: h.scheme_id, fund: short,
           what: `${short} is ${Math.abs(rs.max_drawdown).toFixed(1)}% below its highest point, which it last touched in ${dmy(worst.d).slice(3)}.`,
           consequence: `On ${inr(h.value)}, that peak-to-here fall is about ${inrCompact(h.value * Math.abs(rs.max_drawdown) / 100)}.`,
+          at_stake: Math.round(h.value * Math.abs(rs.max_drawdown) / 100),
           act: null,
         });
       }
@@ -139,6 +144,7 @@ function mandateEvents(add: Add, clientId: number): void {
         ? `The bank permission behind your ${inr(m.monthly)} instalment ends on ${dmy(m.end_date)} — ${left === 0 ? 'today' : `in ${left} days`}.`
         : `The bank permission behind your ${inr(m.monthly)} instalment expired on ${dmy(m.end_date)}.`,
       consequence: `${inr(m.monthly)} a month stops going in, and nothing on your statement will say why.`,
+      at_stake: m.monthly,
       act: { kind: 'fix_mandate', label: 'Renew the mandate' },
     });
   }
@@ -161,6 +167,7 @@ function bounceEvents(add: Add, clientId: number): void {
       scheme_id: b.sid, fund: b.fund,
       what: `Your ${inr(b.amt)} instalment into ${b.fund} was refused by the bank.`,
       consequence: `${inr(b.amt)} that should have bought units did not.`,
+      at_stake: b.amt,
       act: { kind: 'fix_mandate', label: 'Fix the mandate' },
     });
   }

@@ -76,7 +76,9 @@ correct rendering.
 ## Spacing & layout
 - **Base unit 4px**, inherited: `--sp-1` 4 … `--sp-6` 32.
 - **Density: comfortable** — the client lens breathes where the broker lens is dense.
-  Card padding 16px, gap between cards 12px, page gutter 16px.
+  Card padding 18/19px, gap between cards 16px, page gutter 18px, 26px above a
+  section label. Raised a step on 12-Aug-2026 at the founder's request; the
+  earlier 16/12/16 read as cramped on a phone.
 - **Radius:** cards 10px, buttons and chips 6px, fund marks and avatars full. One
   step, applied consistently — no bubble-radius-everything.
 - **Frame:** phone-first, 390–430px. The page is a stack of cards; nothing is a table
@@ -85,16 +87,37 @@ correct rendering.
 ## The four rules that stop it becoming a newspaper again
 
 1. **≤600 characters visible per screen.** Anything more goes behind a tap.
+   Measured as **≤110 standing words per screen** — the words a client scrolls
+   past, excluding anything behind a tap and excluding the text on a control,
+   because a button is the thing you act on rather than something you read.
+   This is the binding rule, and it is the one that was actually being broken:
+   on 12-Aug-2026 the Events page measured 159 words a screen and the household
+   124, while both passed the scroll cap comfortably. Reading load is the cost;
+   scroll depth was only ever a proxy for it.
+
    Scroll depth is capped by what a surface is *for*, and there are only two kinds:
-   - **Reading surfaces** — Today, the Portfolio tabs, Discover, a fund page — **≤2.5
-     screens**. These are read top to bottom, so length is a cost.
+   - **Reading surfaces** — Today, the Portfolio tabs, Discover, a fund page —
+     **≤2.5 screens**, or **≤2.75 where the surface carries a chart**. The
+     allowance exists because a chart costs height and *saves* reading: holding a
+     charted page to the same depth as a prose one forces the chart back out.
    - **Directory surfaces** — the Desk — may run longer, because they are a list of
      unrelated concerns you arrive at knowing which one you want. ET Money's Profile
      is long for the same reason. The obligation there is not brevity, it is that
      every section is a labelled landmark you can scan past.
-   Measured in the browser, not estimated. Current: Today 1.7 · Health 1.8 ·
-   Composition 1.8 · Fund 2.0 · Discover 2.3 · Desk 4.0.
-2. **No screen without objects.** Cards, icons, marks, chips. A zero-card page is a bug.
+   Measured in the browser, not estimated — both numbers, at 412×900.
+   Current (12-Aug-2026), as *screens · standing words per screen*:
+   Today 2.57 · 39 · Household 2.62 · 75 · Events 2.31 · 79 ·
+   Held elsewhere 2.35 · 67 · Fund 2.10 · 31 · Fund research 1.52 · 106 ·
+   Goals 1.13 · 89 · Ask 1.72 · 78 · Discover 1.82 · 73 · Desk 4.30 · 83
+   (a directory surface, capped on words but not on depth).
+2. **No screen without objects.** Cards, icons, marks, chips — and on any screen
+   whose subject is a quantity over time, a comparison, or a split, **a chart**.
+   Founder, 12-Aug-2026: the lens read as text-heavy and short of visual
+   elements, and the measurement agreed — there were zero charts in the whole
+   client lens while the broker lens had a plotting kit. `app/me/folio-charts.tsx`
+   is that kit in this lens's tokens: the arc, ranked bars, the style box, and
+   capture against its index. A zero-card page is a bug; so is a page that states
+   a shape in a sentence it could have drawn.
 3. **Every aggregate drills to its constituents, and every constituent drills back to
    the funds behind it.** No dead ends, both directions.
 4. **Every insight ends in an act** — something that happens here, or one named human.
@@ -139,3 +162,7 @@ signature of "insight".
 | 12-Aug-2026 | Neutrals darkened: light faint `#8A857A → #747066`, dark faint `#77736A → #8B877C` | Five of seven text styles failed 4.5:1, including the bottom tabs. All seven pass now |
 | 12-Aug-2026 | 11px type floor, 44px touch floor | Labels were at 9–10px and tabs at 34px tall; both below the readable/tappable minimum |
 | 12-Aug-2026 | Scroll rule split by surface kind | A Desk is a directory, not a reading surface. Holding it to 2 screens would have meant inventing tabs over unrelated concerns |
+| 12-Aug-2026 | Reading load measured in words per screen, not scroll depth | Four screens broke the 600-character rule while passing the scroll cap. Depth was a proxy; words are the thing |
+| 12-Aug-2026 | Charts enter the client lens, in its own tokens | Founder: the lens is text-heavy and short of visual elements. Recharts was already installed for the broker lens; `folio-charts.tsx` wraps it in `--f-*` tokens so a chart inverts with the lamp |
+| 12-Aug-2026 | Reading surfaces with a chart may run to 2.75 screens | A chart costs height and saves reading. The old cap would have priced charts back off the page |
+| 12-Aug-2026 | Density raised a step (16/12/16 → 18/16/18) | Founder: "be a lil more spacious". A phone read outside work is not a broker's grid |
