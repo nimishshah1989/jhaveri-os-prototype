@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Icon, Trend } from '../../../../components/Icon';
 import { inr, inrCompact, dmy } from '../../../../lib/format';
-import { outlooks, verdict, monthsBoughtBy, GOAL_RULES } from '../../../../lib/goals';
+import { outlooks, verdict, monthsBoughtBy, rateGap, GOAL_RULES } from '../../../../lib/goals';
 import { db } from '../../../../lib/db';
 import { manager } from '../../../../lib/me';
 import { ME } from '../../layout';
@@ -33,6 +33,12 @@ export default async function GoalDetail({ params }: PageProps<'/me/goals/[goalI
   }[];
 
   const late = o.monthsOff != null && o.monthsOff > 0;
+  // Two rates, side by side: what this money is assumed to earn, and what the
+  // target actually demands by its date. The distance between them is the goal's
+  // real problem, and it is a problem about the target, the date or the monthly
+  // amount — never an instruction to go looking for a fund that returns the
+  // second number.
+  const gap = rateGap(o);
   const levers = STEPS.map(amount => ({ amount, months: monthsBoughtBy(o, amount) }))
     .filter(l => l.months != null && l.months > 0);
 
@@ -152,15 +158,26 @@ export default async function GoalDetail({ params }: PageProps<'/me/goals/[goalI
       </div>
 
       <p className="f-note">
-        The arrival month is projected, not promised: {o.rate}% a year, blended from the published
-        rate for each asset class ({Object.entries(GOAL_RULES.rates).map(([k, v]) => `${k} ${v}%`).join(' · ')}),
-        with anything already going in monthly. <b>We never project your own past return forward</b> —
-        this money has actually earned {o.ownRate != null ? `${o.ownRate}%` : 'a rate we cannot compute'} so
-        far, and compounding that for {Math.max(1, Math.round((Date.parse(o.on) - Date.parse('2026-08-07')) / 3.156e10))} years
-        would be arithmetically perfect and completely false. Markets do not deliver a steady rate, and
-        a real year will land above or below it. What this page is for is the <b>direction and the
-        size</b> of the gap, and what closes it.
+        {gap.required !== null
+          ? <>Needs <b>{gap.required}% a year</b> from today. Assumed: <b>{gap.assumed}%</b>.</>
+          : <>Assumed <b>{gap.assumed}%</b> a year.</>}
       </p>
+      <details className="f-acc">
+        <summary><span className="ic">›</span> How that rate is arrived at</summary>
+        <p className="f-note body">
+          {gap.shortfall_pts !== null && gap.shortfall_pts > 0
+            ? `The ${gap.shortfall_pts} points between those two numbers is this goal's real problem, and it is closed by the date, the amount, or what goes in monthly — never by looking for a fund that returns the second number.`
+            : 'The assumption already clears what this goal needs, which is why it arrives on time.'}
+          {' '}The arrival month is projected, not promised: {o.rate}% a year, blended from the published
+          rate for each asset class ({Object.entries(GOAL_RULES.rates).map(([k, v]) => `${k} ${v}%`).join(' · ')}),
+          with anything already going in monthly. <b>We never project your own past return forward</b> —
+          this money has actually earned {o.ownRate != null ? `${o.ownRate}%` : 'a rate we cannot compute'} so
+          far, and compounding that for {Math.max(1, Math.round((Date.parse(o.on) - Date.parse('2026-08-07')) / 3.156e10))} years
+          would be arithmetically perfect and completely false. Markets do not deliver a steady rate, and
+          a real year will land above or below it. What this page is for is the <b>direction and the
+          size</b> of the gap, and what closes it.
+        </p>
+      </details>
     </>
   );
 }

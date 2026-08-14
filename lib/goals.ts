@@ -217,6 +217,45 @@ export function verdict(o: Outlook): string {
   return `${when}, ${how}.`;
 }
 
+/**
+ * The rate this goal would have to earn, from today, to land its target on its
+ * date on the instalments already going in. Solved by bisection rather than
+ * algebra because `walk` is the same month-by-month function the projection uses —
+ * inverting it in closed form would be a second model, and the two would disagree
+ * the first time someone changed the compounding.
+ *
+ * Null when no rate inside a sane band gets there: a goal needing 60% a year is
+ * not a rate problem, and printing "needs 60%" invites someone to go looking for
+ * a fund that does it.
+ */
+export function requiredRate(g: Goal): number | null {
+  const months = Math.max(1, monthsBetween(TODAY, g.on));
+  if (g.now >= g.target) return 0;
+  let lo = 0, hi = 40;
+  if (walk(g.now, g.monthly, hi, months) < g.target) return null;
+  for (let i = 0; i < 60; i++) {
+    const mid = (lo + hi) / 2;
+    if (walk(g.now, g.monthly, mid, months) < g.target) lo = mid; else hi = mid;
+  }
+  return Math.round(hi * 10) / 10;
+}
+
+/**
+ * The gap the client is actually being asked to close, in the only two terms that
+ * mean anything: the rate this money is assumed to earn, and the rate the target
+ * demands. `shortfall_pts` positive means the goal needs more than the published
+ * assumption — which is a conversation about the target, the date or the
+ * instalment, and never about finding a hotter fund.
+ */
+export function rateGap(g: Goal): { assumed: number; required: number | null; shortfall_pts: number | null } {
+  const required = requiredRate(g);
+  return {
+    assumed: g.rate,
+    required,
+    shortfall_pts: required === null ? null : Math.round((required - g.rate) * 10) / 10,
+  };
+}
+
 export interface PathPoint {
   /** Month key, YYYY-MM-01. */
   m: string;

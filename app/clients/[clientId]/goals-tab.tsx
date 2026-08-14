@@ -3,7 +3,7 @@ import { Explain } from '../../../components/Explain';
 import { ChartLines } from '../../../components/charts';
 import { inr, inrCompact, dmy } from '../../../lib/format';
 import {
-  outlooks, goalPath, monthsBoughtBy, verdict, untagged, GOAL_RULES, type Outlook,
+  outlooks, goalPath, monthsBoughtBy, verdict, untagged, rateGap, GOAL_RULES, type Outlook,
 } from '../../../lib/goals';
 import { clientKpis, type ClientHeader } from '../../../lib/client360';
 
@@ -26,6 +26,11 @@ function state(o: Outlook): { label: string; cls: string } {
 
 function Goal({ o, focus }: { o: Outlook; focus: boolean }) {
   const s = state(o);
+  // The two rates side by side. This is the sentence that turns "you are behind"
+  // into something with a cause: the money is assumed to earn X and the target
+  // demands Y, and the fix is the target, the date or the instalment — never a
+  // hunt for a fund that returns Y.
+  const gap = rateGap(o);
   // The lever that changes the answer, not a fixed one: the smallest step that
   // actually buys time back on THIS goal is what belongs in the broker's mouth.
   const lever = LEVERS.map(x => ({ x, months: monthsBoughtBy(o, x) }))
@@ -92,6 +97,10 @@ function Goal({ o, focus }: { o: Outlook; focus: boolean }) {
             </Explain>}
           />
           <div className="lrow" style={{ marginTop: 8 }}>
+            <span>Assumed / needed</span>
+            <span className={`num ${gap.shortfall_pts != null && gap.shortfall_pts > 0 ? 'down' : 'up'}`}>
+              {gap.assumed}% / {gap.required === null ? 'unreachable' : `${gap.required}%`}
+            </span>
             <span>Going in monthly</span>
             <span className="num">{o.monthly > 0 ? `${inr(o.monthly)}/mo` : 'nothing'}</span>
             <span>Put in so far</span>
