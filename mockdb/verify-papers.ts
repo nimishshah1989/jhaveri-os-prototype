@@ -211,7 +211,14 @@ try {
 
   /* ── the Desk no longer promises a document instead of producing one ───── */
 
-  const desk = require('node:fs').readFileSync('app/me/desk/page.tsx', 'utf8') as string;
+  // The whole Desk directory, not one file: the page was split into tabs on
+  // 14-Aug-2026 and the papers moved with it. A check pinned to a filename
+  // fails on a refactor that changed nothing it was actually asserting.
+  const fs = require('node:fs') as typeof import('node:fs');
+  const desk = fs.readdirSync('app/me/desk')
+    .filter((f: string) => f.endsWith('.tsx'))
+    .map((f: string) => fs.readFileSync(`app/me/desk/${f}`, 'utf8'))
+    .join('\n');
   assert('the Desk links to the download rather than raising a request for it',
     /href=\{`\/me\/papers\//.test(desk) && !/paper_\$\{kind\}|paper_valuation/.test(desk),
     'pressing a statement must produce a statement');

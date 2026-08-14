@@ -298,29 +298,13 @@ export default async function Invest({ searchParams }: PageProps<'/me/invest'>) 
               </div>
             )}
 
-            <details className="f-acc" style={{ marginTop: 10 }}>
-              <summary><Icon name="chev" /> Do it monthly instead</summary>
-              <div className="body">
-                <p className="f-note" style={{ margin: '0 0 10px' }}>
-                  A transfer moves a fixed sum between two of your funds every month. Taking it out to
-                  your bank instead is a withdrawal — each one is a sale, and each one is taxed.
-                </p>
-                <form action={startTransferPlan}>
-                  <input type="hidden" name="from" value={switchFrom} />
-                  <input type="hidden" name="to" value={switchTo || ''} />
-                  <input type="hidden" name="day" value="10" />
-                  <input type="hidden" name="amount" value="5000" />
-                  <div className="f-btnrow" style={{ marginTop: 0 }}>
-                    <button className="f-btn ghost" type="submit" name="kind" value="STP" style={{ marginTop: 0 }}>
-                      ₹5,000 across, monthly
-                    </button>
-                    <button className="f-btn ghost" type="submit" name="kind" value="SWP" style={{ marginTop: 0 }}>
-                      ₹5,000 out, monthly
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </details>
+            {/* Two buttons at a fixed ₹5,000 assumed the client already knew what
+                an STP is. Almost nobody who would benefit from one has ever been
+                offered one in words, so it is a journey now — see invest/plan. */}
+            <Link href="/me/invest/plan" className="f-btn ghost"
+              style={{ display: 'block', textAlign: 'center', marginTop: 12 }}>
+              Or do it every month instead
+            </Link>
           </div>
         </>
       )}

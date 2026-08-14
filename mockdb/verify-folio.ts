@@ -115,15 +115,16 @@ function standingProse(src: string): { words: number; tagsLeft: number } {
  * which is the rule DESIGN.md actually states — are recorded there too.
  */
 const PROSE_BASELINE: Record<string, number> = {
+  'invest/plan': 223,
   'ask': 149,
-  'desk': 654,
+  'desk': 20,
   'discover': 235,
   'events': 110,
   'goals': 124,
   'goals/[goalId]': 178,
-  'household': 227,
+  'household': 256,
   'household/[memberId]': 183,
-  'invest': 466,
+  'invest': 435,
   'orders': 275,
   'portfolio': 38,
   'portfolio/[schemeId]': 221,

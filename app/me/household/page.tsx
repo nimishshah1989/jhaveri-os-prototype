@@ -140,16 +140,31 @@ export default async function Household() {
                   </div>
                 </div>
               </div>
-              <div className="s" style={{ fontSize: 12.5, color: 'var(--f-muted)', marginTop: 9 }}>{verdict(g)}</div>
+              {/* The same sentence, but a late goal and an early one no longer
+                  look identical. Glyph and word carry it too — never colour alone. */}
+              <span className={`f-verdict ${g.met || (g.monthsOff != null && g.monthsOff <= 0) ? 'good'
+                : g.monthsOff == null ? 'wait' : 'bad'}`}>
+                <Icon name={g.met || (g.monthsOff != null && g.monthsOff <= 0) ? 'check'
+                  : g.monthsOff == null ? 'clock' : 'alert'} />
+                {g.met ? 'Already there'
+                  : g.monthsOff == null ? 'Not on this path'
+                    : `${Math.abs(g.monthsOff)} months ${g.monthsOff < 0 ? 'early' : 'late'}`}
+              </span>
+              <div className="s" style={{ fontSize: 12.5, color: 'var(--f-muted)', marginTop: 8 }}>{verdict(g)}</div>
               {g.from.map(f => (
                 <div className="f-step" key={f.client_id}>
                   <span>Standing behind it — {f.name}</span>
                   <b className="num">{inrCompact(f.value)}</b>
                 </div>
               ))}
-              <p className="f-note" style={{ marginBottom: 0 }}>
-                At {g.rate}% a year — the published rate, never anyone&rsquo;s own past return.
-              </p>
+              <details className="f-why">
+                <summary><Icon name="chev" /> How this date is worked out</summary>
+                <div>
+                  <p>At {g.rate}% a year — the published rate for what this money is in, never anyone
+                    in this household&rsquo;s own past return.</p>
+                  <p>{g.mix.map(m => `${m.pct}% ${m.asset.toLowerCase()}`).join(' and ')}. {GOAL_RULES.version}.</p>
+                </div>
+              </details>
             </div>
           ))}
         </>
@@ -164,10 +179,11 @@ export default async function Household() {
             {member.name} is {member.age}, and is the only person in this household with nothing of their own.
             {goal && years != null && ` You have been saving for “${goal.name}” since 2025 — ${years} years from now — in your own name. Opened in ${member.name.split(' ')[0]}'s, the same money is ${member.name.split(' ')[0]}'s.`}
           </div>
-          <p className="f-note">
-            The regulated floor is ₹100 a month. Believing it is higher is the commonest reason an
-            account never gets opened.
-          </p>
+          <details className="f-why">
+            <summary><Icon name="chev" /> Why ₹500, and not more</summary>
+            <div><p>The regulated floor is ₹100 a month. Believing it is higher is the commonest
+              reason an account never gets opened at all.</p></div>
+          </details>
           <form action={startMember}>
             <input type="hidden" name="member_id" value={member.member_id} />
             <div className="f-btnrow">

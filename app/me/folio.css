@@ -15,6 +15,8 @@
   --f-pos: #2C6B41;
   --f-neg: #AB4425;
   --f-track: #EDEAE1;
+  --f-pos-soft: #E7F0E9;
+  --f-neg-soft: #F7E9E4;
   --f-lift: 0 1px 2px rgba(26, 27, 30, .05), 0 4px 14px rgba(26, 27, 30, .05);
   --f-cardline: transparent;
   --f-onGold: #FFFFFF;
@@ -35,6 +37,8 @@
   --f-pos: #4E9468;
   --f-neg: #C4674A;
   --f-track: #2A2E35;
+  --f-pos-soft: #1C2A21;
+  --f-neg-soft: #2E1F1A;
   --f-lift: none;
   --f-cardline: #2A2E35;
   --f-onGold: #14161A;
@@ -476,3 +480,55 @@ body:has(.folio) { background: #2A2C30; }
   color: var(--f-gold-ink); display: flex; align-items: center; gap: 8px; margin-bottom: 7px;
 }
 .f-voice p { font-size: 13px; line-height: 1.65; color: var(--f-muted); margin: 0; }
+
+/* ── a count on a tab, so a room says it needs you before you open it ─────── */
+.f-pip {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 17px; height: 17px; padding: 0 5px; margin-left: 6px;
+  border-radius: 999px; font-size: 10px; font-weight: 700; font-style: normal;
+  background: var(--f-gold-soft); color: var(--f-gold-ink);
+}
+.f-pip.bad { background: var(--f-neg-soft); color: var(--f-neg); }
+.f-tabbar a.on .f-pip { background: var(--f-ground); color: var(--f-ink); }
+
+/* ── the verdict pill ─────────────────────────────────────────────────────────
+   Founder, 14-Aug-2026: "have some more color schemes in order to indicate what
+   is positive and what is negative". A goal that arrives late and one that
+   arrives early were the same grey sentence. They are not the same news.
+
+   Colour is never the only carrier (DESIGN.md): every pill takes a glyph and a
+   word as well, so it reads the same to somebody who cannot separate red from
+   green. */
+.f-verdict {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11.5px; font-weight: 650; line-height: 1.3;
+  padding: 5px 10px; border-radius: 999px; margin-top: 8px;
+}
+.f-verdict.good { background: var(--f-pos-soft); color: var(--f-pos); }
+.f-verdict.bad  { background: var(--f-neg-soft); color: var(--f-neg); }
+.f-verdict.wait { background: var(--f-gold-soft); color: var(--f-gold-ink); }
+.f-verdict .ic { width: 12px; height: 12px; }
+
+/* A card can carry the same verdict as a stripe, for the ones that matter. */
+.f-card.good { border-left: 3px solid var(--f-pos); }
+.f-card.bad  { border-left: 3px solid var(--f-neg); }
+
+/* ── prose behind a tap, as a plain row rather than a wall ────────────────────
+   Founder: "reduce some text to make it a little more actionable. Get the text
+   in a dropdown." A `.f-why` is a note that has been folded up: the summary is
+   the question a client would ask, the body is what used to sit on the page. */
+.f-why { border-top: 1px solid var(--f-line); margin-top: 12px; }
+.f-why > summary {
+  list-style: none; cursor: pointer; display: flex; align-items: center; gap: 6px;
+  padding: 12px 2px 0; min-height: 40px; box-sizing: border-box;
+  font-size: 11.5px; font-weight: 650; color: var(--f-gold-ink);
+}
+.f-why > summary::-webkit-details-marker { display: none; }
+.f-why > summary .ic { transition: transform .18s ease; width: 12px; height: 12px; }
+.f-why[open] > summary .ic { transform: rotate(90deg); }
+.f-why > div {
+  font-size: 12px; line-height: 1.65; color: var(--f-faint);
+  padding: 8px 0 2px; max-width: var(--measure);
+}
+.f-why > div p { margin: 0 0 8px; }
+.f-why > div p:last-child { margin-bottom: 0; }
