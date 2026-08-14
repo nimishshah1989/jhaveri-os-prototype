@@ -24,6 +24,7 @@ export const TYPE: Record<string, { label: string; icon: string; tone: string }>
   sip_anniversary: { label: 'SIP year', icon: 'calendar', tone: 'blue' },
   abnormal_return: { label: 'Run-up', icon: 'up', tone: 'blue' },
   ideal_money: { label: 'Parked cash', icon: 'money', tone: 'blue' },
+  rebalance_review: { label: 'Off model', icon: 'target', tone: 'amber' },
   manual: { label: 'My task', icon: 'check', tone: 'grey' },
 };
 
@@ -64,6 +65,7 @@ export function evidence(raw: string): { lead: string; value: string }[] {
       case 'resolved_by': out.push({ lead: 'resolved by', value: String(v) }); break;
       case 'in_days': out.push({ lead: 'within', value: `${v} days` }); break;
       case 'return_pct': out.push({ lead: '', value: `+${v}% in 90 days` }); break;
+      case 'drift_pts': out.push({ lead: '', value: `${Number(v) > 0 ? '+' : ''}${v} pts off model` }); break;
       case 'window_days': break;   // the return above already says the window
       case 'fund': out.push({ lead: '', value: String(v) }); break;
       case 'asset': out.push({ lead: '', value: String(v) }); break;

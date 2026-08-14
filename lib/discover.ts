@@ -94,6 +94,29 @@ const LADDER: { max: number; name: string; line: string; mix: [string, number][]
 ];
 
 /**
+ * A stored risk profile, mapped onto the same ladder the three questions land on.
+ * Most of the book answered a profiling form years before Discover existed, and
+ * the alternative to this map is a second model allocation kept somewhere else —
+ * which is how a client's target ends up depending on which screen you opened.
+ */
+const PROFILE_RUNG: Record<string, number> = {
+  Conservative: 1, Moderate: 2, Aggressive: 3, 'Very Aggressive': 4,
+};
+
+/** The model holding for a client who has a profile on file but no Discover run. */
+export function shapeForProfile(profile: string): Shape {
+  return shapeFromRung(LADDER[PROFILE_RUNG[profile] ?? 2]);
+}
+
+/** The rung's category weights alone — no database, so the seed can mint against
+ *  the same target the page draws. */
+export const LADDER_MIX = (profile: string): [string, number][] =>
+  LADDER[PROFILE_RUNG[profile] ?? 2].mix;
+
+export const LADDER_NAME = (profile: string): string =>
+  LADDER[PROFILE_RUNG[profile] ?? 2].name;
+
+/**
  * The shape is computed from three answers, not chosen from a fixed set of three.
  * Funds inside each class are the best-graded we track, and the grade rule is
  * published — `SCORING_RULES.scheme_grade`.
@@ -101,6 +124,12 @@ const LADDER: { max: number; name: string; line: string; mix: [string, number][]
 export function shapeFor(t: Traits): Shape {
   const pts = TRAIT_POINTS.horizon[t.horizon] + TRAIT_POINTS.fall[t.fall] + TRAIT_POINTS.purpose[t.purpose];
   const rung = LADDER.find(r => pts <= r.max) ?? LADDER[LADDER.length - 1];
+  return shapeFromRung(rung);
+}
+
+/** One rung, resolved into real funds. Both entry points share it so a target
+ *  allocation can never differ depending on how the client was profiled. */
+function shapeFromRung(rung: typeof LADDER[number]): Shape {
   const funds = allFunds();
   const EQUITY = ['Flexi Cap', 'Large Cap', 'Mid Cap', 'Small Cap', 'ELSS (Tax Savings)'];
   const mix = rung.mix.map(([category, pct]) => ({

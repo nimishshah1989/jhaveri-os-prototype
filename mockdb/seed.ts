@@ -14,6 +14,7 @@ import {
 } from './engines';
 import { seedFundIntelligence } from './seed-funds';
 import { seedGoals } from './seed-goals';
+import { modelByAsset } from '../lib/rebalance';
 import { importHeldAway } from '../lib/import';
 
 const DIR = dirname(fileURLToPath(import.meta.url));
@@ -136,6 +137,7 @@ const RULES: [string, string, Record<string, number>][] = [
   ['sip_anniversary', 'Live SIP crossing a year, due an income-linked top-up', { months: 12, window_days: 45, step_up_pct: 10, min_monthly: 2000 }],
   ['abnormal_return', 'Asset class run far above its own normal, worth booking', { window_days: 90, over_pct: 18, min_gain: 50000 }],
   ['ideal_money', 'Liquid capital parked past the point it was parked for', { months: 3, min_value: 500000 }],
+  ['allocation_drift', 'Allocation away from the model its risk profile calls for', { act_pts: 10, min_value: 100000, min_correction: 500000 }],
 ];
 RULES.forEach(([k, name, params], i) => ins('rules_registry', { rule_id: i + 1, rule_key: k, name, params: JSON.stringify(params), version: 1, owner: 'ops', approved_by: 'management', is_active: 1, valid_from: '2026-08-01' }));
 
@@ -1118,7 +1120,50 @@ for (const q of parked) {
     slaDays: 14, ruleKey: 'ideal_money',
   });
 }
-console.log(`TRIGGERS: ${anniversaries.length} SIP anniversaries · ${hot.length} run-ups · ${parked.length} parked · ${ownerless} skipped for having no broker`);
+// 4 · Allocation drift. The model comes from lib/rebalance so the prompt and the
+// client's page can never disagree about the target — the whole point of one
+// ladder. The volume this produces here is a property of the seed, whose
+// portfolios hold one to three funds each and therefore sit far from any
+// five-class model; the thresholds are argued from what a switch costs, in
+// lib/rebalance, and are not fitted to make this number look reasonable.
+const REB = { actPts: 10, minValue: 100000, minCorrection: 500000 };
+const drifting = db.prepare(`SELECT f.client_id, MAX(f.client_name) name,
+    COALESCE(r.risk_profile, 'Moderate') profile, m.fk_primary_sub_broker_id sb,
+    SUM(f.present_market_value) v
+  FROM fifo_summary_holding_active f
+  JOIN client_master m ON m.cm_user_id = f.client_id
+  LEFT JOIN client_master_mf_related r ON r.fk_cm_user_id = f.client_id
+  WHERE f.balance_units > 0.0001
+  GROUP BY f.client_id HAVING v >= ?`).all(REB.minValue) as
+  { client_id: number; name: string; profile: string; sb: number | null; v: number }[];
+
+let drifted = 0;
+for (const c of drifting) {
+  if (c.sb == null) { ownerless++; continue; }
+  const model = modelByAsset(c.profile);
+  const held = db.prepare(`SELECT asset_name asset, SUM(present_market_value) v
+    FROM fifo_summary_holding_active WHERE client_id = ? AND balance_units > 0.0001
+    GROUP BY asset_name`).all(c.client_id) as { asset: string; v: number }[];
+  let worstAsset = '', worstDelta = 0;
+  for (const asset of new Set([...model.keys(), ...held.map(h => h.asset)])) {
+    const actual = ((held.find(h => h.asset === asset)?.v ?? 0) / c.v) * 100;
+    const delta = actual - (model.get(asset) ?? 0);
+    if (Math.abs(delta) > Math.abs(worstDelta)) { worstDelta = delta; worstAsset = asset; }
+  }
+  const rupees = Math.round((Math.abs(worstDelta) / 100) * c.v);
+  if (Math.abs(worstDelta) < REB.actPts || rupees < REB.minCorrection) continue;
+  mint({
+    subjectType: 'client', subjectId: c.client_id, type: 'rebalance_review',
+    evidence: { asset: worstAsset, drift_pts: round2(worstDelta), value: c.v, note: `model: ${c.profile}` },
+    impact: rupees,
+    lens: 'broker', sbId: c.sb,
+    step: `${worstDelta > 0 ? 'Reduce' : 'Add'} ${worstAsset} · propose switch`,
+    slaDays: 21, ruleKey: 'allocation_drift',
+  });
+  drifted++;
+}
+
+console.log(`TRIGGERS: ${anniversaries.length} SIP anniversaries · ${hot.length} run-ups · ${parked.length} parked · ${drifted} rebalances · ${ownerless} skipped for having no broker`);
 
 // policies, experiments, learning evidence
 ins('policies', { policy_id: 1, workflow: 'sip_save', policy_key: 'nudge_framing', belief: JSON.stringify({ urgency: 0.52, loss: 0.31, info: 0.17 }), evidence_n: 142, target_n: 200, version: 3, changed_at: '2026-07-28', changed_by: 'nightly-eval', approved_by: 'ops-head' });
