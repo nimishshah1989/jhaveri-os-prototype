@@ -1354,3 +1354,11 @@ a.qcard .evidence b { color: var(--ink); font-weight: 600; }
   .topbar { flex-wrap: wrap; height: auto; padding: 8px 16px; row-gap: 6px; }
   .topbar .who { line-height: 1.3; }
 }
+
+
+/* One-touch outreach on a stalled or rejected application. A link that opens the
+   draft, never a send: a human sits between the rule and the client. */
+.outreach { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 8px 0 4px; font-size: 12.5px; }
+.outreach .och { display: inline-flex; align-items: center; gap: 6px; }
+.outreach a { color: var(--accent); }
+.outreach .none { color: var(--muted); }

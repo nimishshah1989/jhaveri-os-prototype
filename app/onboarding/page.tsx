@@ -5,6 +5,7 @@ import { ClientLink } from '../../components/ClientLink';
 import { Collapse } from '../../components/Collapse';
 import { Icon } from '../../components/Icon';
 import { PipelineBoard } from '../../components/PipelineBoard';
+import { Outreach } from '../../components/Outreach';
 import { Explain } from '../../components/Explain';
 import { StatCard } from '../../components/StatCard';
 import { ChartBars } from '../../components/charts';
@@ -15,6 +16,7 @@ import {
   ONBOARDING_RULES, pipeline, funnel, daysToLive, stalls, stallAging,
   rejections, unphrasedCodes, linkStats, monthCounts,
 } from '../../lib/onboarding';
+import { draftsFor } from '../../lib/outreach';
 import { nudgeApplication, escalateToOps, refileRejection, startApplication } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -175,10 +177,11 @@ export default function OnboardingPage() {
                         : <span className="hchip">—</span>}
                     </td>
                     <td className="rowacts always">
+                      <Outreach drafts={draftsFor(c)} />
                       <form action={nudgeApplication} style={{ display: 'inline' }}>
                         <input type="hidden" name="application_id" value={c.application_id} />
                         <input type="hidden" name="via" value="whatsapp" />
-                        <button type="submit">Nudge client</button>
+                        <button type="submit">Mark nudged</button>
                       </form>
                       <details className="colpick" style={{ display: 'inline-block' }}>
                         <summary>Hand to ops</summary>
@@ -226,6 +229,7 @@ export default function OnboardingPage() {
                   rather than guessed at.
                 </p>
               )}
+              <Outreach drafts={draftsFor(c, c)} />
               <form action={refileRejection} className="choices">
                 <input type="hidden" name="application_id" value={c.application_id} />
                 <input type="text" name="note" placeholder="What was collected — goes on the record…" required />
