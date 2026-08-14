@@ -13,22 +13,39 @@ import { GoalsTab } from './goals-tab';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * Five, down from nine. Nothing was removed — the nine panels are all still here,
+ * stacked inside the tab they belong to, which is what the consolidation actually
+ * was: a client is read in four or five passes, not nine, and a broker holding
+ * forty of these should not have to remember which of nine places a number lives.
+ *
+ * Performance is the money: how it did, what it holds, what moved.
+ * Actionables is the work: what is wrong, what is open, what is scheduled.
+ */
 const TABS: [string, string][] = [
   ['overview', 'Overview'],
-  ['health', 'Health & opportunities'],
   ['goals', 'Goals'],
-  ['analysis', 'Portfolio analysis'],
-  ['holdings', 'Holdings & tax lots'],
-  ['transactions', 'Transactions'],
-  ['sips', 'SIPs & mandates'],
+  ['performance', 'Performance'],
+  ['actionables', 'Actionables'],
   ['profile', 'Profile & documents'],
-  ['actions', 'Actions & notes'],
 ];
+
+/**
+ * Where the old nine went. Every link already written into this product — and any
+ * a broker has bookmarked — still lands on the panel it was pointing at, because
+ * a URL that quietly stops working is worse than a tab bar that is one item too
+ * long. The anchor carries them the rest of the way.
+ */
+const MOVED: Record<string, string> = {
+  health: 'actionables', actions: 'actionables', sips: 'actionables',
+  analysis: 'performance', holdings: 'performance', transactions: 'performance',
+};
 
 export default async function Client360({ params, searchParams }: PageProps<'/clients/[clientId]'>) {
   const { clientId } = await params;
   const sp = await searchParams;
-  const tab = typeof sp.tab === 'string' && TABS.some(([k]) => k === sp.tab) ? sp.tab : 'overview';
+  const asked = typeof sp.tab === 'string' ? sp.tab : 'overview';
+  const tab = TABS.some(([k]) => k === asked) ? asked : (MOVED[asked] ?? 'overview');
   const id = Number(clientId);
   const head = clientHeader(id);
   if (!head) notFound();
@@ -62,14 +79,29 @@ export default async function Client360({ params, searchParams }: PageProps<'/cl
       <div className="cols">
         <div>
           {tab === 'overview' && <OverviewTab id={id} head={head} />}
-          {tab === 'health' && <HealthTab id={id} head={head} focus={typeof sp.c === 'string' ? sp.c : undefined} />}
           {tab === 'goals' && <GoalsTab id={id} head={head} focus={typeof sp.g === 'string' ? sp.g : undefined} />}
-          {tab === 'analysis' && <AnalysisTab id={id} head={head} funds={typeof sp.funds === 'string' ? sp.funds : undefined} fundFocus={typeof sp.fund === 'string' ? sp.fund : undefined} />}
-          {tab === 'holdings' && <HoldingsTab id={id} />}
-          {tab === 'transactions' && <TransactionsTab id={id} />}
-          {tab === 'sips' && <SipsTab id={id} />}
+
+          {tab === 'performance' && (
+            <>
+              <AnalysisTab id={id} head={head} funds={typeof sp.funds === 'string' ? sp.funds : undefined} fundFocus={typeof sp.fund === 'string' ? sp.fund : undefined} />
+              <h2 className="sec" id="holdings">Holdings &amp; tax lots</h2>
+              <HoldingsTab id={id} />
+              <h2 className="sec" id="transactions">Transactions</h2>
+              <TransactionsTab id={id} />
+            </>
+          )}
+
+          {tab === 'actionables' && (
+            <>
+              <HealthTab id={id} head={head} focus={typeof sp.c === 'string' ? sp.c : undefined} />
+              <h2 className="sec" id="sips">SIPs &amp; mandates</h2>
+              <SipsTab id={id} />
+              <h2 className="sec" id="actions">Actions &amp; notes</h2>
+              <ActionsTab id={id} />
+            </>
+          )}
+
           {tab === 'profile' && <ProfileTab id={id} head={head} />}
-          {tab === 'actions' && <ActionsTab id={id} />}
         </div>
 
         <aside className="side">

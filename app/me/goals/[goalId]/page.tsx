@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Icon, Trend } from '../../../../components/Icon';
 import { inr, inrCompact, dmy } from '../../../../lib/format';
-import { outlooks, verdict, monthsBoughtBy, rateGap, GOAL_RULES } from '../../../../lib/goals';
+import { outlooks, verdict, monthsBoughtBy, rateGap, simulate, GOAL_RULES } from '../../../../lib/goals';
+import { GoalSlider } from './slider';
 import { db } from '../../../../lib/db';
 import { manager } from '../../../../lib/me';
 import { ME } from '../../layout';
@@ -107,6 +108,7 @@ export default async function GoalDetail({ params }: PageProps<'/me/goals/[goalI
               Every rupee a month is time bought back. These are computed on this goal&rsquo;s own
               money at the same {o.rate}% used above — not a sales figure.
             </div>
+            <GoalSlider steps={simulate(o)} />
             {levers.map(l => (
               <Link key={l.amount}
                 href={`/me/invest?goal=${o.goal_id}&scheme=${funds[0]?.scheme_id ?? ''}&amount=${l.amount}`}

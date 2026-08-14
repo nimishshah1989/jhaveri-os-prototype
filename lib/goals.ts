@@ -69,6 +69,8 @@ export interface Outlook extends Goal {
   met: boolean;
 }
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
 const monthsBetween = (from: string, to: string) =>
   Math.round((Date.parse(to) - Date.parse(from)) / 2.6298e9);
 
@@ -295,6 +297,41 @@ export function goalPath(g: Goal, extraMonthly = 0): PathPoint[] {
     });
     plain = walk(plain, g.monthly, g.rate, 1);
     boost = walk(boost, g.monthly + extraMonthly, g.rate, 1);
+  }
+  return out;
+}
+
+export interface Step {
+  extra: number;
+  /** The arrival month, already formatted — the slider takes data, not a formatter. */
+  label: string;
+  /** Where the money lands on the target date at this instalment. */
+  projected: number;
+  reachedOn: string | null;
+  /** Negative = early, positive = late. Null when it never gets there. */
+  monthsOff: number | null;
+  met: boolean;
+}
+
+/**
+ * Every instalment the client could choose, priced in advance.
+ *
+ * Computed on the server through the same `outlook` the page prints, then handed
+ * to the slider as a finished list — so dragging cannot produce a number the rest
+ * of the page disagrees with. The alternative, re-implementing the walk in the
+ * browser, is two models of the same money and they diverge the first time either
+ * one is touched.
+ */
+export function simulate(g: Goal, max = 20000, step = 500): Step[] {
+  const out: Step[] = [];
+  for (let extra = 0; extra <= max; extra += step) {
+    const o = outlook({ ...g, monthly: g.monthly + extra });
+    const at = o.reachedOn;
+    out.push({
+      extra,
+      label: at ? `${MONTHS[Number(at.slice(5, 7)) - 1]}-${at.slice(0, 4)}` : '—',
+      projected: o.projected, reachedOn: at, monthsOff: o.monthsOff, met: o.met,
+    });
   }
   return out;
 }

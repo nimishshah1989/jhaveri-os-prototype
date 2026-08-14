@@ -160,7 +160,7 @@ export function GoalsTab({ id, head, focus }: { id: number; head: ClientHeader; 
         </div></div>
       </div>
 
-      <p className="d">
+      <div className="d">
         Distance is in months, not rupees — &ldquo;₹4 L short&rdquo; means nothing to a client
         and &ldquo;fourteen months late&rdquo; means everything.
         <Explain teaser="Why we never project their own return">
@@ -170,7 +170,7 @@ export function GoalsTab({ id, head, focus }: { id: number; head: ClientHeader; 
           same for every client in the firm, and their own record stays on the fund pages where it
           belongs.
         </Explain>
-      </p>
+      </div>
 
       {list.map(o => <Goal key={o.goal_id} o={o} focus={String(o.goal_id) === focus} />)}
     </>
