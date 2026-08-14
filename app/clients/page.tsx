@@ -249,6 +249,8 @@ export default async function ClientsPage({ searchParams }: PageProps<'/clients'
               <option value="pnl">Sort: P&amp;L</option>
               <option value="xirr">Sort: XIRR</option>
               <option value="activity">Sort: least recent activity</option>
+              <option value="spoke">Sort: longest since we spoke</option>
+              <option value="parked">Sort: most parked cash</option>
               <option value="health">Sort: weakest health first</option>
             </select>
             <input type="search" name="q" placeholder="Search name / folio / PAN" defaultValue={f.q ?? ''} />

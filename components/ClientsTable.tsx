@@ -19,16 +19,24 @@ const OPTIONAL_COLS = [
   ['invested', 'Invested'],
   ['pnl', 'P&L'],
   ['activity', 'Last activity'],
+  ['txn', 'Last transaction'],
+  ['sip', 'Last SIP'],
+  ['spoke', 'Last spoken to'],
+  ['parked', 'Parked cash'],
   ['flags', 'Flags'],
 ] as const;
 type OptCol = (typeof OPTIONAL_COLS)[number][0];
-const DEFAULT_COLS: OptCol[] = ['pnl', 'activity'];
+// Last transaction is on by default and plain "last activity" is not: an
+// instalment the client set up two years ago keeps the activity column looking
+// fresh long after the person behind it went quiet.
+const DEFAULT_COLS: OptCol[] = ['pnl', 'txn', 'spoke'];
 const STORAGE_KEY = 'jhaveri.clients.cols';
 
 function exportCsv(rows: ClientRow[]): void {
-  const head = 'client_id,name,value,invested,pnl,xirr_blended,last_activity,sip_monthly,next_step,flags';
+  const head = 'client_id,name,value,invested,pnl,xirr_blended,last_activity,last_transaction,last_sip,last_spoken_to,parked_cash,sip_monthly,next_step,flags';
   const body = rows.map(r =>
-    [r.client_id, `"${r.name}"`, r.v, r.invested, r.pnl, r.wx ?? '', r.last_activity ?? '', r.sip_monthly, r.top_action ?? '', `"${r.flags}"`].join(','));
+    [r.client_id, `"${r.name}"`, r.v, r.invested, r.pnl, r.wx ?? '', r.last_activity ?? '',
+      r.last_txn ?? '', r.last_sip ?? '', r.last_spoke ?? '', r.parked, r.sip_monthly, r.top_action ?? '', `"${r.flags}"`].join(','));
   const blob = new Blob([[head, ...body].join('\n')], { type: 'text/csv' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -101,7 +109,11 @@ export function ClientsTable({ rows, totals, health }: { rows: ClientRow[]; tota
               {cols.has('pnl') && <th title="Green = gain, red = loss">P&amp;L</th>}
               <th title="Value-weighted across holdings, as of the latest feed">XIRR</th>
               <th title="Portfolio health 0–100 — five rule-scored components; +N is the jump available from open levers. Full breakdown on the client's Health tab.">Health</th>
-              {cols.has('activity') && <th>Last activity</th>}
+              {cols.has('activity') && <th title="The most recent of anything — instalment or transaction">Last activity</th>}
+              {cols.has('txn') && <th title="The last time they chose to do something, ignoring automated instalments">Last transaction</th>}
+              {cols.has('sip') && <th title="The last instalment that ran on its own">Last SIP</th>}
+              {cols.has('spoke') && <th title="The last logged conversation — call, meeting or note">Last spoken to</th>}
+              {cols.has('parked') && <th title="Liquid and arbitrage money held longer than three months">Parked cash</th>}
               <th>SIP / month</th>
               <th title="The highest-value open action for this client">Next step</th>
               {cols.has('flags') && <th>Flags</th>}
@@ -135,6 +147,18 @@ export function ClientsTable({ rows, totals, health }: { rows: ClientRow[]; tota
                   ) : '—'}
                 </td>
                 {cols.has('activity') && <td className="num" style={{ textAlign: 'center' }}>{r.last_activity ? dmy2(r.last_activity) : '—'}</td>}
+                {cols.has('txn') && <td className="num" style={{ textAlign: 'center' }}>{r.last_txn ? dmy2(r.last_txn) : '—'}</td>}
+                {cols.has('sip') && <td className="num" style={{ textAlign: 'center' }}>{r.last_sip ? dmy2(r.last_sip) : '—'}</td>}
+                {cols.has('spoke') && (
+                  <td className="num" style={{ textAlign: 'center' }}>
+                    {r.last_spoke
+                      ? dmy2(r.last_spoke)
+                      : <span className="fchip conc" title="No call, meeting or note has ever been logged">never</span>}
+                  </td>
+                )}
+                {cols.has('parked') && (
+                  <td className="r num">{r.parked > 0 ? inrCompact(r.parked) : '—'}</td>
+                )}
                 <td className="r num">{r.sip_monthly > 0 ? inrCompact(r.sip_monthly) : <span className="sub" title="No live SIP — an opportunity">none</span>}</td>
                 <td style={{ textAlign: 'center' }}>
                   {r.top_action

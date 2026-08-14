@@ -317,7 +317,19 @@ export interface ClientRow {
   invested: number;
   pnl: number;
   wx: number | null;
+  /** Kept as the widest definition of "something happened", for the dormant filter. */
   last_activity: string | null;
+  /**
+   * Split deliberately. An automated instalment and a transaction someone chose to
+   * make say opposite things about engagement: a book can look busy on the first
+   * and be silent on the second, which is exactly the client who leaves.
+   */
+  last_txn: string | null;
+  last_sip: string | null;
+  /** The last time anyone from the firm actually spoke to them. */
+  last_spoke: string | null;
+  /** Liquid capital sitting past the point it was parked for. */
+  parked: number;
   sip_monthly: number;
   top_action: string | null;
   open_actions: number;
@@ -336,6 +348,10 @@ const SORTS: Record<string, string> = {
   pnl: 'pnl DESC',
   xirr: 'wx DESC',
   activity: 'last_activity ASC',
+  // Two more the split makes possible: the client nobody has spoken to, and the
+  // money waiting to be deployed.
+  spoke: 'last_spoke ASC',
+  parked: 'parked DESC',
 };
 
 export function clientRows(code: string, f: ClientFilters): { rows: ClientRow[]; sql: string } {
@@ -354,6 +370,15 @@ export function clientRows(code: string, f: ClientFilters): { rows: ClientRow[];
   ROUND(SUM(CASE WHEN f.xirr IS NOT NULL THEN f.present_market_value*f.xirr END)
       / SUM(CASE WHEN f.xirr IS NOT NULL THEN f.present_market_value END),1) wx,
   (SELECT MAX(t.tr_date) FROM transaction_master t WHERE t.fk_acc_id=f.client_id AND t.tr_date <= '${TODAY}') last_activity,
+  (SELECT MAX(t.tr_date) FROM transaction_master t JOIN transaction_type_master tt ON tt.tr_type_id=t.fk_tran_type_id
+     WHERE t.fk_acc_id=f.client_id AND t.tr_date <= '${TODAY}' AND tt.tr_type_name NOT LIKE 'Systematic%') last_txn,
+  (SELECT MAX(t.tr_date) FROM transaction_master t JOIN transaction_type_master tt ON tt.tr_type_id=t.fk_tran_type_id
+     WHERE t.fk_acc_id=f.client_id AND t.tr_date <= '${TODAY}' AND tt.tr_type_name LIKE 'Systematic%') last_sip,
+  (SELECT MAX(i.occurred_at) FROM interactions i WHERE i.client_id=f.client_id) last_spoke,
+  COALESCE((SELECT SUM(x.present_market_value) FROM fifo_summary_holding_active x
+     WHERE x.client_id=f.client_id AND x.balance_units > 0.0001
+       AND x.fund_category IN ('Liquid','Arbitrage Fund')
+       AND x.inv_since_date <= date('${TODAY}','-3 months')),0) parked,
   (SELECT COALESCE(SUM(s.tr_amount),0) FROM sip_master s WHERE s.fk_acc_id=f.client_id AND s.is_live_sip=1) sip_monthly,
   (SELECT a.action_type FROM actions a WHERE a.state IN ('proposed','assigned','in_progress')
      AND ((a.subject_type='client' AND a.subject_id=CAST(f.client_id AS TEXT))

@@ -1,4 +1,5 @@
-import { closeAction, dismissAction, snoozeAction } from '../app/today/actions';
+import { closeAction, dismissAction, snoozeAction, scheduleAction } from '../app/today/actions';
+import { TODAY } from '../mockdb/engines';
 
 // The three things you can do to a piece of work: finish it, push it, or kill it.
 // Killing it always costs a reason — that is what keeps the queue honest about
@@ -50,6 +51,22 @@ export function QueueActions({ actionId, step, next }: {
           <label><input type="radio" name="days" value="3" /> In 3 days</label>
           <label><input type="radio" name="days" value="7" /> Next week</label>
           <button type="submit">Snooze</button>
+        </form>
+      </details>
+      <details>
+        <summary>Schedule</summary>
+        <form className="pop" action={scheduleAction}>
+          <input type="hidden" name="action_id" value={actionId} />
+          {nextField}
+          <label>When
+            <input type="date" name="on" required min={TODAY} defaultValue={TODAY} />
+          </label>
+          <select name="how" defaultValue="call">
+            <option value="call">Call</option>
+            <option value="meeting">Meeting</option>
+            <option value="whatsapp">WhatsApp</option>
+          </select>
+          <button type="submit">Schedule</button>
         </form>
       </details>
       <details>
