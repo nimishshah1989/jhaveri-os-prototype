@@ -256,13 +256,12 @@ const PAGES = ['today', 'clients', 'onboarding', 'earnings', 'marketing', 'busin
 
 // A tabbed page keeps most of itself in sibling files. Reading only page.tsx would
 // let a page satisfy every measure below by moving its content one file sideways.
-function pageSource(pg: string): string {
+function pageParts(pg: string): string[] {
   const dir = join('app', pg);
-  return readdirSync(dir)
-    .filter(f => f.endsWith('.tsx'))
-    .map(f => read(join(dir, f)))
-    .join('\n');
+  return readdirSync(dir).filter(f => f.endsWith('.tsx')).map(f => read(join(dir, f)));
 }
+
+const pageSource = (pg: string): string => pageParts(pg).join('\n');
 
 // What each page actually measured the first time it was measured honestly
 // (12-Aug-2026), which is NOT the same thing as what it should be. 50 words is
@@ -271,12 +270,18 @@ function pageSource(pg: string): string {
 const PROSE_BASELINE: Record<string, number> = {
   today: 14, clients: 115, onboarding: 87, earnings: 13,
   marketing: 129, business: 107, 'review-packs': 32, reports: 157,
-  'clients/book': 39,
+  'clients/book': 37,
 };
 
 const prose: Record<string, number> = {};
 for (const p of PAGES) {
-  const { words, runaway } = standingProse(pageSource(p));
+  // Measured per file and summed, not over the files glued together: each one has
+  // its own imports and its own `return (`, and a single slice through the joined
+  // text leaves every later file's import list to be counted as copy. It read 30
+  // words of `import Link from` as prose on the one page that has tab files.
+  const parts = pageParts(p).map(standingProse);
+  const words = parts.reduce((n, x) => n + x.words, 0);
+  const runaway = Math.max(0, ...parts.map(x => x.runaway));
   prose[p] = words;
   // The guard that would have caught the old counter on the day it broke: no single
   // expression may swallow half the page. That is what a runaway strip looks like,

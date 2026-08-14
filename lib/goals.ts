@@ -217,6 +217,49 @@ export function verdict(o: Outlook): string {
   return `${when}, ${how}.`;
 }
 
+export interface PathPoint {
+  /** Month key, YYYY-MM-01. */
+  m: string;
+  /** Where the money gets to on what is already going in. */
+  projected: number;
+  /** The same path with one more instalment on top — the lever, drawn. */
+  boosted: number;
+  /** Flat, so the target reads as a line to cross rather than a number to recall. */
+  target: number;
+}
+
+/**
+ * The path to the target, month by month, so "14 months late" stops being a fact
+ * to take on trust and becomes a line that misses a line. Walked exactly the way
+ * `outlook` walks it — same function, same rate — because a chart that disagreed
+ * with the sentence beside it would be worse than no chart.
+ *
+ * Runs to the target date, or to wherever the money actually arrives if that is
+ * later, so a goal that lands late still shows the crossing rather than stopping
+ * at the target date with the gap unexplained.
+ */
+export function goalPath(g: Goal, extraMonthly = 0): PathPoint[] {
+  const o = outlook(g);
+  const toTarget = Math.max(1, monthsBetween(TODAY, g.on));
+  const toArrival = o.reachedOn ? monthsBetween(TODAY, o.reachedOn) : 0;
+  const months = Math.min(GOAL_RULES.horizon_years * 12, Math.max(toTarget, toArrival) + 2);
+
+  const out: PathPoint[] = [];
+  let plain = g.now;
+  let boost = g.now;
+  for (let i = 0; i <= months; i++) {
+    out.push({
+      m: addMonths(TODAY, i).slice(0, 7) + '-01',
+      projected: Math.round(plain),
+      boosted: Math.round(boost),
+      target: g.target,
+    });
+    plain = walk(plain, g.monthly, g.rate, 1);
+    boost = walk(boost, g.monthly + extraMonthly, g.rate, 1);
+  }
+  return out;
+}
+
 /**
  * What one more rupee a month is worth, in time. This is the number that makes a
  * goal actionable: not "you are short ₹4L" but "₹2,000 a month buys back a year".

@@ -1,6 +1,7 @@
 import { db } from './db';
 import { TODAY } from '../mockdb/engines';
 import type { Figure } from './queries';
+import { outlooks, GOAL_RULES, type Outlook } from './goals';
 
 // My book — Client 360's lens with the client filter taken off.
 //
@@ -206,5 +207,91 @@ export function categoryStanding(code: string): Figure<CategoryStanding[]> {
     value, tag: 'computed',
     sql: 'bookFunds(), then value-weighted 1-year return per category; funds with no full year excluded from both sides',
     sources: ['mf_historical_price_master.price', 'fifo_summary_holding_active.present_market_value'],
+  };
+}
+
+// ── Goals, at the level the broker works at ─────────────────────────────────
+// The client lens has answered "am I going to get there" since goals-v1. The
+// broker could not see a single goal anywhere — not on Client 360 before a review
+// call, and not across the book. These two functions are the same projection the
+// client sees, read from the other side of the table, so a broker and his client
+// can never be looking at two different arrival dates.
+
+export interface BookGoal extends Outlook {
+  client_id: number;
+  client: string;
+}
+
+/** Every goal the broker's clients have named, worst first. */
+export function bookGoals(code: string): Figure<BookGoal[]> {
+  const clients = db().prepare(
+    `SELECT DISTINCT f.client_id id, MAX(f.client_name) name
+       FROM fifo_summary_holding_active f
+      WHERE f.advisor_code = ? AND f.balance_units > 0.0001
+      GROUP BY f.client_id`,
+  ).all(code) as { id: number; name: string }[];
+
+  const value = clients
+    .flatMap(c => outlooks(c.id).map(o => ({ ...o, client_id: c.id, client: c.name })))
+    // Late first, and the latest of those first — a goal that is behind is the
+    // only kind that needs a conversation. Reached ones sort to the bottom.
+    .sort((a, b) => {
+      const rank = (g: BookGoal) => (g.met ? 2 : g.monthsOff == null ? -1 : g.monthsOff > 0 ? 0 : 1);
+      return rank(a) - rank(b) || (b.monthsOff ?? 0) - (a.monthsOff ?? 0);
+    });
+
+  return {
+    value, tag: 'rule',
+    sql: `client_goals × the money tagged to each, projected at the published rate — ${GOAL_RULES.version}`,
+    sources: ['client_goals.target_amount', '.target_date', 'transaction_master.fk_goal_id', 'GOAL_RULES.rates'],
+  };
+}
+
+export interface GoalCoverage {
+  clients: number;
+  named: number;
+  silent: number;
+  /** Money sitting behind a named goal, and money that is not. */
+  spokenFor: number;
+  adrift: number;
+  late: number;
+  onTrack: number;
+  reached: number;
+  unreachable: number;
+  /** Goals named with nothing tagged to them yet. */
+  unfunded: number;
+}
+
+/**
+ * The book's answer to "what is this money for". `silent` is the number worth
+ * putting first: a client who has never named a goal is not a data gap, it is the
+ * conversation that has not happened yet, and it is the one the broker can act on.
+ */
+export function goalCoverage(code: string): Figure<GoalCoverage> {
+  const all = bookGoals(code).value;
+  const clients = db().prepare(
+    `SELECT COUNT(DISTINCT client_id) n FROM fifo_summary_holding_active
+      WHERE advisor_code = ? AND balance_units > 0.0001`,
+  ).get(code) as { n: number };
+  const named = new Set(all.map(g => g.client_id));
+  const spokenFor = all.reduce((s, g) => s + g.now, 0);
+  const book = bookHeader(code).value.aum;
+
+  return {
+    value: {
+      clients: clients.n,
+      named: named.size,
+      silent: clients.n - named.size,
+      spokenFor,
+      adrift: Math.max(0, book - spokenFor),
+      late: all.filter(g => !g.met && g.monthsOff != null && g.monthsOff > 0).length,
+      onTrack: all.filter(g => !g.met && g.monthsOff != null && g.monthsOff <= 0).length,
+      reached: all.filter(g => g.met).length,
+      unreachable: all.filter(g => !g.met && g.monthsOff == null).length,
+      unfunded: all.filter(g => g.schemes === 0).length,
+    },
+    tag: 'rule',
+    sql: 'bookGoals() folded by state, against every client holding units',
+    sources: ['client_goals', 'fifo_summary_holding_active.present_market_value'],
   };
 }

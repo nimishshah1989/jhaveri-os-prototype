@@ -5,7 +5,7 @@ import { dmy, inrCompact } from '../../../lib/format';
 import { TODAY } from '../../../mockdb/engines';
 import { broker } from '../../../lib/queries';
 import { bookHeader } from '../../../lib/book';
-import { OverviewTab, AllocationTab, LookThroughTab, FundsTab } from './tabs';
+import { OverviewTab, AllocationTab, LookThroughTab, FundsTab, GoalsTab } from './tabs';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +18,7 @@ const TABS: [string, string][] = [
   ['allocation', 'Allocation'],
   ['lookthrough', 'Look-through'],
   ['funds', 'Funds & performance'],
+  ['goals', 'Goals'],
 ];
 
 export default async function MyBookPage({ searchParams }: PageProps<'/clients/book'>) {
@@ -30,16 +31,16 @@ export default async function MyBookPage({ searchParams }: PageProps<'/clients/b
 
   return (
     <>
-      <div className="crumb"><Link href="/clients">My clients</Link> → My book</div>
+      <nav className="crumb" aria-label="Breadcrumb"><Link href="/clients">My clients</Link> → My book</nav>
       <PageHead
         title="My book" icon="money"
         question="What is my whole book actually invested in, underneath the fund names?"
         meta={`${me.name} · ${h.clients} clients · as of ${dmy(h.as_of ?? TODAY)}`}
       />
       <div className="denom">
-        {inrCompact(h.aum)} across {h.schemes} funds and {h.folios} folios — the same rows the
-        client pages read, with nobody&apos;s name attached
+        {inrCompact(h.aum)} across {h.schemes} funds and {h.folios} folios
         <Explain teaser="Why this is not the Growth page">
+          These are the same rows the client pages read, with nobody&apos;s name attached.
           Growth answers whether the book grew and who moved it. This answers what the money is
           in. They share a total and nothing else: a book can be perfectly allocated and shrinking,
           or growing fast into one sector. Clients answers the third question — who needs a call.
@@ -60,6 +61,7 @@ export default async function MyBookPage({ searchParams }: PageProps<'/clients/b
           {tab === 'allocation' && <AllocationTab code={me.code} head={h} />}
           {tab === 'lookthrough' && <LookThroughTab code={me.code} sector={sector} />}
           {tab === 'funds' && <FundsTab code={me.code} head={h} />}
+          {tab === 'goals' && <GoalsTab code={me.code} />}
         </div>
       </div>
     </>

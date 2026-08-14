@@ -3,12 +3,13 @@ import { Explain } from '../../../components/Explain';
 import { Collapse } from '../../../components/Collapse';
 import { ClientLink } from '../../../components/ClientLink';
 import { ChartBars } from '../../../components/charts';
-import { inr, inrCompact } from '../../../lib/format';
+import { inr, inrCompact, dmy } from '../../../lib/format';
 import { bookLookThrough, type LookThrough } from '../../../lib/portfolio';
 import {
   bookAssetMix, bookCategoryMix, sectorClients, bookFunds, categoryStanding,
-  type BookHeader,
+  bookGoals, goalCoverage, type BookHeader,
 } from '../../../lib/book';
+import { GOAL_RULES } from '../../../lib/goals';
 
 // The four lenses. Each one is the Client 360 tab of the same name with the client
 // filter taken off, so a figure here and the same figure on a client's page are
@@ -371,6 +372,148 @@ export function FundsTab({ code, head }: { code: string; head: BookHeader }) {
           It is one year, on NAV, against the average of every fund in that category — not a
           recommendation and not risk-adjusted. A Small Cap fund beating its category in a year
           the whole category fell is still a fund that lost your clients money.
+        </Explain>
+      </div>
+    </>
+  );
+}
+
+// ── Goals, across the book ──────────────────────────────────────────────────
+// The aggregate the broker never had. `silent` leads it on purpose: a client who
+// has never said what the money is for is not a hole in the data, it is the
+// conversation that has not happened, and it is the only number here he can act
+// on today. Everything else is the same projection the client sees on their own
+// phone — one engine, held to it by verify-goals-book.
+
+const GOAL_STATE: Record<string, { label: string; tone: string }> = {
+  late: { label: 'Behind', tone: 'amber' },
+  unreachable: { label: 'Not on this path', tone: 'red' },
+  onTrack: { label: 'On track', tone: 'green' },
+  reached: { label: 'Reached', tone: 'blue' },
+};
+
+export function GoalsTab({ code }: { code: string }) {
+  const cov = goalCoverage(code);
+  const c = cov.value;
+  const all = bookGoals(code).value;
+
+  const states = (['unreachable', 'late', 'onTrack', 'reached'] as const).map(k => ({
+    state: GOAL_STATE[k].label, n: c[k], tone: GOAL_STATE[k].tone,
+  }));
+  const kinds = [...all.reduce((m, g) => m.set(g.kind, (m.get(g.kind) ?? 0) + g.now), new Map<string, number>())]
+    .map(([kind, v]) => ({ kind, v }))
+    .sort((a, b) => a.v - b.v);
+
+  return (
+    <>
+      <div className="cards six">
+        <div className="card hero"><div className="body">
+          <div className="k">Never named a goal</div>
+          <div className="v num warn">{c.silent}</div>
+          <div className="s">of {c.clients} clients · {inrCompact(c.adrift)} with no stated purpose</div>
+        </div></div>
+        <div className="card"><div className="body">
+          <div className="k">Working towards something</div>
+          <div className="v num">{inrCompact(c.spokenFor)}</div>
+          <div className="s">{all.length} goals across {c.named} clients</div>
+        </div></div>
+        <div className="card"><div className="body">
+          <div className="k">Behind</div>
+          <div className="v num warn">{c.late}</div>
+          <div className="s">late on today&apos;s instalments</div>
+        </div></div>
+        <div className="card"><div className="body">
+          <div className="k">Not on this path</div>
+          <div className="v num warn">{c.unreachable}</div>
+          <div className="s">will not arrive inside {GOAL_RULES.horizon_years} years</div>
+        </div></div>
+        <div className="card"><div className="body">
+          <div className="k">On track</div>
+          <div className="v num good">{c.onTrack}</div>
+          <div className="s">{c.reached} already reached</div>
+        </div></div>
+        <div className="card"><div className="body">
+          <div className="k">Named but unfunded</div>
+          <div className="v num">{c.unfunded}</div>
+          <div className="s">no fund tagged to them yet</div>
+        </div></div>
+      </div>
+
+      <div className="charts">
+        <ChartBars
+          height={215}
+          title="Where the named goals stand"
+          xLabel="state" yLabel="goals"
+          source={`client_goals projected at the published rate — ${GOAL_RULES.version}`}
+          data={states} xKey="state" toneKey="tone"
+          series={[{ key: 'n', name: 'Goals', tone: 'blue' }]}
+          keyItems={[
+            { name: 'not on this path', tone: 'red' }, { name: 'behind', tone: 'amber' },
+            { name: 'on track', tone: 'green' }, { name: 'reached', tone: 'blue' },
+          ]}
+          mark={<><b>{c.late + c.unreachable}</b> of {all.length} goals do not arrive on time on what is going in today. That is a monthly-instalment conversation, not a fund-selection one — the fix is on the client&apos;s Goals tab, priced in months.</>}
+        />
+        <ChartBars
+          horizontal height={215} unit="inr"
+          title="What the book is saving for"
+          xLabel="₹ tagged to goals of this kind" yLabel="kind"
+          source="client_goals.goal_kind × the money tagged to each goal"
+          data={kinds} xKey="kind"
+          series={[{ key: 'v', name: 'Working towards it', tone: 's1' }]}
+          mark={<>Only <b>{inrCompact(c.spokenFor)}</b> of the book is behind a named goal — {Math.round((c.adrift / (c.spokenFor + c.adrift)) * 100)}% of the money has never been given a purpose.</>}
+        />
+      </div>
+
+      <h2 className="sec">Every goal, worst first <Explain figure={cov} /></h2>
+      <div className="tblwrap">
+        <table>
+          <thead>
+            <tr>
+              <th style={{ textAlign: 'left' }}>Client</th>
+              <th style={{ textAlign: 'left' }}>Goal</th>
+              <th className="r">Target</th><th>By</th>
+              <th className="r">Has now</th><th className="r">Monthly</th>
+              <th>Arrives</th><th>State</th>
+            </tr>
+          </thead>
+          <tbody>
+            <Collapse shown={8} noun="goals" as="rows" span={8} items={all.map(g => {
+              const st = g.met ? 'reached' : g.monthsOff == null ? 'unreachable' : g.monthsOff > 0 ? 'late' : 'onTrack';
+              return (
+                <tr key={`${g.client_id}-${g.goal_id}`}>
+                  <td><ClientLink id={g.client_id} name={g.client} /></td>
+                  <td>
+                    <Link href={`/clients/${g.client_id}?tab=goals&g=${g.goal_id}`}>{g.name}</Link>
+                  </td>
+                  <td className="r num">{inrCompact(g.target)}</td>
+                  <td style={{ textAlign: 'center' }}>{dmy(g.on).slice(3)}</td>
+                  <td className="r num">{inrCompact(g.now)}</td>
+                  <td className="r num">{g.monthly > 0 ? inrCompact(g.monthly) : '—'}</td>
+                  <td style={{ textAlign: 'center' }}>
+                    {g.met ? 'now' : g.reachedOn ? dmy(g.reachedOn).slice(3) : '—'}
+                  </td>
+                  <td style={{ textAlign: 'center' }}>
+                    <span className={`fchip ${st === 'reached' || st === 'onTrack' ? 'lt' : st === 'late' ? 'conc' : 'atrisk'}`}>
+                      {g.met ? 'Reached'
+                        : g.monthsOff == null ? 'Not on this path'
+                          : `${Math.abs(g.monthsOff)}m ${g.monthsOff > 0 ? 'late' : 'early'}`}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })} />
+            {all.length === 0 && (
+              <tr><td colSpan={8} className="empty">Nobody in this book has named a goal yet.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      <div className="d">
+        <Explain teaser="How to read a goal that misses">
+          A goal that will not arrive is not a bad fund — it is a target, a date and an instalment
+          that were never reconciled with each other. All three are editable, and the client&apos;s
+          own Goals tab prices each one in months: what ₹2,000 or ₹5,000 more a month buys back,
+          drawn as a second line against the first.
         </Explain>
       </div>
     </>

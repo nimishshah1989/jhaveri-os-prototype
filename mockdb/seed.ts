@@ -13,6 +13,7 @@ import {
   makeNavSeries, navAt, NavSeries, xirr, runFifo, unrealizedSplit, Txn,
 } from './engines';
 import { seedFundIntelligence } from './seed-funds';
+import { seedGoals } from './seed-goals';
 import { importHeldAway } from '../lib/import';
 
 const DIR = dirname(fileURLToPath(import.meta.url));
@@ -1588,4 +1589,13 @@ console.log('DB:', DB_PATH);
   }
 
   console.log(`EXEC: ${fresh ? '1 NFO open' : 'no NFO'}`);
+}
+
+/* ── Goals for the rest of the book ───────────────────────────────────────────
+   Last, after every other draw, so it cannot shift the RNG stream the story facts
+   are pinned to — and after the household block, so the family goals it writes
+   are already in place and this one can leave them alone. */
+{
+  const g = seedGoals(db, ins, emit);
+  console.log(`GOALS+: ${g.goals} goals for ${g.clients} more clients · ${g.funded} funded, ${g.unfunded} named but unfunded`);
 }

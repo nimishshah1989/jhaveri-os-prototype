@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Icon } from '../../../components/Icon';
 import { inr, inrCompact, dmy } from '../../../lib/format';
-import { outlooks, untagged, GOAL_RULES } from '../../../lib/goals';
+import { outlooks, untagged, GOAL_RULES, type Outlook } from '../../../lib/goals';
 import { clientKpis } from '../../../lib/client360';
 import { ME } from '../layout';
 import { Nothing } from '../empty';
@@ -10,6 +10,24 @@ export const dynamic = 'force-dynamic';
 
 /** The month a date falls in, which is the only precision a projection has earned. */
 const month = (d: string) => dmy(d).slice(3);
+
+/**
+ * The progress bar, in two parts: solid is what the goal holds today, pale is
+ * what today's instalments add by the target date, and what stays empty is the
+ * shortfall. Both parts are needed — a share of the target on its own says
+ * nothing about someone paying in ₹25,000 a month.
+ *
+ * A hard-stop gradient rather than two stacked elements, so the track keeps its
+ * one rounded shape.
+ */
+function barFill(o: Outlook): string {
+  const tone = o.monthsOff != null && o.monthsOff <= 0 ? 'var(--f-pos)' : 'var(--f-gold)';
+  const has = Math.min(100, (o.now / o.target) * 100);
+  const byThen = Math.min(100, Math.max(has, (o.projected / o.target) * 100));
+  return `linear-gradient(to right, ${tone} 0 ${has}%, `
+    + `color-mix(in srgb, ${tone} 34%, transparent) ${has}% ${byThen}%, `
+    + `transparent ${byThen}% 100%)`;
+}
 
 export default async function Goals() {
   const list = outlooks(ME);
@@ -52,14 +70,11 @@ export default async function Goals() {
 
           <div className="f-bar" style={{ marginTop: 8 }}>
             <div className="bl">
-              <span>{inrCompact(o.now)} of {inrCompact(o.target)}</span>
+              <span>{inrCompact(o.now)}{o.met ? '' : ` → ${inrCompact(o.projected)}`} of {inrCompact(o.target)}</span>
               <b className="num">{Math.min(100, Math.round((o.now / o.target) * 100))}%</b>
             </div>
             <div className="bt">
-              <i style={{
-                width: `${Math.min(100, (o.now / o.target) * 100)}%`,
-                background: o.monthsOff != null && o.monthsOff <= 0 ? 'var(--f-pos)' : 'var(--f-gold)',
-              }} />
+              <i style={{ width: '100%', background: barFill(o) }} />
             </div>
           </div>
 

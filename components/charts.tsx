@@ -255,7 +255,7 @@ export function ChartBars({
 // Change over time. One value axis only — two scales on one plot invent a
 // correlation that is not in the data, so a second measure gets its own chart.
 export function ChartLines({
-  data, xKey, series, unit = 'inr', filled, bars, markers, endLabels, baseline = 'zero', ...frame
+  data, xKey, series, unit = 'inr', filled, bars, markers, endLabels, vline, baseline = 'zero', ...frame
 }: Frame & {
   data: Row[];
   xKey: string;
@@ -267,6 +267,12 @@ export function ChartLines({
   bars?: Series[];
   /** Events drawn on the lines — money in, money out. */
   markers?: Marker[];
+  /**
+   * A moment on the x axis worth naming — a target date, a deadline. Without it a
+   * projection that runs past its own target draws a line crossing a line with no
+   * way to see WHEN the target was due, which is the whole question.
+   */
+  vline?: { x: string; label: string };
   /** Print the last value of each line beside it, so the figures are on the plot
    *  and not only in the hover. */
   endLabels?: boolean;
@@ -307,7 +313,8 @@ export function ChartLines({
           ? <Area key={s.key} dataKey={s.key} name={s.name} stroke={TONE[s.tone]} strokeWidth={2}
               fill={TONE[s.tone]} fillOpacity={0.1} isAnimationActive={false} dot={false} />
           : <Line key={s.key} dataKey={s.key} name={s.name} stroke={TONE[s.tone]} strokeWidth={2}
-              isAnimationActive={false} dot={{ r: 2.5, strokeWidth: 0, fill: TONE[s.tone] }} activeDot={{ r: 5 }}>
+              isAnimationActive={false} activeDot={{ r: 5 }}
+              dot={data.length > 40 ? false : { r: 2.5, strokeWidth: 0, fill: TONE[s.tone] }}>
               {endLabels && (
                 <LabelList dataKey={`end_${s.key}`} position="right" fontSize={10.5}
                   fill={TONE[s.tone]} formatter={(v: unknown) => UNIT[unit].axis(Number(v))} />
@@ -318,6 +325,10 @@ export function ChartLines({
           <Scatter key={m.key} dataKey={m.key} name={m.name} fill={TONE[m.tone]} shape={m.shape}
             isAnimationActive={false} />
         ))}
+        {vline && (
+          <ReferenceLine x={vline.x} stroke={TONE.grey} strokeDasharray="3 3"
+            label={{ value: vline.label, position: 'top', fill: 'var(--muted)', fontSize: 10.5 }} />
+        )}
         <ReferenceLine y={0} stroke={GRID} />
       </ComposedChart>
     </Figure>

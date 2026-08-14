@@ -9,12 +9,14 @@ import {
 import { typeOf } from '../../../lib/queue-display';
 import { AnalysisTab } from './analysis-tab';
 import { HealthTab } from './health-tab';
+import { GoalsTab } from './goals-tab';
 
 export const dynamic = 'force-dynamic';
 
 const TABS: [string, string][] = [
   ['overview', 'Overview'],
   ['health', 'Health & opportunities'],
+  ['goals', 'Goals'],
   ['analysis', 'Portfolio analysis'],
   ['holdings', 'Holdings & tax lots'],
   ['transactions', 'Transactions'],
@@ -61,6 +63,7 @@ export default async function Client360({ params, searchParams }: PageProps<'/cl
         <div>
           {tab === 'overview' && <OverviewTab id={id} head={head} />}
           {tab === 'health' && <HealthTab id={id} head={head} focus={typeof sp.c === 'string' ? sp.c : undefined} />}
+          {tab === 'goals' && <GoalsTab id={id} head={head} focus={typeof sp.g === 'string' ? sp.g : undefined} />}
           {tab === 'analysis' && <AnalysisTab id={id} head={head} funds={typeof sp.funds === 'string' ? sp.funds : undefined} fundFocus={typeof sp.fund === 'string' ? sp.fund : undefined} />}
           {tab === 'holdings' && <HoldingsTab id={id} />}
           {tab === 'transactions' && <TransactionsTab id={id} />}
