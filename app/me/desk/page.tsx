@@ -6,8 +6,12 @@ import { manager } from '../../../lib/me';
 import { taxAhead, feeOnMe, consents } from '../../../lib/desk';
 import { household } from '../../../lib/household';
 import { tickets, clockSummary } from '../../../lib/clock';
+import { dividendOptions, duplicateFolios, DIVIDEND_WORDS } from '../../../lib/mandate';
+import { available, milestones } from '../../../lib/papers';
+import { nominees } from '../../../lib/desk';
 import { ME } from '../layout';
 import { raise } from '../acts';
+import { chooseDividend } from '../invest/actions';
 import { Prefs } from '../prefs';
 import { Nothing } from '../empty';
 
@@ -34,6 +38,11 @@ export default async function Desk() {
   const open = all.filter(x => !x.closed);
   const done = all.filter(x => x.closed);
   const clock = clockSummary(ME);
+  const dividends = dividendOptions(ME);
+  const dupes = duplicateFolios(ME);
+  const papers = available(ME);
+  const marks = milestones(ME);
+  const nom = nominees(ME);
   const tax = taxAhead(ME);
   const fee = feeOnMe(ME);
   const perms = consents(ME);
@@ -196,25 +205,84 @@ export default async function Desk() {
       )}
 
       {/* ── papers ── */}
-      <div className="f-sect">Papers, on request</div>
+      {/* ── papers that are papers ──────────────────────────────────────────
+          These used to raise a request on the manager's queue. A client who taps
+          "capital gains statement" and gets a promise has learned something
+          about this firm, and it is not what we meant. Every one of these builds
+          the file from the same functions this app renders — see lib/papers.ts. */}
+      <div className="f-sect">Your papers</div>
       <div className="f-card" style={{ paddingTop: 4, paddingBottom: 4 }}>
-        {PAPERS.map(([kind, title, line]) => (
-          <form action={raise} key={kind}>
-            <input type="hidden" name="kind" value={`paper_${kind}`} />
-            <input type="hidden" name="label" value={title} />
-            <input type="hidden" name="evidence" value={`${txns.rows.length} entries from ${dmy(txns.from)} to ${dmy(txns.to)}`} />
-            <button className="f-row" type="submit" style={{ cursor: 'pointer' }}>
-              <span className="mk"><Icon name="file" /></span>
-              <span className="nm"><b>{title}</b><span>{line}</span></span>
-              <span className="f-stamp">Prepare</span>
-            </button>
-          </form>
+        {papers.map(p2 => (
+          <a href={`/me/papers/${p2.kind}`} download key={p2.kind} className="f-row">
+            <span className="mk"><Icon name="file" /></span>
+            <span className="nm"><b>{p2.title}</b><span>{p2.blurb}</span></span>
+            <span className="fg">
+              <b className="num">{p2.rows}</b>
+              <span style={{ color: 'var(--f-faint)', fontWeight: 400 }}>rows</span>
+            </span>
+          </a>
         ))}
       </div>
+      <p className="f-note">
+        A spreadsheet, immediately. Built from the same figures the screens above show.
+      </p>
       <p className="f-note">
         Free, in-app, and yours on demand — {txns.rows.length} entries on record from {dmy(txns.from)}.
         The Folio never charges you for your own records.
       </p>
+
+      {/* ── who inherits this, and the folios where nobody does ────────────── */}
+      <div className="f-sect">
+        Who inherits it
+        {nom.missing > 0 && <span className="rt" style={{ color: 'var(--f-neg)' }}>{nom.missing} without</span>}
+      </div>
+      <div className={`f-card${nom.missing > 0 ? ' f-act urgent' : ''}`}>
+        <div className="f-k">
+          <Icon name={nom.missing > 0 ? 'alert' : 'shield'} /> {nom.named} of {nom.rows.length} folios have someone named
+        </div>
+        {nom.rows.map(r => (
+          <div className="f-step" key={r.folio_no}>
+            <span>{r.fund.replace(/ (Dir|Reg) ?Gr$/, '')} · folio {r.folio_no}</span>
+            <b className={r.nominee ? '' : 'neg'}>{r.nominee ?? 'nobody'}</b>
+          </div>
+        ))}
+        {nom.missing > 0 && (
+          <>
+            <p className="f-note">
+              {inr(nom.at_risk)} with nobody named. Without a nominee your family needs a court order for
+              money that was always theirs.
+            </p>
+            <form action={raise}>
+              <input type="hidden" name="kind" value="add_nominee" />
+              <input type="hidden" name="label" value={`Add a nominee to ${nom.missing} folio(s)`} />
+              <input type="hidden" name="evidence" value={`${nom.at_risk} unnominated across ${nom.missing} folios`} />
+              <button className="f-btn" type="submit">Name someone</button>
+            </form>
+          </>
+        )}
+      </div>
+
+      {/* ── milestones: things that happened, never things to celebrate ────── */}
+      {marks.length > 0 && (
+        <>
+          <div className="f-sect">Worth noting</div>
+          <div className="f-card">
+            {marks.map(m => (
+              <div className="f-ins" key={m.key}>
+                <span className="g"><Icon name="check" /></span>
+                <span className="tx">
+                  <span className="d">{dmy(m.on)}</span>
+                  <b>{m.title}</b> {m.detail}
+                </span>
+              </div>
+            ))}
+            <p className="f-note" style={{ marginBottom: 0 }}>
+              Found in your own ledger. None of it is sent to you, and none of it arrives because it has
+              been a while.
+            </p>
+          </div>
+        </>
+      )}
 
       {/* ── the household is its own surface now; the Desk keeps the landmark ──
           It used to reprint the member list here, which made two pages say the
@@ -240,6 +308,67 @@ export default async function Desk() {
         </div>
         <span className="f-cardlink">Open the household <Icon name="chev" /></span>
       </Link>
+      )}
+
+      {/* ── what happens when a fund declares something ─────────────────── */}
+      {dividends.length > 0 && (
+        <>
+          <div className="f-sect">If a fund pays out</div>
+          <div className="f-card">
+            {dividends.map(d => (
+              <details className="f-acc" key={`${d.folio}-${d.scheme_id}`}>
+                <summary>
+                  <Icon name="chev" /> {d.fund.replace(/ (Dir|Reg) ?Gr$/, '')}
+                  <span className="rt">{d.option}</span>
+                </summary>
+                <div className="body">
+                  <p className="f-note" style={{ margin: '0 0 10px' }}>{DIVIDEND_WORDS[d.option]}</p>
+                  <form action={chooseDividend}>
+                    <input type="hidden" name="folio" value={d.folio} />
+                    <input type="hidden" name="scheme" value={d.scheme_id} />
+                    <div className="f-btnrow" style={{ marginTop: 0 }}>
+                      {(['growth', 'payout', 'reinvest'] as const).filter(o => o !== d.option).map(o => (
+                        <button key={o} className="f-btn ghost" type="submit" name="option" value={o}
+                          style={{ marginTop: 0 }}>{o}</button>
+                      ))}
+                    </div>
+                  </form>
+                </div>
+              </details>
+            ))}
+            <p className="f-note" style={{ marginBottom: 0 }}>
+              Reinvesting is taxed as taking the cash is, with no cash arriving to pay it.
+            </p>
+          </div>
+        </>
+      )}
+
+      {/* ── the same fund, filed twice ─────────────────────────────────────── */}
+      {dupes.length > 0 && (
+        <>
+          <div className="f-sect">Filed twice</div>
+          {dupes.map(d => (
+            <div className="f-card" key={d.scheme_id}>
+              <div className="f-k"><Icon name="link" /> {d.fund.replace(/ (Dir|Reg) ?Gr$/, '')}</div>
+              {d.folios.map(f => (
+                <div className="f-step" key={f.folio_no}>
+                  <span>Folio {f.folio_no}{f.since ? ` · since ${dmy(f.since).slice(3)}` : ''}</span>
+                  <b className="num">{inrCompact(f.value)}</b>
+                </div>
+              ))}
+              <p className="f-note">
+                One fund, two folio numbers — every statement and every exit happens twice. Merging is
+                registrar work; nothing is sold.
+              </p>
+              <form action={raise}>
+                <input type="hidden" name="kind" value="consolidate_folios" />
+                <input type="hidden" name="label" value={`Merge ${d.folios.length} folios on ${d.fund}`} />
+                <input type="hidden" name="evidence" value={`${d.folios.map(f => f.folio_no).join(', ')} · ${d.total}`} />
+                <button className="f-btn ghost" type="submit">Ask {rm?.first ?? 'my manager'} to merge them</button>
+              </form>
+            </div>
+          ))}
+        </>
       )}
 
       {/* ── consent, visible and reversible ── */}

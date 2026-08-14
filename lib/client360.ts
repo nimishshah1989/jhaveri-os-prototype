@@ -87,6 +87,17 @@ export interface Holding {
   lots: Lot[];
 }
 
+/**
+ * Every holding, one row per FOLIO — not per scheme.
+ *
+ * Both joins below carry the folio, and they did not always. `fifo_summary_holding`
+ * and `fifo_detail_holding_latest` are keyed on (account, scheme, folio), but the
+ * joins were written as (account, scheme) back when no client in the seed held the
+ * same fund twice. The moment one did, this function returned six rows for four
+ * folios, every lot was counted against both rows of a duplicated scheme, and the
+ * client's value read 21% high. Nothing failed until then, which is exactly what
+ * makes it worth a comment.
+ */
 export function clientHoldings(id: number): { rows: Holding[]; sql: string } {
   const sql = `SELECT f.scheme_id, f.fund_name, f.fund_category, f.folio_no, f.balance_units units,
   f.avg_cost, f.nav, f.present_market_value value, f.cost_amount invested, f.portfolio_weight weight,
@@ -94,13 +105,21 @@ export function clientHoldings(id: number): { rows: Holding[]; sql: string } {
 FROM fifo_summary_holding_active f
 JOIN scheme_master sm ON sm.scheme_id=f.scheme_id
 LEFT JOIN fifo_summary_holding sh ON sh.fk_acc_id=f.client_id AND sh.fk_scheme_id=f.scheme_id
+  AND sh.sh_folio_no=f.folio_no
 WHERE f.client_id=? ORDER BY value DESC`;
   const rows = db().prepare(sql).all(id) as (Omit<Holding, 'lots'> & { lots?: Lot[] })[];
   const lotStmt = db().prepare(`SELECT dhl_purchase_date purchase_date, dhl_purchase_units units,
     dhl_purchase_price price, dhl_current_value current_value, dhl_purchase_amount invested,
     dhl_holding_days holding_days, dhl_unrealized_ltcg unreal_lt, dhl_unrealized_stcg unreal_st
-    FROM fifo_detail_holding_latest WHERE fk_acc_id=? AND fk_scheme_id=? ORDER BY dhl_purchase_date`);
-  for (const r of rows) r.lots = lotStmt.all(id, r.scheme_id) as Lot[];
+    FROM fifo_detail_holding_latest WHERE fk_acc_id=? AND fk_scheme_id=? AND dhl_folio_no=?
+    ORDER BY dhl_purchase_date`);
+  // Keyed on the folio as well as the scheme. Without it, a client holding the
+  // same fund on two folios gets every lot counted against both rows — the
+  // holding then disagrees with the sum of its own lots, and the tax preview on
+  // a redemption is computed off twice the units that folio actually has. It
+  // never bit because no client in the seed had a duplicate folio until phase 5
+  // needed one to consolidate.
+  for (const r of rows) r.lots = lotStmt.all(id, r.scheme_id, r.folio_no) as Lot[];
   return { rows: rows as Holding[], sql };
 }
 

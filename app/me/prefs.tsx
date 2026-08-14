@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Icon } from '../../components/Icon';
+import { LockSetting } from './applock';
 
 // Small, real controls. Text size and hidden values change the app immediately and
 // survive a reload; anything that needs the device or the server says so rather
@@ -64,10 +65,7 @@ export function Prefs() {
         </span>
       </div>
 
-      <div className="setrow" style={{ borderBottom: 0 }}>
-        <span className="st2"><Icon name="shield" /> Face ID on open<span>Needs the device, so it is real-build work. Shown here so you know it is coming, not pretended with a dead switch.</span></span>
-        <span className="f-stamp" style={{ color: 'var(--f-faint)' }}>NOT YET</span>
-      </div>
+      <LockSetting />
     </div>
   );
 }

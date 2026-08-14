@@ -55,8 +55,24 @@ function sliceBy(column: 'asset_name' | 'fund_category', code: string): Figure<S
     GROUP BY ${column} ORDER BY v DESC`;
   const rows = db().prepare(sql).all(code) as Omit<Slice, 'pct'>[];
   const total = rows.reduce((s, r) => s + r.v, 0);
+  // Largest remainder, so the shares on screen add to exactly 100. Rounding each
+  // share on its own drifts with the number of slices — it read 100.0% at eleven
+  // categories and 99.8% at twelve, and a pie whose labels sum to 99.8% looks
+  // broken to the person reading it whatever the underlying rupees say.
+  const exact = rows.map(r => (total > 0 ? (r.v / total) * 1000 : 0));
+  const floors = exact.map(Math.floor);
+  let left = 1000 - floors.reduce((s, n) => s + n, 0);
+  const order = exact
+    .map((e, i) => ({ i, frac: e - floors[i] }))
+    .sort((a, b) => b.frac - a.frac);
+  const tenths = [...floors];
+  for (const o of order) {
+    if (left <= 0) break;
+    tenths[o.i] += 1;
+    left -= 1;
+  }
   return {
-    value: rows.map(r => ({ ...r, pct: total > 0 ? Math.round((r.v / total) * 1000) / 10 : 0 })),
+    value: rows.map((r, i) => ({ ...r, pct: total > 0 ? tenths[i] / 10 : 0 })),
     tag: 'computed', sql,
     sources: [`fifo_summary_holding_active.${column}`, '.present_market_value'],
   };

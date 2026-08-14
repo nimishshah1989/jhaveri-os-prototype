@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Icon } from '../../components/Icon';
 import { clientHeader } from '../../lib/client360';
 import { Lamp } from './lamp';
+import { AppLock } from './applock';
 import './folio.css';
 
 // The client lens. One demo client, the same way the broker lens fixes DEMO_SB.
@@ -25,6 +26,7 @@ export default async function FolioLayout({ children }: LayoutProps<'/me'>) {
 
   return (
     <div className="folio" data-theme="light">
+      <AppLock />
       <div className="f-top">
         <span className="house">JHAVERI PRIVATE</span>
         <span className="rt">

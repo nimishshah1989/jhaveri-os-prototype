@@ -307,16 +307,24 @@ for (const c of clients) {
   // spouse. Letting the spouse draw a random folio count ran off the end of that
   // array and wrote two folios with NULL amounts — invisible until commission
   // started reading folios.
+  // Meera gets one folio more than she has funds: the same scheme, filed twice,
+  // which is what happens when an application does not quote the existing folio.
+  // Phase 5 needs a real one to consolidate, and a holding written straight into
+  // the serving table is a figure that was typed rather than generated — it
+  // broke three invariants when it was tried that way. This one goes through the
+  // ledger and the FIFO run like every other folio, and consumes no RNG draw, so
+  // the stream every pinned story fact depends on is untouched.
   const n = c.id === STORY.desaiHead ? 3 : c.id === STORY.desaiSpouse ? 1
-    : c.id === STORY.kapoorHuf ? 2 : c.id === STORY.meera ? MEERA_FUNDS.length
+    : c.id === STORY.kapoorHuf ? 2 : c.id === STORY.meera ? MEERA_FUNDS.length + 1
       : intBetween(r, 1, 3);
   const chosen = new Set<number>();
   for (let k = 0; k < n; k++) {
+    const isDupe = c.id === STORY.meera && k === MEERA_FUNDS.length;
     let s = pick(r, schemes);
-    if (c.id === STORY.meera) s = MEERA_FUNDS[k];
+    if (c.id === STORY.meera) s = isDupe ? MEERA_FUNDS[2] : MEERA_FUNDS[k];
     if (c.id === STORY.kapoorHuf && k === 0) s = schemes[0];
     if (isDesai) s = schemes[(c.id * 3 + k * 7) % 60];
-    if (chosen.has(s.id)) continue;
+    if (chosen.has(s.id) && !isDupe) continue;
     chosen.add(s.id);
     folioId++;
     const f: FolioSeed = { id: folioId, folioNo: String(5000000 + folioId), scheme: s, client: c, txns: [], sbId: c.broker.id };
@@ -326,13 +334,17 @@ for (const c of clients) {
     // against its benchmark — and her whole story is a fund lagging its benchmark.
     const start = isDesai ? addDays(TODAY, -820)
       : c.id === STORY.kapoorHuf && k === 0 ? addDays(TODAY, -700)
-        : c.id === STORY.meera ? addDays(TODAY, -[900, 730, 560][k])
+        : c.id === STORY.meera ? addDays(TODAY, -[900, 730, 560, 300][k])
           : addDays(TODAY, -intBetween(r, 200, 1000));
     ins('folio_master', { folio_id: folioId, fm_folio_no: f.folioNo, fk_scheme_id: s.id, fk_acc_id: c.id, fm_pan_no: pan(c.id), fm_sub_broker_code: c.broker.code, fm_arn_no: 'ARN-3524', fm_euin: c.broker.euin, fm_holding: 'Single', fm_nominee1_name: chance(r, 0.7) ? pick(r, FIRST) + ' ' + c.name.split(' ').slice(-1)[0] : null, folio_start_date: start, is_active: 1 });
     const lump = isDesai ? [1500000, 1200000, 900000, 600000][k + (c.id === STORY.desaiSpouse ? 3 : 0)]
       : c.id === STORY.kapoorHuf && k === 0 ? 400000
+      : isDupe ? 55000
       : intBetween(r, 1, 12) * 25000;
     addTxn(f, { date: start, typeId: 1, buySell: 1, amount: lump, price: navAt(s.series, start) });
+    // Nothing further on the duplicate: every branch below draws from the RNG,
+    // and one extra draw here re-rolls the whole seed after this point.
+    if (isDupe) continue;
     if (!isDesai && chance(r, 0.5)) {
       const d = addDays(start, intBetween(r, 60, 300));
       const amount = intBetween(r, 1, 6) * 25000;
@@ -1552,4 +1564,28 @@ console.log('DB:', DB_PATH);
      JOIN mf_latest_price_master p ON p.fk_scheme_id = h.fk_scheme_id WHERE h.client_id = 101`,
   ).get() as { v: number }).v;
   console.log(`HELD AWAY: ${total} folios across the household (${unmatched} unpriceable) · Meera elsewhere ₹${worth.toLocaleString('en-IN')}`);
+}
+
+/* ── Execution parity (phase 5) ───────────────────────────────────────────────
+   Two things the client lens needs in order to have anything to act on: a fund
+   actually in its offer period, and the duplicate folio a long-standing client
+   accumulates. Both appended after every RNG draw, like the blocks above. */
+{
+  // An NFO the demo client does not already hold, open across today.
+  const fresh = (db.prepare(
+    `SELECT s.scheme_id, s.scheme_short_name n FROM scheme_master s
+     WHERE s.scheme_id NOT IN (SELECT scheme_id FROM fifo_summary_holding_active WHERE client_id = 101)
+       AND s.fk_category_id = 3 ORDER BY s.scheme_id LIMIT 1`,
+  ).get() as { scheme_id: number; n: string } | undefined);
+  if (fresh) {
+    ins('nfo_window', {
+      fk_scheme_id: fresh.scheme_id, opens_on: addDays(TODAY, -6), closes_on: addDays(TODAY, 9),
+      face_value: 10, min_amount: 5000,
+      objective: 'A concentrated mid-cap portfolio of 25 to 30 businesses, held for full cycles. No sector cap and no benchmark-hugging — the manager has said publicly it will look wrong for a year at a time.',
+    });
+    emit({ at: addDays(TODAY, -6), subjectType: 'scheme', subjectId: fresh.scheme_id,
+      type: 'nfo_opened', payload: { scheme: fresh.n, closes: addDays(TODAY, 9) }, source: 'import' });
+  }
+
+  console.log(`EXEC: ${fresh ? '1 NFO open' : 'no NFO'}`);
 }

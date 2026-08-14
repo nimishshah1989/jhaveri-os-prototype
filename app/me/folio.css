@@ -432,3 +432,47 @@ body:has(.folio) { background: #2A2C30; }
 .f-acc > summary { font-size: 12.5px; color: var(--f-muted); }
 .f-acc > summary:hover { color: var(--f-gold-ink); }
 .f-acc[open] > summary { color: var(--f-ink); }
+
+/* ── a sheet, for one figure ─────────────────────────────────────────────────
+   DESIGN.md's second place depth may live. It rises over the page, dims what is
+   behind it, and carries its act at the foot. Everything in it is a token, so it
+   inverts with the lamp like every other object. */
+
+.f-figure {
+  background: none; border: 0; padding: 0; margin: 0; font: inherit; color: inherit;
+  text-align: left; cursor: pointer; display: flex; align-items: baseline; gap: 7px;
+}
+.f-figure .ic { color: var(--f-faint); width: 13px; height: 13px; flex-shrink: 0; }
+.f-figure:hover .ic { color: var(--f-gold); }
+
+.f-scrim {
+  position: fixed; inset: 0; z-index: 90; background: rgba(20, 22, 26, .42);
+  animation: f-fade .18s ease both;
+}
+@keyframes f-fade { from { opacity: 0 } }
+
+.f-sheet {
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: 0; z-index: 100;
+  width: 100%; max-width: 460px; max-height: 84dvh; overflow-y: auto;
+  background: var(--f-card); border-top: 1px solid var(--f-line);
+  border-radius: 14px 14px 0 0; box-shadow: 0 -8px 40px rgba(26, 27, 30, .16);
+  animation: f-rise-sheet .26s cubic-bezier(.22,.7,.3,1) both;
+}
+@keyframes f-rise-sheet { from { transform: translate(-50%, 14px); opacity: 0 } }
+
+.f-sheethead {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  padding: 18px 19px 12px; border-bottom: 1px solid var(--f-line);
+  position: sticky; top: 0; background: var(--f-card); z-index: 1;
+}
+.f-sheetbody { padding: 4px 19px 24px; }
+
+/* Each voice is its own block. Never merged into a paragraph — a client has to
+   be able to tell arithmetic from a person from the market. */
+.f-voice { padding: 14px 0; border-bottom: 1px solid var(--f-line); }
+.f-voice:last-of-type { border-bottom: 0; }
+.f-voice .vh {
+  font-size: 10.5px; letter-spacing: .13em; text-transform: uppercase; font-weight: 700;
+  color: var(--f-gold-ink); display: flex; align-items: center; gap: 8px; margin-bottom: 7px;
+}
+.f-voice p { font-size: 13px; line-height: 1.65; color: var(--f-muted); margin: 0; }

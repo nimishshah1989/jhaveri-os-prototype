@@ -22,6 +22,8 @@ import { join } from 'node:path';
 import { eventDesk, unviewedKinds } from '../lib/eventdesk';
 import { askClient, EVALS, ASK_REFUSAL } from '../lib/askme';
 import { tickets, clockSummary } from '../lib/clock';
+import { explain, sinceLastLook, FIGURES } from '../lib/explain';
+import { mirror } from '../lib/mirror';
 
 const db = new Database(join(process.cwd(), 'mockdb', 'jhaveri.db'), { readonly: true });
 const ME = 101;
@@ -139,6 +141,57 @@ assert('and the ask bar and the household page quote the same combined figure',
 const empty = askClient(375, 'which of my funds is doing badly');
 check('a client with no funds gets an answer with no facts, not a fabricated one', empty.facts.length, 0);
 check('and it is stated at low confidence', empty.confidence, 'low');
+
+/* ── any figure, opened: three voices, never blended ──────────────────────── */
+
+for (const key of FIGURES) {
+  const s = explain(ME, key);
+  assert(`${key}: the figure opens`, s != null,
+    'a figure whose ledger voice cannot be computed gets no sheet at all');
+  if (!s) continue;
+
+  const voices = s.passages.map(p => p.voice);
+  check(`${key}: the ledger always speaks first`, voices[0], 'ledger');
+  assert(`${key}: no voice appears twice`, new Set(voices).size === voices.length);
+  assert(`${key}: every voice is labelled on screen`, s.passages.every(p => p.label.length > 2));
+  assert(`${key}: each voice says something`, s.passages.every(p => p.text.length > 60));
+
+  // The seam that must never be hidden: the manager has not written these.
+  const rm = s.passages.find(p => p.voice === 'manager');
+  if (rm) assert(`${key}: the manager's voice is marked as a stand-in`, rm.seeded === true,
+    "Ravi's workspace is a later build — passing our words off as his is the failure this flag prevents");
+
+  // Every Mirror entry on a sheet traces to a rule that generated it.
+  const generated = new Set(mirror(ME).map(e => e.key));
+  assert(`${key}: no Mirror entry on the sheet is hand-written`,
+    s.mirror.every(m => generated.has(m.key)),
+    'each has to come from lib/mirror, which writes every entry from a rule');
+
+  assert(`${key}: the sheet drills to its constituents`, s.drill != null && s.drill.href.startsWith('/me'));
+  assert(`${key}: and the figure is already formatted`, /[0-9]/.test(s.figure));
+}
+
+// A client with no history gets fewer sheets, never invented ones.
+const bare = FIGURES.filter(k => explain(375, k) != null);
+check('a client holding nothing gets no figure sheets at all', bare, []);
+assert('and the demo client gets one for every figure', FIGURES.every(k => explain(ME, k) != null));
+
+/* ── what changed since you last looked ───────────────────────────────────── */
+
+check('a first visit has nothing to compare against', sinceLastLook(ME, null).since, null);
+check('and invents no movement for it', sinceLastLook(ME, null).moved, null);
+check('a malformed date is treated as a first visit', sinceLastLook(ME, 'yesterday').since, null);
+check('so is a date in the future', sinceLastLook(ME, '2099-01-01').since, null);
+
+const back = sinceLastLook(ME, '2026-07-01');
+check('a real last-seen is carried through', back.since, '2026-07-01');
+assert('the movement is computed on the same holdings, priced then and now',
+  back.moved == null || Number.isFinite(back.moved));
+check('the ledger entries counted are the ones in that window', back.orders,
+  one<{ n: number }>(
+    `SELECT COUNT(*) n FROM transaction_master WHERE fk_acc_id = ? AND tr_date > '2026-07-01' AND tr_date <= ?`,
+    ME, TODAY).n);
+assert('and nothing outside the window is counted', sinceLastLook(ME, TODAY).orders === 0);
 
 /* ── the clock ────────────────────────────────────────────────────────────── */
 

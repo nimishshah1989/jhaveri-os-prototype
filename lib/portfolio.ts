@@ -241,6 +241,7 @@ export function fundDetails(clientId: number): FundDetail[] {
     JOIN benchmark_master bm ON bm.benchmark_id=sm.fk_benchmark_id
     LEFT JOIN ret r ON r.scheme_id=f.scheme_id
     LEFT JOIN fifo_summary_holding sh ON sh.fk_acc_id=f.client_id AND sh.fk_scheme_id=f.scheme_id
+      AND sh.sh_folio_no=f.folio_no
     WHERE f.client_id=? ORDER BY f.present_market_value DESC`).all(clientId, clientId) as FundDetail[];
 }
 
@@ -340,18 +341,21 @@ export interface OverlapPair { a: string; b: string; shared: number; shared_pct:
 
 /** Which pairs of the client's funds are quietly the same portfolio. */
 export function fundOverlap(clientId: number): OverlapPair[] {
+  // Pairs of DISTINCT schemes. Joining the serving table to itself counts a fund
+  // held on two folios twice on each side of the pair, and the shared weight
+  // comes out at a multiple of the real overlap.
   return db().prepare(`
+    WITH mine AS (SELECT DISTINCT scheme_id FROM fifo_summary_holding_active WHERE client_id = ?)
     SELECT sa.scheme_full_name a, sb.scheme_full_name b,
       COUNT(*) shared,
       ROUND(SUM(MIN(ha.weight_pct, hb.weight_pct)), 1) shared_pct
-    FROM fifo_summary_holding_active fa
-    JOIN fifo_summary_holding_active fb ON fb.client_id = fa.client_id AND fb.scheme_id > fa.scheme_id
-    JOIN mf_scheme_holdings ha ON ha.fk_scheme_id = fa.scheme_id
-    JOIN mf_scheme_holdings hb ON hb.fk_scheme_id = fb.scheme_id AND hb.stock_id = ha.stock_id
-    JOIN scheme_master sa ON sa.scheme_id = fa.scheme_id
-    JOIN scheme_master sb ON sb.scheme_id = fb.scheme_id
-    WHERE fa.client_id = ?
-    GROUP BY fa.scheme_id, fb.scheme_id
+    FROM mine ma
+    JOIN mine mb ON mb.scheme_id > ma.scheme_id
+    JOIN mf_scheme_holdings ha ON ha.fk_scheme_id = ma.scheme_id
+    JOIN mf_scheme_holdings hb ON hb.fk_scheme_id = mb.scheme_id AND hb.stock_id = ha.stock_id
+    JOIN scheme_master sa ON sa.scheme_id = ma.scheme_id
+    JOIN scheme_master sb ON sb.scheme_id = mb.scheme_id
+    GROUP BY ma.scheme_id, mb.scheme_id
     HAVING shared > 0 ORDER BY shared_pct DESC`).all(clientId) as OverlapPair[];
 }
 

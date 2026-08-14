@@ -145,14 +145,18 @@ export interface ViaFund { scheme_id: number; fund: string; weight_pct: number; 
 
 /** One company: which of the client's funds hold it, and how many rupees through each. */
 export function stockVia(clientId: number, stock: string): { sector: string | null; cap: string | null; total: number; via: ViaFund[] } {
+  // Grouped by FUND, summed across folios. The serving table carries one row per
+  // folio, so a client holding the same fund twice would otherwise see it named
+  // twice here with each folio's share listed as if it were the whole position.
   const via = db().prepare(
     `SELECT f.scheme_id, sm.scheme_short_name fund, h.weight_pct,
-            ROUND(h.weight_pct / 100.0 * f.present_market_value) rupees
+            ROUND(h.weight_pct / 100.0 * SUM(f.present_market_value)) rupees
      FROM fifo_summary_holding_active f
      JOIN mf_scheme_holdings h ON h.fk_scheme_id = f.scheme_id
      JOIN stock_master s ON s.stock_id = h.stock_id
      JOIN scheme_master sm ON sm.scheme_id = f.scheme_id
      WHERE f.client_id = ? AND s.stock_name = ?
+     GROUP BY f.scheme_id
      ORDER BY rupees DESC`,
   ).all(clientId, stock) as ViaFund[];
   const meta = db().prepare(

@@ -128,3 +128,47 @@ export function consents(clientId: number): Consent[] {
     `SELECT channel, purpose, state, captured_via via, ts FROM consents WHERE client_id=? ORDER BY ts DESC`,
   ).all(clientId) as Consent[];
 }
+
+/* ── Nominee status (phase 7) ─────────────────────────────────────────────────
+   SEBI requires a nominee or a written refusal on every folio, and a folio with
+   neither is the single commonest reason a family spends months in a succession
+   process for money that was always theirs. It is surfaced rather than settled:
+   naming a nominee is a registrar form, so the app can only ever show the gap
+   and get a person onto it. */
+
+export interface NomineeRow {
+  folio_no: string;
+  fund: string;
+  scheme_id: number;
+  nominee: string | null;
+  value: number;
+}
+
+export interface NomineeState {
+  rows: NomineeRow[];
+  named: number;
+  missing: number;
+  /** What sits on folios with nobody named on them. */
+  at_risk: number;
+}
+
+export function nominees(clientId: number): NomineeState {
+  const rows = db().prepare(
+    `SELECT f.fm_folio_no folio_no, s.scheme_short_name fund, f.fk_scheme_id scheme_id,
+            f.fm_nominee1_name nominee,
+            COALESCE(ROUND((SELECT SUM(h.present_market_value) FROM fifo_summary_holding_active h
+              WHERE h.client_id = ? AND h.scheme_id = f.fk_scheme_id AND h.folio_no = f.fm_folio_no)), 0) value
+     FROM folio_master f
+     JOIN scheme_master s ON s.scheme_id = f.fk_scheme_id
+     WHERE f.fk_acc_id = ? AND f.is_active = 1
+     ORDER BY value DESC`,
+  ).all(clientId, clientId) as NomineeRow[];
+
+  const missing = rows.filter(r => !r.nominee);
+  return {
+    rows,
+    named: rows.length - missing.length,
+    missing: missing.length,
+    at_risk: missing.reduce((s, r) => s + r.value, 0),
+  };
+}

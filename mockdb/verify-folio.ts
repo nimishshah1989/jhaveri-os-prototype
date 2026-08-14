@@ -116,22 +116,22 @@ function standingProse(src: string): { words: number; tagsLeft: number } {
  */
 const PROSE_BASELINE: Record<string, number> = {
   'ask': 149,
-  'desk': 540,
+  'desk': 654,
   'discover': 235,
   'events': 110,
   'goals': 124,
   'goals/[goalId]': 178,
   'household': 227,
   'household/[memberId]': 183,
-  'invest': 300,
-  'orders': 156,
+  'invest': 466,
+  'orders': 275,
   'portfolio': 38,
   'portfolio/[schemeId]': 221,
   'portfolio/[schemeId]/research': 285,
   'portfolio/company/[stock]': 108,
   'portfolio/register': 44,
   'portfolio/sector/[sector]': 99,
-  'today': 92,
+  'today': 110,
 };
 
 for (const p of pages) {
@@ -179,6 +179,31 @@ for (const [file, subject] of MUST_PLOT) {
   check(`${file.replace('app/me/', '')} draws ${subject}`,
     drawn.length > 0, drawn.join(' · ') || 'stated in a sentence it could have drawn');
 }
+
+/* ── the sheet, and the containing block that ate it ──────────────────────── */
+
+const sheet = existsSync('app/me/sheet.tsx') ? read('app/me/sheet.tsx') : '';
+check('the figure sheet exists', sheet.length > 0);
+if (sheet) {
+  // `.f-card` animates with a transform, and a transformed ancestor becomes the
+  // containing block for a `position: fixed` child. Rendered in place, the sheet
+  // anchored to the card instead of the viewport and its title, figure and close
+  // button sat 100px above the top of the screen. Every route still returned 200.
+  check('the sheet is portalled out of the animating card that would capture it',
+    /createPortal\(/.test(sheet), 'a fixed sheet inside .f-card anchors to the card, not the screen');
+  check('and portalled into .folio, where the theme tokens live',
+    /querySelector\('\.folio'\)/.test(sheet),
+    'portalled to document.body it renders with no background and no theme at all');
+  check('it can be closed with a key as well as a tap', /'Escape'/.test(sheet));
+  check('and the page behind it does not scroll while it is open',
+    /body\.style\.overflow/.test(sheet));
+}
+
+const css2 = read('app/me/folio.css');
+check('the sheet sits above the scrim, and the scrim above the page',
+  /\.f-scrim[^}]*z-index:\s*90/.test(css2) && /\.f-sheet[^}]*z-index:\s*100/.test(css2));
+check('and the sheet is capped so it can never grow past the screen',
+  /\.f-sheet[^}]*max-height:\s*\d+dvh/.test(css2) && /\.f-sheet[^}]*overflow-y:\s*auto/.test(css2));
 
 /* ── air ──────────────────────────────────────────────────────────────────── */
 

@@ -1154,6 +1154,35 @@ CREATE TABLE client_goals (
 );
 CREATE INDEX idx_goal_client ON client_goals(fk_cm_user_id, is_active);
 
+-- ── Execution parity (phase 5) ──────────────────────────────────────────────
+-- The transaction types the ledger already knows — Switch In/Out, Systematic
+-- Withdrawal, Dividend Reinvest/Paid — existed from the first migration and
+-- nothing drove them. These three additions are what a client flow needs on top.
+
+-- A step-up is a property of an instalment, not a separate instrument: the same
+-- SIP, rising on a schedule. Kept on sip_master so a stepped SIP is still one row
+-- and cannot drift out of sync with the plan it belongs to.
+ALTER TABLE sip_master ADD COLUMN step_up_amount NUMERIC;      -- ₹ added each time
+ALTER TABLE sip_master ADD COLUMN step_up_months INTEGER;      -- how often it rises
+ALTER TABLE sip_master ADD COLUMN step_up_ceiling NUMERIC;     -- and where it stops
+
+-- What happens to a dividend the scheme declares. Per folio, because that is
+-- where the registrar holds it, and a client can hold the same fund twice on two
+-- different options.
+ALTER TABLE folio_master ADD COLUMN fm_dividend_option TEXT DEFAULT 'growth';  -- growth | payout | reinvest
+
+-- A fund still in its offer period. Units are allotted at face value at the end
+-- of the window, not at a daily NAV, which is the whole reason an NFO cannot go
+-- through the ordinary purchase path.
+CREATE TABLE nfo_window (
+  fk_scheme_id INTEGER PRIMARY KEY REFERENCES scheme_master(scheme_id),
+  opens_on     TEXT NOT NULL,
+  closes_on    TEXT NOT NULL,
+  face_value   NUMERIC NOT NULL DEFAULT 10,
+  min_amount   NUMERIC NOT NULL DEFAULT 5000,
+  objective    TEXT
+);
+
 -- ── Held away (MF Central / CAS seam) ───────────────────────────────────────
 -- Folios the client holds somewhere else, fetched against their PAN. This is
 -- what turns the app from "your Jhaveri folios" into "your money".

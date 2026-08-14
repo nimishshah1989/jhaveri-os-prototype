@@ -9,6 +9,10 @@ import { outlooks } from '../../lib/goals';
 import { eventDesk } from '../../lib/eventdesk';
 import { equityCurve } from '../../lib/portfolio';
 import { FolioArc } from './folio-charts';
+import { explain } from '../../lib/explain';
+import { FigureSheet } from './sheet';
+import { sinceLastLook } from '../../lib/explain';
+import { lastSeen, markSeen } from './lastseen';
 import { ME } from './layout';
 import { raise } from './acts';
 import { Nothing } from './empty';
@@ -62,10 +66,49 @@ export default async function Today() {
   // "is this working" without a sentence: worth, against what went in, against
   // the index on the same dates.
   const arc = equityCurve(ME).value;
+  // Phase 6: any figure, tapped, opens in three labelled voices. A figure whose
+  // ledger voice cannot be computed gets no sheet rather than a dead tap.
+  // What moved while they were away. Null on a first visit, and a first visit
+  // gets no hero rather than an invented one.
+  const seen = await lastSeen();
+  const since = sinceLastLook(ME, seen);
+  const sheets = {
+    wealth: explain(ME, 'wealth'), earned: explain(ME, 'earned'), rate: explain(ME, 'rate'),
+    invested: explain(ME, 'invested'),
+  };
 
   return (
     <>
       <p className="f-hello">Good morning, {me.name.split(' ')[0]}.</p>
+
+      {/* ── what changed while you were away ─────────────────────────────────
+          The plan's Today hero. It needs a stored last-seen, and in a lens with
+          no auth the browser is the only honest place for one. */}
+      {since.since && (since.moved != null || since.events > 0) && (
+        <form action={markSeen} className="f-card">
+          <div className="f-k">
+            <Icon name="clock" /> Since you last looked
+            <span className="rt" style={{ color: 'var(--f-faint)', padding: 0, margin: 0 }}>
+              {dmy(since.since)}
+            </span>
+          </div>
+          {since.moved != null && (
+            <div className="f-big num" style={{ fontSize: 26 }}>
+              <span className={since.moved >= 0 ? 'pos' : 'neg'}>
+                <Trend n={since.moved} /> {signedInrCompact(since.moved)}
+              </span>
+            </div>
+          )}
+          <div className="s" style={{ fontSize: 12.5, color: 'var(--f-muted)', marginTop: 6 }}>
+            {since.moved != null
+              ? `on the same holdings, priced then and now. `
+              : 'Your holdings changed, so there is no like-for-like move to quote. '}
+            {since.events > 0 && `${since.events} thing${since.events === 1 ? '' : 's'} happened to your funds. `}
+            {since.orders > 0 && `${since.orders} entr${since.orders === 1 ? 'y' : 'ies'} on your ledger.`}
+          </div>
+          <button className="f-btn ghost" type="submit" style={{ width: 'auto' }}>Mark as read</button>
+        </form>
+      )}
 
       <form action="/me/ask" className="f-card" style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '10px 13px' }}>
         <Icon name="search" />
@@ -76,18 +119,27 @@ export default async function Today() {
 
       <div className="f-card">
         <div className="f-k"><Icon name="bank" /> Your wealth</div>
-        <div className="f-big num">{inr(k.v)}</div>
+        <FigureSheet sheet={sheets.wealth}>
+          <span className="f-big num">{inr(k.v)}</span>
+        </FigureSheet>
         <div className="f-trio">
-          <div><div className="l">Put in</div><div className="v num">{inr(k.invested)}</div></div>
+          <div>
+            <div className="l">Put in</div>
+            <FigureSheet sheet={sheets.invested}><span className="v num">{inr(k.invested)}</span></FigureSheet>
+          </div>
           <div>
             <div className="l">Earned</div>
-            <div className={`v num ${earned >= 0 ? 'pos' : 'neg'}`}>
-              <Trend n={earned} /> {signedInrCompact(earned)}
-            </div>
+            <FigureSheet sheet={sheets.earned}>
+              <span className={`v num ${earned >= 0 ? 'pos' : 'neg'}`}>
+                <Trend n={earned} /> {signedInrCompact(earned)}
+              </span>
+            </FigureSheet>
           </div>
           <div>
             <div className="l">Your rate</div>
-            <div className="v num">{k.wx != null ? `${k.wx}%` : <span className="f-dash">—</span>}</div>
+            <FigureSheet sheet={sheets.rate}>
+              <span className="v num">{k.wx != null ? `${k.wx}%` : <span className="f-dash">—</span>}</span>
+            </FigureSheet>
           </div>
         </div>
         <FolioArc data={arc} />

@@ -110,6 +110,7 @@ function ruleInstalments(c: Ctx): MirrorEntry | null {
   const cheap = Math.min(...mine.map(m => m.px)), dear = Math.max(...mine.map(m => m.px));
   const h = db().prepare(`SELECT f.xirr, sh.sh_bmxirr bm FROM fifo_summary_holding_active f
     LEFT JOIN fifo_summary_holding sh ON sh.fk_acc_id=f.client_id AND sh.fk_scheme_id=f.scheme_id
+      AND sh.sh_folio_no=f.folio_no
     WHERE f.client_id=? AND f.scheme_id=?`).get(c.clientId, sid) as { xirr: number | null; bm: number | null } | undefined;
   return {
     key: 'instalments', when: `${mine.length} instalments`, good: (h?.xirr ?? 0) >= (h?.bm ?? 0),

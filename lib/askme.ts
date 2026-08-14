@@ -84,6 +84,7 @@ const INTENTS: Intent[] = [
       `SELECT f.fund_name n, f.xirr, sh.sh_bmxirr bm, ROUND(f.present_market_value) v
        FROM fifo_summary_holding_active f
        LEFT JOIN fifo_summary_holding sh ON sh.fk_acc_id = f.client_id AND sh.fk_scheme_id = f.scheme_id
+         AND sh.sh_folio_no = f.folio_no
        WHERE f.client_id = ? AND f.xirr IS NOT NULL AND sh.sh_bmxirr IS NOT NULL
        ORDER BY (f.xirr - sh.sh_bmxirr) LIMIT 3`,
     ).all(c).map((r: unknown) => {

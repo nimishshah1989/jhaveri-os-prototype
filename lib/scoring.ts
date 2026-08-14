@@ -110,6 +110,7 @@ function gather(id: number): Inputs {
   const lag = d.prepare(`SELECT f.fund_name name, f.present_market_value v, f.xirr, sh.sh_bmxirr bmxirr
     FROM fifo_summary_holding_active f
     LEFT JOIN fifo_summary_holding sh ON sh.fk_acc_id=f.client_id AND sh.fk_scheme_id=f.scheme_id
+      AND sh.sh_folio_no=f.folio_no
     WHERE f.client_id=? AND f.xirr IS NOT NULL AND sh.sh_bmxirr IS NOT NULL AND f.xirr < sh.sh_bmxirr - 10
     ORDER BY (sh.sh_bmxirr - f.xirr) * f.present_market_value DESC LIMIT 1`).get(id) as Inputs['laggard'];
   const risk = d.prepare(`SELECT r.risk_profile FROM client_master_mf_related r WHERE r.fk_cm_user_id=?`).get(id) as { risk_profile: string } | undefined;

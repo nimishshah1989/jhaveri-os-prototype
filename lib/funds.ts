@@ -241,17 +241,21 @@ export interface Overlap {
  * two weights, summed — asked from one fund's side rather than across the book.
  */
 export function overlapWith(clientId: number, schemeId: number): Overlap[] {
+  // The client's DISTINCT schemes, not their holding rows. The serving table
+  // carries one row per folio, so a fund held on two folios joined twice and
+  // reported double the shared weight — 162.5% of a portfolio that is 81.2%.
   return db().prepare(
-    `SELECT fb.scheme_id, sb.scheme_full_name name,
+    `WITH mine AS (SELECT DISTINCT scheme_id FROM fifo_summary_holding_active WHERE client_id = ?)
+     SELECT m.scheme_id, sb.scheme_full_name name,
             COUNT(*) shared, ROUND(SUM(MIN(ha.weight_pct, hb.weight_pct)), 1) shared_pct
-     FROM fifo_summary_holding_active fb
+     FROM mine m
      JOIN mf_scheme_holdings ha ON ha.fk_scheme_id = ?
-     JOIN mf_scheme_holdings hb ON hb.fk_scheme_id = fb.scheme_id AND hb.stock_id = ha.stock_id
-     JOIN scheme_master sb ON sb.scheme_id = fb.scheme_id
-     WHERE fb.client_id = ? AND fb.scheme_id != ?
-     GROUP BY fb.scheme_id HAVING shared > 0
+     JOIN mf_scheme_holdings hb ON hb.fk_scheme_id = m.scheme_id AND hb.stock_id = ha.stock_id
+     JOIN scheme_master sb ON sb.scheme_id = m.scheme_id
+     WHERE m.scheme_id != ?
+     GROUP BY m.scheme_id HAVING shared > 0
      ORDER BY shared_pct DESC`,
-  ).all(schemeId, clientId, schemeId) as Overlap[];
+  ).all(clientId, schemeId, schemeId) as Overlap[];
 }
 
 /* ── the recommendation, in five parts or not at all ─────────────────────────
