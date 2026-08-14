@@ -19,6 +19,11 @@ export const TYPE: Record<string, { label: string; icon: string; tone: string }>
   payout_dispute: { label: 'Dispute', icon: 'money', tone: 'amber' },
   consent_request: { label: 'Consent', icon: 'shield', tone: 'grey' },
   euin_remediation: { label: 'EUIN', icon: 'shield', tone: 'amber' },
+  // Growth triggers. Blue, not amber: none of these is a fault to be fixed, they
+  // are moments worth a call — and the five meanings stay five.
+  sip_anniversary: { label: 'SIP year', icon: 'calendar', tone: 'blue' },
+  abnormal_return: { label: 'Run-up', icon: 'up', tone: 'blue' },
+  ideal_money: { label: 'Parked cash', icon: 'money', tone: 'blue' },
   manual: { label: 'My task', icon: 'check', tone: 'grey' },
 };
 
@@ -58,6 +63,10 @@ export function evidence(raw: string): { lead: string; value: string }[] {
       case 'rejected_by': out.push({ lead: 'rejected by', value: String(v) }); break;
       case 'resolved_by': out.push({ lead: 'resolved by', value: String(v) }); break;
       case 'in_days': out.push({ lead: 'within', value: `${v} days` }); break;
+      case 'return_pct': out.push({ lead: '', value: `+${v}% in 90 days` }); break;
+      case 'window_days': break;   // the return above already says the window
+      case 'fund': out.push({ lead: '', value: String(v) }); break;
+      case 'asset': out.push({ lead: '', value: String(v) }); break;
       default: out.push({ lead: k.replace(/_/g, ' '), value: String(v) });
     }
   }

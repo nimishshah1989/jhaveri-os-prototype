@@ -131,6 +131,11 @@ const RULES: [string, string, Record<string, number>][] = [
   ['kyc_stall_days', 'Onboarding stalled at a step', { days: 7 }],
   ['tax_window_headroom', 'Unrealized LTCG within FY exemption window', { exemption: 125000, min_gain: 40000 }],
   ['large_redemption', 'Single redemption above threshold', { amount: 500000 }],
+  // Growth triggers. Every number here is the one the prompt is generated from —
+  // change it in this row and the queue changes, which is the point of a registry.
+  ['sip_anniversary', 'Live SIP crossing a year, due an income-linked top-up', { months: 12, window_days: 45, step_up_pct: 10, min_monthly: 2000 }],
+  ['abnormal_return', 'Asset class run far above its own normal, worth booking', { window_days: 90, over_pct: 18, min_gain: 50000 }],
+  ['ideal_money', 'Liquid capital parked past the point it was parked for', { months: 3, min_value: 500000 }],
 ];
 RULES.forEach(([k, name, params], i) => ins('rules_registry', { rule_id: i + 1, rule_key: k, name, params: JSON.stringify(params), version: 1, owner: 'ops', approved_by: 'management', is_active: 1, valid_from: '2026-08-01' }));
 
@@ -1017,6 +1022,103 @@ varianceRows.slice(0, 3).forEach(id => {
 });
 mint({ subjectType: 'client', subjectId: 220, type: 'large_redemption_review', evidence: { amount: 750000, threshold: 500000 }, impact: 750000, lens: 'ops', step: 'Confirm with broker before T+1', slaDays: 0, state: 'done', outcomeType: 'confirmed_genuine', ruleKey: 'large_redemption' });
 mint({ subjectType: 'client', subjectId: 445, type: 'dormant_review', evidence: { value: 620000 }, impact: 31000, lens: 'broker', sbId: 6, step: 'Book review', slaDays: 10, state: 'dismissed', ruleKey: 'dormant_client' });
+
+/* ── Growth triggers ──────────────────────────────────────────────────────────
+   The three prompts that go looking for money rather than waiting for something
+   to break. Every threshold comes off the rules_registry rows above, so the
+   numbers can be argued with in one place instead of being buried here.
+
+   Each one mints an ordinary action, which means it inherits the queue it lands
+   in: ranked by rupees, closable, snoozable, and carrying the evidence that
+   produced it. A prompt a broker cannot dismiss with a reason is an alert, and
+   alerts get ignored. */
+
+// 1 · A live SIP crossing its first year. The registration date is the trigger,
+// and the ask is an income-linked step-up — annual salary revisions are why the
+// anniversary is the moment rather than any other month.
+const SIP_ANNIV = { months: 12, windowDays: 45, stepUpPct: 10, minMonthly: 2000 };
+const anniversaries = db.prepare(`SELECT s.sip_id, s.fk_acc_id client, s.fk_sb_id sb, s.tr_amount monthly,
+    s.start_date, s.tr_folio_no folio
+  FROM sip_master s
+  WHERE s.is_live_sip = 1 AND s.tr_amount >= ?
+    AND s.start_date BETWEEN date(?, '-${SIP_ANNIV.months} months', '-${SIP_ANNIV.windowDays} days')
+                         AND date(?, '-${SIP_ANNIV.months} months')
+  ORDER BY s.tr_amount DESC`).all(SIP_ANNIV.minMonthly, TODAY, TODAY) as
+  { sip_id: number; client: number; sb: number; monthly: number; start_date: string; folio: string }[];
+for (const a of anniversaries) {
+  const stepUp = Math.round((a.monthly * SIP_ANNIV.stepUpPct) / 100);
+  mint({
+    subjectType: 'sip', subjectId: a.sip_id, type: 'sip_anniversary',
+    evidence: { folio: a.folio, monthly: a.monthly, since: a.start_date, suggested_monthly: a.monthly + stepUp },
+    // What the ask is worth over a year, which is the figure the queue ranks on.
+    impact: stepUp * 12,
+    lens: 'broker', sbId: a.sb, step: `Ask for ${SIP_ANNIV.stepUpPct}% · WhatsApp draft ready`,
+    slaDays: 7, ruleKey: 'sip_anniversary',
+  });
+}
+
+// 2 · A fund that has run far above its own normal. Booking some of it is a
+// judgement, not an instruction — the action says what happened and leaves the
+// decision where it belongs.
+const ABNORMAL = { windowDays: 90, overPct: 18, minGain: 50000 };
+const hot = db.prepare(`WITH r AS (
+    SELECT l.fk_scheme_id sid, (l.price / e.price - 1) * 100 r90
+    FROM mf_historical_price_master l
+    JOIN mf_historical_price_master e ON e.fk_scheme_id = l.fk_scheme_id
+     AND e.price_date = (SELECT MAX(price_date) FROM mf_historical_price_master
+                          WHERE fk_scheme_id = l.fk_scheme_id AND price_date <= date(?, '-${ABNORMAL.windowDays} days'))
+    WHERE l.price_date = (SELECT MAX(price_date) FROM mf_historical_price_master WHERE fk_scheme_id = l.fk_scheme_id))
+  SELECT f.client_id, f.scheme_id, f.fund_name, f.asset_name, f.present_market_value v,
+         ROUND(r.r90, 1) r90, m.fk_primary_sub_broker_id sb
+  FROM r
+  JOIN fifo_summary_holding_active f ON f.scheme_id = r.sid
+  JOIN client_master m ON m.cm_user_id = f.client_id
+  WHERE r.r90 >= ? AND f.present_market_value * r.r90 / 100 >= ?
+  ORDER BY f.present_market_value * r.r90 DESC`).all(TODAY, ABNORMAL.overPct, ABNORMAL.minGain) as
+  { client_id: number; scheme_id: number; fund_name: string; asset_name: string; v: number; r90: number; sb: number | null }[];
+// A client with no primary broker has nobody to make the call, and a broker-lens
+// action with no assignee is invisible rather than merely unowned. They are
+// already surfaced as unowned clients holding money; they do not also need a
+// prompt nobody can see. Counted, not dropped quietly.
+let ownerless = 0;
+for (const h of hot) {
+  if (h.sb == null) { ownerless++; continue; }
+  mint({
+    subjectType: 'client', subjectId: h.client_id, type: 'abnormal_return',
+    evidence: { fund: h.fund_name, asset: h.asset_name, window_days: ABNORMAL.windowDays, return_pct: h.r90, value: h.v },
+    // A third of the run-up is what is actually on the table to reallocate.
+    impact: round2(h.v * (h.r90 / 100) / 3),
+    lens: 'broker', sbId: h.sb, step: 'Review · propose reallocation',
+    slaDays: 10, ruleKey: 'abnormal_return',
+  });
+}
+
+// 3 · Money parked in liquid past the point it was parked for. Distinct from
+// idle_no_sip, which is about invested clients with no monthly commitment: this
+// is capital sitting in the waiting room.
+const IDEAL = { months: 3, minValue: 500000 };
+const parked = db.prepare(`SELECT f.client_id, f.fund_name, f.fund_category, f.inv_since_date since,
+    SUM(f.present_market_value) v, m.fk_primary_sub_broker_id sb
+  FROM fifo_summary_holding_active f
+  JOIN client_master m ON m.cm_user_id = f.client_id
+  WHERE f.fund_category IN ('Liquid', 'Arbitrage Fund')
+    AND f.balance_units > 0.0001
+    AND f.inv_since_date <= date(?, '-${IDEAL.months} months')
+  GROUP BY f.client_id
+  HAVING v >= ?
+  ORDER BY v DESC`).all(TODAY, IDEAL.minValue) as
+  { client_id: number; fund_name: string; fund_category: string; since: string; v: number; sb: number | null }[];
+for (const q of parked) {
+  if (q.sb == null) { ownerless++; continue; }
+  mint({
+    subjectType: 'client', subjectId: q.client_id, type: 'ideal_money',
+    evidence: { value: q.v, since: q.since, note: `${q.fund_category} held past ${IDEAL.months} months` },
+    impact: q.v,
+    lens: 'broker', sbId: q.sb, step: 'Deploy into a goal · open proposal',
+    slaDays: 14, ruleKey: 'ideal_money',
+  });
+}
+console.log(`TRIGGERS: ${anniversaries.length} SIP anniversaries · ${hot.length} run-ups · ${parked.length} parked · ${ownerless} skipped for having no broker`);
 
 // policies, experiments, learning evidence
 ins('policies', { policy_id: 1, workflow: 'sip_save', policy_key: 'nudge_framing', belief: JSON.stringify({ urgency: 0.52, loss: 0.31, info: 0.17 }), evidence_n: 142, target_n: 200, version: 3, changed_at: '2026-07-28', changed_by: 'nightly-eval', approved_by: 'ops-head' });
