@@ -400,3 +400,39 @@ export function worthActingOn(): QueueItem[] {
     WHERE a.assignee_sb_id=? AND a.state IN ('proposed','assigned','in_progress') AND a.impact_score > 0
     ORDER BY a.impact_score DESC LIMIT 3`).all(DEMO_SB) as QueueItem[];
 }
+
+export interface Unfunded {
+  client_id: number;
+  name: string;
+  since: string;
+  days: number;
+  mobile: string | null;
+}
+
+/**
+ * Onboarded, and never funded.
+ *
+ * These clients are deliberately absent from `clientRows`, whose denominator is
+ * "holds money today" — adding them would quietly change what every figure on the
+ * Clients page is a share of. They are equally not a pipeline problem: nothing is
+ * stuck, the account works, nobody has transferred anything into it. Keeping them
+ * in the pipeline view would make the funnel look slower than it is and would put
+ * an activation conversation in a queue built for chasing paperwork.
+ *
+ * So they get their own list, on the Clients page, where the conversation belongs.
+ */
+export function awaitingFirstInvestment(code: string): Figure<Unfunded[]> {
+  const sql = `SELECT c.cm_user_id client_id, c.cm_full_name name, c.created_date since,
+      CAST(julianday(?) - julianday(c.created_date) AS INTEGER) days, c.cm_mobile_number mobile
+    FROM client_master c
+    JOIN sub_broker_master s ON s.sb_id = c.fk_primary_sub_broker_id
+   WHERE c.is_active = 1 AND s.sb_sub_broker_code = ?
+     AND c.cm_user_id NOT IN (
+       SELECT DISTINCT client_id FROM fifo_summary_holding_active WHERE balance_units > 0.0001)
+   ORDER BY c.created_date`;
+  return {
+    value: db().prepare(sql).all(TODAY, code) as Unfunded[],
+    tag: 'rule', sql,
+    sources: ['client_master.is_active', '.created_date', 'fifo_summary_holding_active.balance_units'],
+  };
+}

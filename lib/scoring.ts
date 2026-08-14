@@ -13,7 +13,11 @@ export const SCORING_RULES = {
   // Diversification is judged on what the client actually owns, not on fund
   // labels: two "different" funds holding the same 45 stocks is not diversified.
   diversification: {
-    top_sector_ok: 20, top_sector_max: 35, w_sector: 0.35,
+    // 20–30, per the founder's specification. The build previously ran the ceiling
+    // to 35, which scored a book a third of the way into one sector as merely
+    // imperfect rather than concentrated. Tightening it costs points across the
+    // book on purpose — that is what a stricter threshold is.
+    top_sector_ok: 20, top_sector_max: 30, w_sector: 0.35,
     top10_ok: 30, top10_max: 55, w_top10: 0.25,
     overlap_ok: 25, overlap_max: 60, w_overlap: 0.40,
     min_coverage: 50,

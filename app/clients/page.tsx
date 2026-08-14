@@ -10,7 +10,7 @@ import { inrCompact, dmy } from '../../lib/format';
 import {
   broker, myBook, blendedReturn, sipParticipation, churnRisk, dormantClients,
   idleNoSip, taxWindowClients, assetMix, healthSplit, xirrBands, clientRows,
-  worthActingOn, learning, type ClientFilters,
+  worthActingOn, learning, awaitingFirstInvestment, type ClientFilters,
 } from '../../lib/queries';
 import { bookHealth, SCORING_RULES } from '../../lib/scoring';
 import { ChartBars, ChartScatter } from '../../components/charts';
@@ -71,6 +71,7 @@ export default async function ClientsPage({ searchParams }: PageProps<'/clients'
     v: rows.reduce((s, r) => s + r.v, 0),
     invested: rows.reduce((s, r) => s + r.invested, 0),
   };
+  const unfunded = awaitingFirstInvestment(me.code);
   const acting = worthActingOn();
   const learn = learning();
   const allCount = clientRows(me.code, {}).rows.length;
@@ -258,6 +259,46 @@ export default async function ClientsPage({ searchParams }: PageProps<'/clients'
           </form>
 
           <ClientsTable rows={rows} totals={totals} health={healthObj} />
+
+          {unfunded.value.length > 0 && (
+            <>
+              <h2 className="sec">
+                Onboarded, never funded — {unfunded.value.length}
+                <Explain figure={unfunded} teaser="Why they are not in the table above">
+                  The table is every client who holds money today, and these hold none — putting
+                  them in it would change what every figure on this page is a share of. They are
+                  equally not a pipeline problem: nothing is stuck, the account works, nobody has
+                  transferred anything in. Keeping them in the pipeline view would make the funnel
+                  look slower than it is and would file an activation conversation in a queue built
+                  for chasing paperwork.
+                </Explain>
+              </h2>
+              <div className="tblwrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: 'left' }}>Client</th>
+                      <th>Live since</th><th className="r">Waiting</th><th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {unfunded.value.map(u => (
+                      <tr key={u.client_id}>
+                        <td><ClientLink id={u.client_id} name={u.name} /></td>
+                        <td style={{ textAlign: 'center' }}>{dmy(u.since)}</td>
+                        <td className="r num">{u.days} days</td>
+                        <td className="rowacts always">
+                          {u.mobile
+                            ? <a href={`https://wa.me/${u.mobile.replace(/\D/g, '')}`} target="_blank" rel="noreferrer">WhatsApp</a>
+                            : <span className="d">no number</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
 
           <div className="below">
             <span>Tick clients for bulk actions · CSV export</span>
