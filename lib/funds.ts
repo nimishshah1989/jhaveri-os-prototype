@@ -10,9 +10,10 @@ import { TODAY } from '../mockdb/engines';
    Two rules this file enforces on the way out:
 
    1. A held fund with no manager renders a dash and a reason, never a blank.
-   2. Nothing Morningstar-branded reaches the client until the licensing question
-      is answered. `scheme_rating` is deliberately unexported — the ratings are
-      stored, and `ratingVisible()` is the single gate that would let them out.  */
+   2. The two Morningstar ratings are never merged. Stars are backward-looking
+      arithmetic; the Medalist rating is an analyst's forward opinion. Jhaveri
+      holds the full licence including client display (founder, 14-Aug-2026), so
+      both render — separately, each labelled as what it is.                    */
 
 export type Provenance = 'computed' | 'seeded';
 
@@ -359,14 +360,41 @@ export function findings(clientId: number, schemeId: number): Finding[] {
   return out;
 }
 
+export interface Rating {
+  /** Morningstar Rating: 1–5, quantitative, risk-adjusted return against category. */
+  star: number | null;
+  /** Medalist Rating: an analyst's FORWARD view. A different thing from the stars. */
+  medalist: string | null;
+  ms_risk: string | null;
+  ms_return: string | null;
+  quartile_3y: number | null;
+  as_of: string;
+  provider: string;
+}
+
 /**
- * The single gate on anything Morningstar-branded reaching a client.
+ * The rating, where the licence allows it to be shown.
  *
- * Ratings are seeded and stored. They are NOT rendered: redistributing a
- * vendor's rating to an investor is a licensing question the founder has not
- * answered, and DESIGN.md refuses star ratings on this lens regardless. When
- * both change, this function changes and nothing else does.
+ * Founder, 14-Aug-2026: Jhaveri holds the full Morningstar licence including
+ * client display, so these render. `client_visible` stays a per-row switch
+ * rather than being deleted — a rating can be withdrawn or embargoed on one
+ * fund without a code change, and that is a vendor's right.
+ *
+ * The two ratings are kept apart on purpose. Stars are a backward-looking
+ * arithmetic ranking; the Medalist rating is an analyst's forward opinion.
+ * Printing them as one badge would let a five-star fund read as a
+ * recommendation, which is neither what Morningstar means nor what we may say.
  */
-export function ratingVisible(): boolean {
-  return false;
+export function rating(schemeId: number): Rating | null {
+  return db().prepare(
+    `SELECT star, medalist, ms_risk, ms_return, quartile_3y, as_of, provider
+     FROM scheme_rating WHERE fk_scheme_id = ? AND client_visible = 1`,
+  ).get(schemeId) as Rating | null;
+}
+
+/** The vendor keys a real fetch will join on. Name-matching funds is how a client reads somebody else's. */
+export function vendorIds(schemeId: number): { ms_secid: string | null; isin: string | null; amfi_code: string | null } | null {
+  return db().prepare(
+    `SELECT ms_secid, isin, amfi_code FROM scheme_vendor_id WHERE fk_scheme_id = ?`,
+  ).get(schemeId) as { ms_secid: string | null; isin: string | null; amfi_code: string | null } | null;
 }

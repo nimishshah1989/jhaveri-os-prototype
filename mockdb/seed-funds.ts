@@ -182,10 +182,27 @@ export function seedFundIntelligence(
       });
     }
 
-    // Stored, not shown. See the schema note on redistribution.
+    // Shown: the founder confirmed on 14-Aug-2026 that the licence covers client
+    // display. The star rating and the Medalist rating are DIFFERENT THINGS —
+    // stars are quantitative and backward-looking, the Medalist is an analyst's
+    // forward view — and the pages keep them apart for that reason.
+    const stars = intBetween(r, 2, 5);
     ins('scheme_rating', {
-      fk_scheme_id: s.scheme_id, as_of: TODAY, star: intBetween(r, 2, 5),
-      analyst: pick(r, ['Gold', 'Silver', 'Bronze', 'Neutral']), provider: 'Morningstar', client_visible: 0,
+      fk_scheme_id: s.scheme_id, as_of: TODAY, star: stars,
+      medalist: stars >= 4 ? pick(r, ['Gold', 'Silver']) : pick(r, ['Bronze', 'Neutral', 'Negative']),
+      ms_risk: pick(r, ['Low', 'Below Average', 'Average', 'Above Average', 'High']),
+      ms_return: pick(r, ['Low', 'Below Average', 'Average', 'Above Average', 'High']),
+      quartile_3y: 5 - stars < 1 ? 1 : Math.min(4, 5 - stars),
+      provider: 'Morningstar', client_visible: 1,
+    });
+
+    // The identifiers the real feed will be keyed on. Matching a fund by name
+    // across two systems is how a client ends up reading somebody else's fund.
+    ins('scheme_vendor_id', {
+      fk_scheme_id: s.scheme_id,
+      ms_secid: `F0000${String(10000 + s.scheme_id).slice(-5)}`,
+      ms_fundid: `FS0000${String(10000 + s.scheme_id).slice(-5)}`,
+      isin: null, amfi_code: null, last_synced: TODAY,
     });
   }
 
@@ -311,6 +328,31 @@ export function seedFundIntelligence(
       // in for the vendor. `lib/funds.ts` splits them again on the way to a page.
       source: 'computed+seeded',
     });
+  }
+
+  // ISIN and AMFI code come from the register rather than being invented — they
+  // are the same values the RTA files carry, and the vendor row has to agree.
+  db.prepare(
+    `UPDATE scheme_vendor_id SET isin = (SELECT scheme_isin_code FROM scheme_master s WHERE s.scheme_id = fk_scheme_id),
+       amfi_code = (SELECT scheme_amfi_code FROM scheme_master s WHERE s.scheme_id = fk_scheme_id)`,
+  ).run();
+
+  // Trailing returns, computed from this database's own NAV history so they can
+  // be checked against the vendor's when the feed lands rather than trusted.
+  let srId = 0;
+  for (const s of schemes) {
+    const navs = navBy.get(s.scheme_id) ?? [];
+    if (navs.length < 13) continue;
+    for (const [period, months] of [['1y', 12], ['3y', 36]] as [string, number][]) {
+      if (navs.length < months + 1) continue;
+      const win = navs.slice(-(months + 1));
+      const total = (win[win.length - 1].p / win[0].p) ** (12 / months) - 1;
+      ins('scheme_returns', {
+        sr_id: ++srId, fk_scheme_id: s.scheme_id, as_of: TODAY, period,
+        total_return: round2(total * 100), category_avg: null, benchmark: null,
+        percentile: null, source: 'computed',
+      });
+    }
   }
 
   return { managers: MANAGERS.length, tenures: smId, changes, styles: ssId, stats };

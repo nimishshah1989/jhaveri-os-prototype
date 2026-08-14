@@ -14,7 +14,7 @@ import Database from 'better-sqlite3';
 import { join } from 'node:path';
 import {
   manager, handovers, commentary, riskStats, styleHistory, drift, peers,
-  overlapWith, findings, ratingVisible,
+  overlapWith, findings, rating, vendorIds,
 } from '../lib/funds';
 import { fundOverlap } from '../lib/portfolio';
 import { WINDOW_MONTHS, RISK_FREE_PCT } from './seed-funds';
@@ -259,13 +259,56 @@ for (const h of held) {
   }
 }
 
-/* ── nothing Morningstar-branded reaches the client yet ───────────────────── */
+/* ── the ratings, and the two that must never be merged ───────────────────── */
 
 check('ratings are stored', one<{ n: number }>(`SELECT COUNT(*) n FROM scheme_rating`).n > 0, true);
-check('and none of them is marked visible to a client',
-  one<{ n: number }>(`SELECT COUNT(*) n FROM scheme_rating WHERE client_visible = 1`).n, 0);
-check('the single gate on that stays shut until the licensing question is answered',
-  ratingVisible(), false);
+for (const h of held) {
+  const r = rating(h.scheme_id);
+  assert(`${h.fund_name} carries a rating the licence allows us to show`, r != null);
+  if (!r) continue;
+  assert(`${h.fund_name}'s star rating is on Morningstar's own 1–5 scale`,
+    r.star != null && r.star >= 1 && r.star <= 5, `${r.star}`);
+  assert(`${h.fund_name}'s Medalist rating is one of Morningstar's five words`,
+    r.medalist != null && ['Gold', 'Silver', 'Bronze', 'Neutral', 'Negative'].includes(r.medalist),
+    `${r.medalist}`);
+  assert(`${h.fund_name}'s risk and return grades are on the five-point ordinal`,
+    [r.ms_risk, r.ms_return].every(v => v != null &&
+      ['Low', 'Below Average', 'Average', 'Above Average', 'High'].includes(v)));
+  assert(`${h.fund_name}'s quartile is 1 to 4, best first`,
+    r.quartile_3y != null && r.quartile_3y >= 1 && r.quartile_3y <= 4);
+  check(`${h.fund_name} names the provider rather than passing it off as ours`, r.provider, 'Morningstar');
+}
+// The star rating and the Medalist rating are different instruments. Storing
+// them in one column would be the moment they stopped being distinguishable.
+check('the two ratings are separate columns, not one badge',
+  one<{ n: number }>(
+    `SELECT COUNT(*) n FROM pragma_table_info('scheme_rating') WHERE name IN ('star', 'medalist')`).n, 2);
+check('a rating can be withheld on one fund without a code change',
+  one<{ n: number }>(
+    `SELECT COUNT(*) n FROM pragma_table_info('scheme_rating') WHERE name = 'client_visible'`).n, 1);
+
+/* ── the keys a real fetch will join on ───────────────────────────────────── */
+
+for (const h of held) {
+  const v = vendorIds(h.scheme_id);
+  assert(`${h.fund_name} has a Morningstar SecId to join the feed on`, v?.ms_secid != null,
+    'matching funds by name across two systems is how a client reads somebody else\'s fund');
+  check(`${h.fund_name}'s ISIN matches the scheme register, not a second copy`, v?.isin,
+    one<{ i: string }>(`SELECT scheme_isin_code i FROM scheme_master WHERE scheme_id = ?`, h.scheme_id).i);
+  check(`${h.fund_name}'s AMFI code matches it too`, v?.amfi_code,
+    one<{ a: string }>(`SELECT scheme_amfi_code a FROM scheme_master WHERE scheme_id = ?`, h.scheme_id).a);
+}
+check('every SecId is unique — two funds sharing one is a silent mis-join',
+  one<{ n: number }>(
+    `SELECT COUNT(*) n FROM (SELECT ms_secid FROM scheme_vendor_id GROUP BY ms_secid HAVING COUNT(*) > 1)`).n, 0);
+
+/* ── vendor returns are kept apart from ours ──────────────────────────────── */
+
+const rets = all<{ period: string; source: string; v: number }>(
+  `SELECT period, source, total_return v FROM scheme_returns WHERE fk_scheme_id = ?`, held[0].scheme_id);
+assert('trailing returns exist to compare the feed against', rets.length > 0);
+assert('and each says whether we computed it or the vendor supplied it',
+  rets.every(r => ['computed', 'seeded', 'vendor'].includes(r.source)));
 
 const commented = held.map(h => commentary(h.scheme_id)).filter(Boolean);
 assert('a manager commentary that exists is marked as supplied',

@@ -1278,6 +1278,14 @@ CREATE TABLE scheme_style (
   size_score   NUMERIC NOT NULL,              -- 1 small … 3 large
   value_score  NUMERIC NOT NULL,              -- 1 value … 3 growth
   box          TEXT NOT NULL,                 -- 'Large Growth', 'Mid Blend', …
+  -- Morningstar numbers the nine boxes 1–9, and every downstream system of
+  -- theirs speaks that number rather than the two axes. Stored so the feed can
+  -- be compared to what this app derived rather than silently overwriting it.
+  box_number   INTEGER,
+  -- Bond funds use a different grid entirely: credit quality against interest
+  -- rate sensitivity. Null on an equity fund, and the reason `box` is text.
+  credit_quality TEXT,                        -- High | Medium | Low
+  rate_sensitivity TEXT,                      -- Limited | Moderate | Extensive
   avg_mcap_cr  NUMERIC,
   source       TEXT NOT NULL,
   UNIQUE (fk_scheme_id, as_of)
@@ -1297,6 +1305,13 @@ CREATE TABLE scheme_risk_stats (
   std_dev          NUMERIC,
   sharpe           NUMERIC,
   max_drawdown     NUMERIC,
+  -- The rest of what a Morningstar risk feed carries. Nullable because this
+  -- prototype computes only what it honestly can; the fetch fills the rest.
+  alpha            NUMERIC,
+  beta             NUMERIC,
+  r_squared        NUMERIC,
+  sortino          NUMERIC,
+  tracking_error   NUMERIC,
   -- How closely the fund's monthly moves actually track its index in this data.
   -- Stored because it is the evidence for which figures on this row are real.
   correlation      NUMERIC,
@@ -1308,13 +1323,55 @@ CREATE TABLE scheme_risk_stats (
 -- Morningstar star rating to an investor is a licensing question the founder has
 -- not answered yet, and DESIGN.md refuses star ratings on the client lens anyway.
 -- The table exists so the answer, when it comes, is a rendering decision.
+-- Ratings. The licence covers client display (founder, 14-Aug-2026), so these
+-- render. `client_visible` stays as the per-row switch rather than being deleted:
+-- a rating can be withdrawn or embargoed for one fund without a code change.
 CREATE TABLE scheme_rating (
   fk_scheme_id INTEGER PRIMARY KEY REFERENCES scheme_master(scheme_id),
   as_of        TEXT NOT NULL,
+  -- Morningstar Rating: 1–5, quantitative, risk-adjusted return against category.
   star         INTEGER,
-  analyst      TEXT,
+  -- Medalist Rating (formerly Analyst Rating): Gold · Silver · Bronze · Neutral ·
+  -- Negative. Forward-looking and analyst-driven, which is a different thing from
+  -- the stars and must never be shown as if it were the same number.
+  medalist     TEXT,
+  -- Morningstar's own ordinal risk and return grades, both against category:
+  -- Low · Below Average · Average · Above Average · High.
+  ms_risk      TEXT,
+  ms_return    TEXT,
+  -- Quartile within its category over the trailing window, 1 best.
+  quartile_3y  INTEGER,
   provider     TEXT NOT NULL,
-  client_visible INTEGER NOT NULL DEFAULT 0
+  client_visible INTEGER NOT NULL DEFAULT 1
+);
+
+-- Morningstar's own identifiers. THE JOIN KEY when the feed lands: matching a
+-- fund by name across two systems is how a client ends up reading somebody
+-- else's fund. SecId is Morningstar's primary key; ISIN and AMFI code are what
+-- the Indian registrars speak, and the feed has to be tied to both.
+CREATE TABLE scheme_vendor_id (
+  fk_scheme_id INTEGER PRIMARY KEY REFERENCES scheme_master(scheme_id),
+  ms_secid     TEXT UNIQUE,                    -- e.g. F00000ABCD
+  ms_fundid    TEXT,
+  isin         TEXT,
+  amfi_code    TEXT,
+  last_synced  TEXT
+);
+
+-- Trailing and calendar returns, as the vendor supplies them rather than as we
+-- compute them. Kept apart from anything this app derives, so a disagreement
+-- between the two is visible instead of averaged away.
+CREATE TABLE scheme_returns (
+  sr_id        INTEGER PRIMARY KEY,
+  fk_scheme_id INTEGER NOT NULL REFERENCES scheme_master(scheme_id),
+  as_of        TEXT NOT NULL,
+  period       TEXT NOT NULL,                  -- 1y | 3y | 5y | 10y | ytd | cy2025 …
+  total_return NUMERIC,
+  category_avg NUMERIC,
+  benchmark    NUMERIC,
+  percentile   INTEGER,                        -- rank in category, 1 best
+  source       TEXT NOT NULL DEFAULT 'seeded',
+  UNIQUE (fk_scheme_id, period, as_of)
 );
 
 -- ── The household ───────────────────────────────────────────────────────────
