@@ -2,7 +2,8 @@
 
 import {
   ResponsiveContainer, ComposedChart, ScatterChart, Bar, Line, Area, Scatter,
-  XAxis, YAxis, ZAxis, CartesianGrid, Tooltip, Legend, Cell, ReferenceLine, ReferenceArea,
+  XAxis, YAxis, ZAxis, CartesianGrid, Tooltip, Legend, Cell, LabelList,
+  ReferenceLine, ReferenceArea,
 } from 'recharts';
 import { useRouter } from 'next/navigation';
 import { inrCompact, inrExact } from '../lib/format';
@@ -66,6 +67,13 @@ interface Frame {
   mark?: React.ReactNode;
   /** The ⓘ, when the figure has a glossary entry behind it. */
   aside?: React.ReactNode;
+  /**
+   * One sentence describing what the chart shows and what it says, for a reader
+   * who cannot see it. The hand-rolled SVG this kit replaced carried a real
+   * aria-label; a plotting library does not give you one, so it stays a required
+   * habit rather than something the library was trusted to do.
+   */
+  alt?: string;
   /** What the colours mean, when a single series is coloured per row. Without it
    *  the legend shows the series swatch — one colour that no mark on the plot is
    *  actually painted in, which is worse than no legend. */
@@ -108,10 +116,11 @@ const LEGEND = {
 // of the right shape rather than a spinner, and no layout jump.
 const INITIAL = { width: 640, height: 200 };
 
-function Figure({ title, source, mark, aside, keyItems, height = 200, children }: Frame & { children: React.ReactElement }) {
+function Figure({ title, source, mark, aside, keyItems, alt, height = 200, children }: Frame & { children: React.ReactElement }) {
   return (
     <figure className="chartfig">
       <h4>{title}{aside}</h4>
+      {alt && <p className="vh">{alt}</p>}
       <div className="chartbody" style={{ height }}>
         <ResponsiveContainer width="100%" height="100%" initialDimension={{ ...INITIAL, height }}>
           {children}
@@ -132,7 +141,25 @@ function Figure({ title, source, mark, aside, keyItems, height = 200, children }
   );
 }
 
-const tip = (unit: Unit) => ({
+/**
+ * Events on a line, not a series of their own: a purchase is a thing that happened
+ * on a date, and its magnitude is not on the axis the line uses. So the mark sits
+ * ON the curve at the month it landed, and the tooltip reads the amount out of a
+ * different field — `amountKey` — rather than reporting the curve's own value back.
+ * Shape carries the direction as well as colour, because colour never carries a
+ * meaning alone (WCAG 1.4.1).
+ */
+export interface Marker {
+  /** The field holding the y position — normally the line the event moved. */
+  key: string;
+  /** The field holding what actually happened, in rupees. */
+  amountKey: string;
+  name: string;
+  tone: Tone;
+  shape: 'triangle' | 'diamond';
+}
+
+const tip = (unit: Unit, markers: Marker[] = []) => ({
   cursor: { fill: 'var(--panel)' },
   contentStyle: {
     border: '1px solid var(--line)', borderRadius: 'var(--radius)', background: 'var(--ground)',
@@ -140,7 +167,13 @@ const tip = (unit: Unit) => ({
   },
   labelStyle: { color: 'var(--ink)', fontWeight: 650, marginBottom: 2 },
   itemStyle: { color: 'var(--muted)', padding: 0 },
-  formatter: (v: unknown, name: unknown) => [UNIT[unit].exact(Number(v)), String(name)] as [string, string],
+  formatter: (v: unknown, name: unknown, item?: { payload?: Row }) => {
+    const m = markers.find(x => x.name === name);
+    const shown = m ? Number(item?.payload?.[m.amountKey] ?? 0) : Number(v);
+    return [UNIT[unit].exact(shown), String(name)] as [string, string];
+  },
+  // A month with no money movement has no marker, so its zero must not print a row.
+  itemSorter: (i: { value?: unknown }) => -Number(i?.value ?? 0),
 });
 
 // ── Bars ────────────────────────────────────────────────────────────────────
@@ -194,7 +227,7 @@ export function ChartBars({
     tickFormatter: axisFormat(unit, data, series.map(x => x.key)) };
   return (
     <Figure {...frame}>
-      <ComposedChart data={data} layout={horizontal ? 'vertical' : 'horizontal'}
+      <ComposedChart accessibilityLayer data={data} layout={horizontal ? 'vertical' : 'horizontal'}
         margin={{ top: 6, right: 12, bottom: 18, left: 6 }}>
         <CartesianGrid stroke={GRID} vertical={!!horizontal} horizontal={!horizontal} />
         {horizontal
@@ -222,7 +255,7 @@ export function ChartBars({
 // Change over time. One value axis only — two scales on one plot invent a
 // correlation that is not in the data, so a second measure gets its own chart.
 export function ChartLines({
-  data, xKey, series, unit = 'inr', filled, bars, baseline = 'zero', ...frame
+  data, xKey, series, unit = 'inr', filled, bars, markers, endLabels, baseline = 'zero', ...frame
 }: Frame & {
   data: Row[];
   xKey: string;
@@ -232,6 +265,11 @@ export function ChartLines({
   filled?: boolean;
   /** Series drawn as columns beneath the lines — same axis, same unit. */
   bars?: Series[];
+  /** Events drawn on the lines — money in, money out. */
+  markers?: Marker[];
+  /** Print the last value of each line beside it, so the figures are on the plot
+   *  and not only in the hover. */
+  endLabels?: boolean;
   /**
    * Where the value axis starts. 'zero' is the default and the honest one for
    * anything read as a magnitude. 'data' is for two series that sit within a
@@ -241,9 +279,17 @@ export function ChartLines({
    */
   baseline?: 'zero' | 'data';
 }) {
+  // Recharts' label formatter is handed the value and nothing else — no index — so
+  // "label only the last point" cannot be a formatter decision. The field itself
+  // only exists on the last row, and a row without it renders no label.
+  const plotted = endLabels
+    ? data.map((r, i) => (i === data.length - 1
+      ? { ...r, ...Object.fromEntries(series.map(x => [`end_${x.key}`, r[x.key]])) }
+      : r))
+    : data;
   return (
     <Figure {...frame}>
-      <ComposedChart data={data} margin={{ top: 6, right: 12, bottom: 18, left: 6 }}>
+      <ComposedChart accessibilityLayer data={plotted} margin={{ top: 6, right: endLabels ? 64 : 12, bottom: 18, left: 6 }}>
         <CartesianGrid stroke={GRID} vertical={false} />
         <XAxis dataKey={xKey} tick={AXIS} stroke={GRID} interval="preserveStartEnd"
           label={{ value: frame.xLabel, position: 'insideBottom', offset: -12, ...AXIS_TITLE }} />
@@ -251,8 +297,8 @@ export function ChartLines({
           tickFormatter={axisFormat(unit, data, [...series, ...(bars ?? [])].map(x => x.key))}
           domain={baseline === 'data' ? ['dataMin', 'dataMax'] : [0, 'auto']}
           label={{ value: frame.yLabel, angle: -90, position: 'insideLeft', ...AXIS_TITLE }} />
-        <Tooltip {...tip(unit)} />
-        {series.length + (bars?.length ?? 0) > 1 && <Legend {...LEGEND} />}
+        <Tooltip {...tip(unit, markers)} />
+        {series.length + (bars?.length ?? 0) + (markers?.length ?? 0) > 1 && <Legend {...LEGEND} />}
         {bars?.map(s => (
           <Bar key={s.key} dataKey={s.key} name={s.name} stackId={s.stack} fill={TONE[s.tone]}
             radius={s.stack ? 0 : 3} maxBarSize={22} isAnimationActive={false} />
@@ -261,7 +307,16 @@ export function ChartLines({
           ? <Area key={s.key} dataKey={s.key} name={s.name} stroke={TONE[s.tone]} strokeWidth={2}
               fill={TONE[s.tone]} fillOpacity={0.1} isAnimationActive={false} dot={false} />
           : <Line key={s.key} dataKey={s.key} name={s.name} stroke={TONE[s.tone]} strokeWidth={2}
-              isAnimationActive={false} dot={{ r: 2.5, strokeWidth: 0, fill: TONE[s.tone] }} activeDot={{ r: 5 }} />
+              isAnimationActive={false} dot={{ r: 2.5, strokeWidth: 0, fill: TONE[s.tone] }} activeDot={{ r: 5 }}>
+              {endLabels && (
+                <LabelList dataKey={`end_${s.key}`} position="right" fontSize={10.5}
+                  fill={TONE[s.tone]} formatter={(v: unknown) => UNIT[unit].axis(Number(v))} />
+              )}
+            </Line>
+        ))}
+        {markers?.map(m => (
+          <Scatter key={m.key} dataKey={m.key} name={m.name} fill={TONE[m.tone]} shape={m.shape}
+            isAnimationActive={false} />
         ))}
         <ReferenceLine y={0} stroke={GRID} />
       </ComposedChart>
@@ -290,7 +345,7 @@ export function ChartScatter({
 }) {
   return (
     <Figure {...frame}>
-      <ScatterChart margin={{ top: 6, right: 14, bottom: 18, left: 6 }}>
+      <ScatterChart accessibilityLayer margin={{ top: 6, right: 14, bottom: 18, left: 6 }}>
         <CartesianGrid stroke={GRID} />
         <XAxis type="number" dataKey={xKey} tick={AXIS} stroke={GRID} tickFormatter={axisFormat(xUnit, data, [xKey])}
           label={{ value: frame.xLabel, position: 'insideBottom', offset: -12, ...AXIS_TITLE }} />

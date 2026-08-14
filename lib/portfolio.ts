@@ -29,7 +29,18 @@ const monthEnds = (from: string): string[] => (db().prepare(
   `SELECT DISTINCT price_date d FROM mf_historical_price_master WHERE price_date >= ? AND price_date <= ? ORDER BY d`)
   .all(from, TODAY) as { d: string }[]).map(r => r.d);
 
-export interface CurvePoint { d: string; value: number; invested: number; benchmark: number }
+export interface CurvePoint {
+  d: string;
+  value: number;
+  invested: number;
+  benchmark: number;
+  /** Money that actually landed in this month, and money that left it. Both
+   *  positive. The invested line already carries the running total; these are the
+   *  events that moved it, which is the difference between a line that rose and a
+   *  line that rose because the client put money in. */
+  inflow: number;
+  outflow: number;
+}
 
 /**
  * The equity curve. At each month-end: units held (from transactions up to that
@@ -60,15 +71,20 @@ vs the same cashflows invested in each fund's benchmark index at that date's lev
     WHERE fk_benchmark_id=? AND price_date <= ? ORDER BY price_date DESC LIMIT 1`);
 
   const out: CurvePoint[] = [];
+  let prev = '';
   for (const d of monthEnds(firstBuy.d)) {
     const units = new Map<number, number>();
     const benchUnits = new Map<number, number>();
     let invested = 0;
+    let inflow = 0, outflow = 0;
     for (const t of txns) {
       if (t.tr_date > d) break;
       const u = t.tr_units ?? 0;
       units.set(t.scheme, (units.get(t.scheme) ?? 0) + t.flag * u);
       invested += t.flag * t.tr_amount;
+      if (t.tr_date > prev) {
+        if (t.flag > 0) inflow += t.tr_amount; else outflow += t.tr_amount;
+      }
       const bp = benchAt.get(t.bench, t.tr_date) as { price: number } | undefined;
       if (bp) benchUnits.set(t.bench, (benchUnits.get(t.bench) ?? 0) + (t.flag * t.tr_amount) / bp.price);
     }
@@ -84,7 +100,11 @@ vs the same cashflows invested in each fund's benchmark index at that date's lev
       const p = benchAt.get(b, d) as { price: number } | undefined;
       if (p) benchmark += u * p.price;
     }
-    out.push({ d, value: Math.round(value), invested: Math.round(invested), benchmark: Math.round(benchmark) });
+    out.push({
+      d, value: Math.round(value), invested: Math.round(invested), benchmark: Math.round(benchmark),
+      inflow: Math.round(inflow), outflow: Math.round(outflow),
+    });
+    prev = d;
   }
   return {
     value: out, tag: 'computed', sql,
@@ -413,14 +433,19 @@ export function equityCurveFor(clientId: number, schemeIds: number[]): Figure<Cu
   const benchAt = db().prepare(`SELECT price FROM benchmark_price_history
     WHERE fk_benchmark_id=? AND price_date <= ? ORDER BY price_date DESC LIMIT 1`);
   const out: CurvePoint[] = [];
+  let prev = '';
   for (const d of monthEnds(txns[0].tr_date)) {
     const units = new Map<number, number>();
     const bUnits = new Map<number, number>();
     let invested = 0;
+    let inflow = 0, outflow = 0;
     for (const t of txns) {
       if (t.tr_date > d) break;
       units.set(t.scheme, (units.get(t.scheme) ?? 0) + t.flag * (t.tr_units ?? 0));
       invested += t.flag * t.tr_amount;
+      if (t.tr_date > prev) {
+        if (t.flag > 0) inflow += t.tr_amount; else outflow += t.tr_amount;
+      }
       const bp = benchAt.get(t.bench, t.tr_date) as { price: number } | undefined;
       if (bp) bUnits.set(t.bench, (bUnits.get(t.bench) ?? 0) + (t.flag * t.tr_amount) / bp.price);
     }
@@ -435,7 +460,11 @@ export function equityCurveFor(clientId: number, schemeIds: number[]): Figure<Cu
       const p = benchAt.get(b, d) as { price: number } | undefined;
       if (p) benchmark += u * p.price;
     }
-    out.push({ d, value: Math.round(value), invested: Math.round(invested), benchmark: Math.round(benchmark) });
+    out.push({
+      d, value: Math.round(value), invested: Math.round(invested), benchmark: Math.round(benchmark),
+      inflow: Math.round(inflow), outflow: Math.round(outflow),
+    });
+    prev = d;
   }
   return { ...full, value: out };
 }

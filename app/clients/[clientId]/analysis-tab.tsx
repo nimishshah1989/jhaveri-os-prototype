@@ -6,42 +6,78 @@ import { schemeGrades } from '../../../lib/scoring';
 import {
   equityCurveFor, lookThrough, fundOverlap, fundDetails, fundVsBenchmark,
   categoryPerformance, benchmarkComparison, fundHoldingRows, LOOKTHROUGH_RULES,
+  type CurvePoint,
 } from '../../../lib/portfolio';
+import { ChartLines } from '../../../components/charts';
 
 const SECTOR_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#8e6bc9', '#d95981', '#4aa8a0', '#a08a5b'];
 const CAP_COLORS: Record<string, string> = { Large: 'var(--s1)', Mid: 'var(--s3)', Small: 'var(--s2)', Unclassified: '#c3c8cc' };
 
-function Curve({ pts, height = 190 }: { pts: { d: string; value: number; invested: number; benchmark: number }[]; height?: number }) {
+// The equity curve. It used to be a hand-rolled SVG with no value axis at all —
+// three polylines, two date labels, and every figure only in the legend beneath.
+// You could see that the money had grown and not read a single number off the
+// plot, and nothing showed WHEN money went in, so a line that rose because the
+// client paid in looked identical to one that rose because the market did.
+function Curve({ pts, height = 260 }: { pts: CurvePoint[]; height?: number }) {
   if (pts.length < 2) return <div className="d">Not enough history yet to draw a curve.</div>;
-  const W = 720, H = height, PAD = 34;
-  const all = pts.flatMap(p => [p.value, p.invested, p.benchmark]);
-  const lo = Math.min(...all) * 0.96, hi = Math.max(...all) * 1.04;
-  const X = (i: number) => PAD + (i * (W - PAD - 8)) / (pts.length - 1);
-  const Y = (v: number) => H - 22 - ((v - lo) / (hi - lo)) * (H - 44);
-  const path = (k: 'value' | 'invested' | 'benchmark') => pts.map((p, i) => `${X(i)},${Y(p[k])}`).join(' ');
   const last = pts[pts.length - 1];
   const gap = last.value - last.benchmark;
+
+  // A marker sits on the invested line, because that is the line a cashflow moves.
+  // Months with no movement carry no field and so draw no mark.
+  const rows = pts.map(p => ({
+    m: dmy2(p.d),
+    value: p.value,
+    invested: p.invested,
+    benchmark: p.benchmark,
+    inflow: p.inflow,
+    outflow: p.outflow,
+    ...(p.inflow > 0 ? { inAt: p.invested } : {}),
+    ...(p.outflow > 0 ? { outAt: p.invested } : {}),
+  }));
+  const inMonths = pts.filter(p => p.inflow > 0);
+  const outMonths = pts.filter(p => p.outflow > 0);
+  const totalIn = pts.reduce((s, p) => s + p.inflow, 0);
+  const totalOut = pts.reduce((s, p) => s + p.outflow, 0);
+  const biggest = [...inMonths].sort((a, b) => b.inflow - a.inflow)[0];
+
   return (
     <>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto' }} role="img"
-        aria-label={`Growth from ${pts[0].d} to ${last.d}: invested ${inr(last.invested)}, worth ${inr(last.value)}, same money in the index ${inr(last.benchmark)}`}>
-        <line x1={PAD} y1={H - 22} x2={W - 8} y2={H - 22} stroke="var(--line)" />
-        <polyline fill="none" stroke="#9aa5ad" strokeWidth="1.5" strokeDasharray="4 3" points={path('invested')} />
-        <polyline fill="none" stroke="var(--s2)" strokeWidth="2" points={path('benchmark')} />
-        <polyline fill="none" stroke="var(--s1)" strokeWidth="2.5" points={path('value')} />
-        <circle cx={X(pts.length - 1)} cy={Y(last.value)} r="4" fill="var(--s1)" />
-        <text x={PAD} y={H - 6} fontSize="10" fill="var(--muted)">{dmy2(pts[0].d)}</text>
-        <text x={W - 8} y={H - 6} fontSize="10" fill="var(--muted)" textAnchor="end">{dmy2(last.d)}</text>
-      </svg>
+      <ChartLines
+        height={height} unit="inr" baseline="data" endLabels
+        title="What the money did, and when it went in"
+        xLabel="month end" yLabel="value"
+        source="units held at each month-end × NAV then · cumulative net cashflow · the same cashflows in each fund's own benchmark"
+        data={rows} xKey="m"
+        alt={`Growth from ${dmy2(pts[0].d)} to ${dmy2(last.d)}: put in ${inr(last.invested)}, worth ${inr(last.value)}, the same money in the index ${inr(last.benchmark)}. ${inMonths.length} months took money in and ${outMonths.length} took money out.`}
+        series={[
+          { key: 'value', name: 'Worth', tone: 's1' },
+          { key: 'benchmark', name: 'Same money in the index', tone: 's2' },
+          { key: 'invested', name: 'Put in', tone: 'grey' },
+        ]}
+        markers={[
+          { key: 'inAt', amountKey: 'inflow', name: 'Money in', tone: 'green', shape: 'triangle' },
+          { key: 'outAt', amountKey: 'outflow', name: 'Money out', tone: 'red', shape: 'diamond' },
+        ]}
+        mark={<>
+          {gap >= 0
+            ? <>Ahead of the index by <b style={{ color: 'var(--pos)' }}>{inr(gap)}</b>. </>
+            : <>Behind the index by <b style={{ color: 'var(--neg)' }}>{inr(Math.abs(gap))}</b>. </>}
+          {inMonths.length} month{inMonths.length === 1 ? '' : 's'} took money in ({inr(totalIn)})
+          {outMonths.length > 0
+            ? <> and {outMonths.length} took money out ({inr(totalOut)})</>
+            : <> and nothing has ever been taken out</>}
+          {biggest && <> — the largest single month was {dmy2(biggest.d)} at {inr(biggest.inflow)}</>}.
+        </>}
+      />
       <div className="lg">
         <span style={{ ['--c' as string]: 'var(--s1)' }}><b>Worth today {inr(last.value)}</b></span>
         <span style={{ ['--c' as string]: 'var(--s2)' }}><b>Same money in the index {inr(last.benchmark)}</b></span>
-        <span style={{ ['--c' as string]: '#9aa5ad' }}><b>Put in {inr(last.invested)}</b></span>
+        <span style={{ ['--c' as string]: 'var(--grey)' }}><b>Put in {inr(last.invested)}</b></span>
       </div>
       <div className="mark">
-        {gap >= 0
-          ? <>Ahead of the index by <b style={{ color: 'var(--pos)' }}>{inr(gap)}</b> — the index line is the same rupees on the same dates, bought into these funds&apos; own benchmarks.</>
-          : <>Behind the index by <b style={{ color: 'var(--neg)' }}>{inr(Math.abs(gap))}</b> — the same rupees on the same dates would have grown more in the benchmark.</>}
+        The index line is the same rupees on the same dates, bought into these funds&apos; own
+        benchmarks — not an index return pasted over a different set of cashflows.
       </div>
     </>
   );
